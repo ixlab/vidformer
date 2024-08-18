@@ -1,6 +1,6 @@
 """A Python library for creating and viewing videos with vidformer."""
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 import subprocess
 from fractions import Fraction
