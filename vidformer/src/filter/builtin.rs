@@ -698,714 +698,714 @@ impl super::Filter for Scale {
     }
 }
 
-pub struct Pad {}
-impl super::Filter for Pad {
-    fn filter(
-        &self,
-        args: &[Val],
-        kwargs: &BTreeMap<String, Val>,
-    ) -> Result<Frame, crate::dve::Error> {
-        let width = match kwargs.get("width").unwrap() {
-            Val::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let height = match kwargs.get("height").unwrap() {
-            Val::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let x = match kwargs.get("x").unwrap() {
-            Val::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let y = match kwargs.get("y").unwrap() {
-            Val::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let input_frame = match &args[0] {
-            Val::Frame(f) => f,
-            _ => panic!("Expected frame"),
-        };
-
-        let f = unsafe { ffi::av_frame_alloc() };
-        if f.is_null() {
-            panic!("ERROR could not allocate frame");
-        }
-
-        unsafe {
-            (*f).width = width as i32;
-            (*f).height = height as i32;
-            (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_YUV420P;
-
-            if ffi::av_frame_get_buffer(f, 0) < 0 {
-                panic!("ERROR could not allocate frame data");
-            }
-        }
-
-        let draw_context: *mut ffi::FFDrawContext = unsafe {
-            ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawContext>()) as *mut ffi::FFDrawContext
-        };
-        if draw_context.is_null() {
-            panic!("ERROR could not allocate draw context");
-        }
-        let ret = unsafe { ffi::ff_draw_init(draw_context, input_frame.format, 0) };
-        if ret < 0 {
-            panic!("ERROR could not initialize draw context");
-        }
-
-        let color: *mut ffi::FFDrawColor = unsafe {
-            ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawColor>()) as *mut ffi::FFDrawColor
-        };
-        if color.is_null() {
-            panic!("ERROR could not allocate color");
-        }
-
-        let mut color_rgba = [0u8; 4];
-        match kwargs.get("color") {
-            Some(Val::String(s)) => {
-                let color_str = CString::new(s.to_string()).unwrap();
-                let ret = unsafe {
-                    ffi::av_parse_color(
-                        color_rgba.as_ptr() as *mut u8,
-                        color_str.as_ptr(),
-                        -1,
-                        std::ptr::null_mut(),
-                    )
-                };
-                if ret < 0 {
-                    return Err(Error::InvalidFilterArgValue(
-                        s.to_string(),
-                        "Invalid color".to_string(),
-                    ));
-                }
-            }
-            _ => {
-                color_rgba[0] = 0;
-                color_rgba[1] = 0;
-                color_rgba[2] = 0;
-                color_rgba[3] = 255;
-            }
-        }
-
-        unsafe { ffi::ff_draw_color(draw_context, color, color_rgba.as_ptr()) };
-
-        let in_w = input_frame.width as i64;
-        let in_h = input_frame.height as i64;
-
-        // top bar
-        if y != 0 {
-            unsafe {
-                ffi::ff_fill_rectangle(
-                    draw_context,
-                    color,
-                    &mut (*f).data as *mut *mut u8,
-                    &mut (*f).linesize as *mut i32,
-                    0,
-                    0,
-                    width as i32,
-                    height as i32,
-                )
-            };
-        }
-
-        // bottom bar
-        if height > y + in_h {
-            unsafe {
-                ffi::ff_fill_rectangle(
-                    draw_context,
-                    color,
-                    &mut (*f).data as *mut *mut u8,
-                    &mut (*f).linesize as *mut i32,
-                    0,
-                    (y + in_h) as i32,
-                    width as i32,
-                    (height - y - in_h) as i32,
-                )
-            };
-        }
-
-        // left border
-        if x != 0 {
-            unsafe {
-                ffi::ff_fill_rectangle(
-                    draw_context,
-                    color,
-                    &mut (*f).data as *mut *mut u8,
-                    &mut (*f).linesize as *mut i32,
-                    0,
-                    y as i32,
-                    x as i32,
-                    in_h as i32,
-                )
-            };
-        }
-
-        // copy input frame
-        unsafe {
-            ffi::ff_copy_rectangle2(
-                draw_context,
-                &mut (*f).data as *mut *mut u8,
-                &mut (*f).linesize as *mut i32,
-                &mut (*input_frame.inner.inner).data as *mut *mut u8,
-                &mut (*input_frame.inner.inner).linesize as *mut i32,
-                x as i32,
-                y as i32,
-                0,
-                0,
-                in_w as i32,
-                in_h as i32,
-            )
-        }
-
-        // right border
-        if width > x + in_w {
-            unsafe {
-                ffi::ff_fill_rectangle(
-                    draw_context,
-                    color,
-                    &mut (*f).data as *mut *mut u8,
-                    &mut (*f).linesize as *mut i32,
-                    (x + in_w) as i32,
-                    y as i32,
-                    (width - x - in_w) as i32,
-                    in_h as i32,
-                )
-            };
-        }
-
-        unsafe {
-            ffi::av_free(color as *mut std::ffi::c_void);
-            ffi::av_free(draw_context as *mut std::ffi::c_void);
-        }
-
-        Ok(Frame::new(AVFrame { inner: f }))
-    }
-
-    fn filter_type(
-        &self,
-        args: &[ValType],
-        kwargs: &BTreeMap<String, ValType>,
-    ) -> Result<FrameType, crate::dve::Error> {
-        let _x = match kwargs.get("x").unwrap() {
-            ValType::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let _y = match kwargs.get("y").unwrap() {
-            ValType::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let width = match kwargs.get("width").unwrap() {
-            ValType::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let height = match kwargs.get("height").unwrap() {
-            ValType::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let input_frame = match &args[0] {
-            ValType::Frame(f) => f,
-            _ => panic!("Expected frame"),
-        };
-
-        let mut color = [0u8; 4];
-        match kwargs.get("color") {
-            Some(ValType::String(s)) => {
-                let color_str = CString::new(s.to_string()).unwrap();
-                let ret = unsafe {
-                    ffi::av_parse_color(
-                        color.as_ptr() as *mut u8,
-                        color_str.as_ptr(),
-                        -1,
-                        std::ptr::null_mut(),
-                    )
-                };
-                if ret < 0 {
-                    return Err(Error::InvalidFilterArgValue(
-                        s.to_string(),
-                        "Invalid color".to_string(),
-                    ));
-                }
-            }
-            _ => {
-                color[0] = 0;
-                color[1] = 0;
-                color[2] = 0;
-                color[3] = 255;
-            }
-        }
-
-        let out_frame_type = FrameType {
-            width: width as usize,
-            height: height as usize,
-            format: input_frame.format,
-        };
-
-        Ok(out_frame_type)
-    }
-}
-
-pub struct HStack {}
-impl super::Filter for HStack {
-    fn filter(
-        &self,
-        args: &[Val],
-        kwargs: &BTreeMap<String, Val>,
-    ) -> Result<Frame, crate::dve::Error> {
-        let width = match kwargs.get("width").unwrap() {
-            Val::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let height = match kwargs.get("height").unwrap() {
-            Val::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let format = match kwargs.get("format").unwrap() {
-            Val::String(s) => {
-                let format_cstr = CString::new(s.as_str()).unwrap();
-                let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
-                if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
-                    return Err(Error::InvalidFilterArgValue(
-                        s.clone(),
-                        "Invalid pixel format".to_string(),
-                    ));
-                }
-                format
-            }
-            _ => panic!("Expected string"),
-        };
-
-        // create output frame
-        let f = unsafe { ffi::av_frame_alloc() };
-        if f.is_null() {
-            panic!("ERROR could not allocate frame");
-        }
-
-        unsafe {
-            (*f).width = width as i32;
-            (*f).height = height as i32;
-            (*f).format = format;
-
-            if ffi::av_frame_get_buffer(f, 0) < 0 {
-                panic!("ERROR could not allocate frame data");
-            }
-
-            let draw: *mut ffi::FFDrawContext =
-                ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawContext>())
-                    as *mut ffi::FFDrawContext;
-
-            if draw.is_null() {
-                panic!("ERROR could not allocate draw context");
-            }
-
-            let ret = ffi::ff_draw_init(draw, format, 0);
-            if ret < 0 {
-                panic!("ERROR could not initialize draw context");
-            }
-
-            let color_rgba = [0u8, 0u8, 0u8, 255u8];
-            let color: *mut ffi::FFDrawColor =
-                ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawColor>()) as *mut ffi::FFDrawColor;
-            if color.is_null() {
-                panic!("ERROR could not allocate color");
-            }
-
-            ffi::ff_draw_color(draw, color, color_rgba.as_ptr());
-
-            // fill with black
-            ffi::ff_fill_rectangle(
-                draw,
-                color,
-                &mut (*f).data as *mut *mut u8,
-                &mut (*f).linesize as *mut i32,
-                0,
-                0,
-                width as i32,
-                height as i32,
-            );
-
-            ffi::av_free(color as *mut std::ffi::c_void);
-            ffi::av_free(draw as *mut std::ffi::c_void);
-        }
-
-        let input_frames: Vec<&Frame> = args
-            .iter()
-            .map(|arg| match arg {
-                Val::Frame(f) => f,
-                _ => panic!("Expected frame"),
-            })
-            .collect();
-
-        let each_frame_width = width / input_frames.len() as i64;
-
-        for (i, frame) in input_frames.iter().enumerate() {
-            let new_height =
-                (frame.height as f64 / frame.width as f64 * each_frame_width as f64).round() as i64;
-
-            let mut temp_frame = unsafe { ffi::av_frame_alloc() };
-            if temp_frame.is_null() {
-                panic!("ERROR could not allocate frame");
-            }
-
-            unsafe {
-                (*temp_frame).width = each_frame_width as i32;
-                (*temp_frame).height = new_height as i32;
-                (*temp_frame).format = format;
-
-                if ffi::av_frame_get_buffer(temp_frame, 0) < 0 {
-                    panic!("ERROR could not allocate frame data");
-                }
-            }
-
-            let sws_ctx = unsafe {
-                ffi::sws_getContext(
-                    frame.width,
-                    frame.height,
-                    frame.format,
-                    each_frame_width as i32,
-                    new_height as i32,
-                    format,
-                    ffi::SWS_BICUBIC as i32,
-                    std::ptr::null_mut(),
-                    std::ptr::null_mut(),
-                    std::ptr::null_mut(),
-                )
-            };
-
-            unsafe {
-                ffi::sws_scale(
-                    sws_ctx,
-                    (*frame.inner.inner).data.as_ptr() as *const *const u8,
-                    (*frame.inner.inner).linesize.as_ptr(),
-                    0,
-                    frame.height,
-                    (*temp_frame).data.as_mut_ptr(),
-                    (*temp_frame).linesize.as_mut_ptr(),
-                );
-            }
-
-            // Try to keep the image vertically centered
-            let dst_y = (height - new_height) / 2;
-
-            let draw: *mut ffi::FFDrawContext = unsafe {
-                ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawContext>())
-                    as *mut ffi::FFDrawContext
-            };
-            if draw.is_null() {
-                panic!("ERROR could not allocate draw context");
-            }
-            let ret = unsafe { ffi::ff_draw_init(draw, format, 0) };
-            if ret < 0 {
-                panic!("ERROR could not initialize draw context");
-            }
-
-            // use ff_copy_rectangle2 to copy temp_frame to f
-            unsafe {
-                ffi::ff_copy_rectangle2(
-                    draw,
-                    &mut (*f).data as *mut *mut u8,
-                    &mut (*f).linesize as *mut i32,
-                    &mut (*temp_frame).data as *mut *mut u8,
-                    &mut (*temp_frame).linesize as *mut i32,
-                    i as i32 * each_frame_width as i32, // i as i32 * each_frame_width as i32
-                    dst_y as i32,                       // dst_y as i32,
-                    0,
-                    0,
-                    each_frame_width as i32,
-                    new_height as i32,
-                )
-            };
-
-            unsafe {
-                ffi::av_frame_free(&mut temp_frame);
-                ffi::sws_freeContext(sws_ctx);
-                ffi::av_free(draw as *mut std::ffi::c_void);
-            }
-        }
-
-        Ok(Frame::new(AVFrame { inner: f }))
-    }
-
-    fn filter_type(
-        &self,
-        args: &[ValType],
-        kwargs: &BTreeMap<String, ValType>,
-    ) -> Result<FrameType, Error> {
-        let width = match kwargs.get("width").unwrap() {
-            ValType::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let height = match kwargs.get("height").unwrap() {
-            ValType::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let format = match kwargs.get("format").unwrap() {
-            ValType::String(s) => {
-                let format_cstr = CString::new(s.as_str()).unwrap();
-                let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
-                if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
-                    return Err(Error::InvalidFilterArgValue(
-                        s.clone(),
-                        "Invalid pixel format".to_string(),
-                    ));
-                }
-                format
-            }
-            _ => panic!("Expected string"),
-        };
-
-        for input in args {
-            match input {
-                ValType::Frame(_) => {}
-                _ => return Err(Error::MissingFilterArg),
-            }
-        }
-
-        Ok(FrameType {
-            width: width as usize,
-            height: height as usize,
-            format,
-        })
-    }
-}
-
-pub struct VStack {}
-impl super::Filter for VStack {
-    fn filter(
-        &self,
-        args: &[Val],
-        kwargs: &BTreeMap<String, Val>,
-    ) -> Result<Frame, crate::dve::Error> {
-        let width = match kwargs.get("width").unwrap() {
-            Val::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let height = match kwargs.get("height").unwrap() {
-            Val::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let format = match kwargs.get("format").unwrap() {
-            Val::String(s) => {
-                let format_cstr = CString::new(s.as_str()).unwrap();
-                let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
-                if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
-                    return Err(Error::InvalidFilterArgValue(
-                        s.clone(),
-                        "Invalid pixel format".to_string(),
-                    ));
-                }
-                format
-            }
-            _ => panic!("Expected string"),
-        };
-
-        // create output frame
-        let f = unsafe { ffi::av_frame_alloc() };
-        if f.is_null() {
-            panic!("ERROR could not allocate frame");
-        }
-
-        unsafe {
-            (*f).width = width as i32;
-            (*f).height = height as i32;
-            (*f).format = format;
-
-            if ffi::av_frame_get_buffer(f, 0) < 0 {
-                panic!("ERROR could not allocate frame data");
-            }
-
-            let draw: *mut ffi::FFDrawContext =
-                ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawContext>())
-                    as *mut ffi::FFDrawContext;
-
-            if draw.is_null() {
-                panic!("ERROR could not allocate draw context");
-            }
-
-            let ret = ffi::ff_draw_init(draw, format, 0);
-            if ret < 0 {
-                panic!("ERROR could not initialize draw context");
-            }
-
-            let color_rgba = [0u8, 0u8, 0u8, 255u8];
-            let color: *mut ffi::FFDrawColor =
-                ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawColor>()) as *mut ffi::FFDrawColor;
-            if color.is_null() {
-                panic!("ERROR could not allocate color");
-            }
-
-            ffi::ff_draw_color(draw, color, color_rgba.as_ptr());
-
-            // fill with black
-            ffi::ff_fill_rectangle(
-                draw,
-                color,
-                &mut (*f).data as *mut *mut u8,
-                &mut (*f).linesize as *mut i32,
-                0,
-                0,
-                width as i32,
-                height as i32,
-            );
-
-            ffi::av_free(color as *mut std::ffi::c_void);
-            ffi::av_free(draw as *mut std::ffi::c_void);
-        }
-
-        let input_frames: Vec<&Frame> = args
-            .iter()
-            .map(|arg| match arg {
-                Val::Frame(f) => f,
-                _ => panic!("Expected frame"),
-            })
-            .collect();
-
-        let each_frame_height = height / input_frames.len() as i64;
-
-        for (i, frame) in input_frames.iter().enumerate() {
-            let new_width = (frame.width as f64 / frame.height as f64 * each_frame_height as f64)
-                .round() as i64;
-
-            let mut temp_frame = unsafe { ffi::av_frame_alloc() };
-            if temp_frame.is_null() {
-                panic!("ERROR could not allocate frame");
-            }
-
-            unsafe {
-                (*temp_frame).width = new_width as i32;
-                (*temp_frame).height = each_frame_height as i32;
-                (*temp_frame).format = format;
-
-                if ffi::av_frame_get_buffer(temp_frame, 0) < 0 {
-                    panic!("ERROR could not allocate frame data");
-                }
-            }
-
-            let sws_ctx = unsafe {
-                ffi::sws_getContext(
-                    frame.width,
-                    frame.height,
-                    frame.format,
-                    new_width as i32,
-                    each_frame_height as i32,
-                    format,
-                    ffi::SWS_BICUBIC as i32,
-                    std::ptr::null_mut(),
-                    std::ptr::null_mut(),
-                    std::ptr::null_mut(),
-                )
-            };
-
-            unsafe {
-                ffi::sws_scale(
-                    sws_ctx,
-                    (*frame.inner.inner).data.as_ptr() as *const *const u8,
-                    (*frame.inner.inner).linesize.as_ptr(),
-                    0,
-                    frame.height,
-                    (*temp_frame).data.as_mut_ptr(),
-                    (*temp_frame).linesize.as_mut_ptr(),
-                );
-            }
-
-            // Try to keep the image horizontally centered
-            let dst_x = (width - new_width) / 2;
-
-            let draw: *mut ffi::FFDrawContext = unsafe {
-                ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawContext>())
-                    as *mut ffi::FFDrawContext
-            };
-            if draw.is_null() {
-                panic!("ERROR could not allocate draw context");
-            }
-            let ret = unsafe { ffi::ff_draw_init(draw, format, 0) };
-            if ret < 0 {
-                panic!("ERROR could not initialize draw context");
-            }
-
-            // use ff_copy_rectangle2 to copy temp_frame to f
-            unsafe {
-                ffi::ff_copy_rectangle2(
-                    draw,
-                    &mut (*f).data as *mut *mut u8,
-                    &mut (*f).linesize as *mut i32,
-                    &mut (*temp_frame).data as *mut *mut u8,
-                    &mut (*temp_frame).linesize as *mut i32,
-                    dst_x as i32,
-                    i as i32 * each_frame_height as i32,
-                    0,
-                    0,
-                    new_width as i32,
-                    each_frame_height as i32,
-                )
-            };
-
-            unsafe {
-                ffi::av_frame_free(&mut temp_frame);
-                ffi::sws_freeContext(sws_ctx);
-                ffi::av_free(draw as *mut std::ffi::c_void);
-            }
-        }
-
-        Ok(Frame::new(AVFrame { inner: f }))
-    }
-
-    fn filter_type(
-        &self,
-        args: &[ValType],
-        kwargs: &BTreeMap<String, ValType>,
-    ) -> Result<FrameType, Error> {
-        let width = match kwargs.get("width").unwrap() {
-            ValType::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let height = match kwargs.get("height").unwrap() {
-            ValType::Int(i) => *i,
-            _ => panic!("Expected int"),
-        };
-
-        let format = match kwargs.get("format").unwrap() {
-            ValType::String(s) => {
-                let format_cstr = CString::new(s.as_str()).unwrap();
-                let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
-                if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
-                    return Err(Error::InvalidFilterArgValue(
-                        s.clone(),
-                        "Invalid pixel format".to_string(),
-                    ));
-                }
-                format
-            }
-            _ => panic!("Expected string"),
-        };
-
-        for input in args {
-            match input {
-                ValType::Frame(_) => {}
-                _ => return Err(Error::MissingFilterArg),
-            }
-        }
-
-        Ok(FrameType {
-            width: width as usize,
-            height: height as usize,
-            format,
-        })
-    }
-}
+// pub struct Pad {}
+// impl super::Filter for Pad {
+//     fn filter(
+//         &self,
+//         args: &[Val],
+//         kwargs: &BTreeMap<String, Val>,
+//     ) -> Result<Frame, crate::dve::Error> {
+//         let width = match kwargs.get("width").unwrap() {
+//             Val::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let height = match kwargs.get("height").unwrap() {
+//             Val::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let x = match kwargs.get("x").unwrap() {
+//             Val::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let y = match kwargs.get("y").unwrap() {
+//             Val::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let input_frame = match &args[0] {
+//             Val::Frame(f) => f,
+//             _ => panic!("Expected frame"),
+//         };
+
+//         let f = unsafe { ffi::av_frame_alloc() };
+//         if f.is_null() {
+//             panic!("ERROR could not allocate frame");
+//         }
+
+//         unsafe {
+//             (*f).width = width as i32;
+//             (*f).height = height as i32;
+//             (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_YUV420P;
+
+//             if ffi::av_frame_get_buffer(f, 0) < 0 {
+//                 panic!("ERROR could not allocate frame data");
+//             }
+//         }
+
+//         let draw_context: *mut ffi::FFDrawContext = unsafe {
+//             ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawContext>()) as *mut ffi::FFDrawContext
+//         };
+//         if draw_context.is_null() {
+//             panic!("ERROR could not allocate draw context");
+//         }
+//         let ret = unsafe { ffi::ff_draw_init(draw_context, input_frame.format, 0) };
+//         if ret < 0 {
+//             panic!("ERROR could not initialize draw context");
+//         }
+
+//         let color: *mut ffi::FFDrawColor = unsafe {
+//             ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawColor>()) as *mut ffi::FFDrawColor
+//         };
+//         if color.is_null() {
+//             panic!("ERROR could not allocate color");
+//         }
+
+//         let mut color_rgba = [0u8; 4];
+//         match kwargs.get("color") {
+//             Some(Val::String(s)) => {
+//                 let color_str = CString::new(s.to_string()).unwrap();
+//                 let ret = unsafe {
+//                     ffi::av_parse_color(
+//                         color_rgba.as_ptr() as *mut u8,
+//                         color_str.as_ptr(),
+//                         -1,
+//                         std::ptr::null_mut(),
+//                     )
+//                 };
+//                 if ret < 0 {
+//                     return Err(Error::InvalidFilterArgValue(
+//                         s.to_string(),
+//                         "Invalid color".to_string(),
+//                     ));
+//                 }
+//             }
+//             _ => {
+//                 color_rgba[0] = 0;
+//                 color_rgba[1] = 0;
+//                 color_rgba[2] = 0;
+//                 color_rgba[3] = 255;
+//             }
+//         }
+
+//         unsafe { ffi::ff_draw_color(draw_context, color, color_rgba.as_ptr()) };
+
+//         let in_w = input_frame.width as i64;
+//         let in_h = input_frame.height as i64;
+
+//         // top bar
+//         if y != 0 {
+//             unsafe {
+//                 ffi::ff_fill_rectangle(
+//                     draw_context,
+//                     color,
+//                     &mut (*f).data as *mut *mut u8,
+//                     &mut (*f).linesize as *mut i32,
+//                     0,
+//                     0,
+//                     width as i32,
+//                     height as i32,
+//                 )
+//             };
+//         }
+
+//         // bottom bar
+//         if height > y + in_h {
+//             unsafe {
+//                 ffi::ff_fill_rectangle(
+//                     draw_context,
+//                     color,
+//                     &mut (*f).data as *mut *mut u8,
+//                     &mut (*f).linesize as *mut i32,
+//                     0,
+//                     (y + in_h) as i32,
+//                     width as i32,
+//                     (height - y - in_h) as i32,
+//                 )
+//             };
+//         }
+
+//         // left border
+//         if x != 0 {
+//             unsafe {
+//                 ffi::ff_fill_rectangle(
+//                     draw_context,
+//                     color,
+//                     &mut (*f).data as *mut *mut u8,
+//                     &mut (*f).linesize as *mut i32,
+//                     0,
+//                     y as i32,
+//                     x as i32,
+//                     in_h as i32,
+//                 )
+//             };
+//         }
+
+//         // copy input frame
+//         unsafe {
+//             ffi::ff_copy_rectangle2(
+//                 draw_context,
+//                 &mut (*f).data as *mut *mut u8,
+//                 &mut (*f).linesize as *mut i32,
+//                 &mut (*input_frame.inner.inner).data as *mut *mut u8,
+//                 &mut (*input_frame.inner.inner).linesize as *mut i32,
+//                 x as i32,
+//                 y as i32,
+//                 0,
+//                 0,
+//                 in_w as i32,
+//                 in_h as i32,
+//             )
+//         }
+
+//         // right border
+//         if width > x + in_w {
+//             unsafe {
+//                 ffi::ff_fill_rectangle(
+//                     draw_context,
+//                     color,
+//                     &mut (*f).data as *mut *mut u8,
+//                     &mut (*f).linesize as *mut i32,
+//                     (x + in_w) as i32,
+//                     y as i32,
+//                     (width - x - in_w) as i32,
+//                     in_h as i32,
+//                 )
+//             };
+//         }
+
+//         unsafe {
+//             ffi::av_free(color as *mut std::ffi::c_void);
+//             ffi::av_free(draw_context as *mut std::ffi::c_void);
+//         }
+
+//         Ok(Frame::new(AVFrame { inner: f }))
+//     }
+
+//     fn filter_type(
+//         &self,
+//         args: &[ValType],
+//         kwargs: &BTreeMap<String, ValType>,
+//     ) -> Result<FrameType, crate::dve::Error> {
+//         let _x = match kwargs.get("x").unwrap() {
+//             ValType::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let _y = match kwargs.get("y").unwrap() {
+//             ValType::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let width = match kwargs.get("width").unwrap() {
+//             ValType::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let height = match kwargs.get("height").unwrap() {
+//             ValType::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let input_frame = match &args[0] {
+//             ValType::Frame(f) => f,
+//             _ => panic!("Expected frame"),
+//         };
+
+//         let mut color = [0u8; 4];
+//         match kwargs.get("color") {
+//             Some(ValType::String(s)) => {
+//                 let color_str = CString::new(s.to_string()).unwrap();
+//                 let ret = unsafe {
+//                     ffi::av_parse_color(
+//                         color.as_ptr() as *mut u8,
+//                         color_str.as_ptr(),
+//                         -1,
+//                         std::ptr::null_mut(),
+//                     )
+//                 };
+//                 if ret < 0 {
+//                     return Err(Error::InvalidFilterArgValue(
+//                         s.to_string(),
+//                         "Invalid color".to_string(),
+//                     ));
+//                 }
+//             }
+//             _ => {
+//                 color[0] = 0;
+//                 color[1] = 0;
+//                 color[2] = 0;
+//                 color[3] = 255;
+//             }
+//         }
+
+//         let out_frame_type = FrameType {
+//             width: width as usize,
+//             height: height as usize,
+//             format: input_frame.format,
+//         };
+
+//         Ok(out_frame_type)
+//     }
+// }
+
+// pub struct HStack {}
+// impl super::Filter for HStack {
+//     fn filter(
+//         &self,
+//         args: &[Val],
+//         kwargs: &BTreeMap<String, Val>,
+//     ) -> Result<Frame, crate::dve::Error> {
+//         let width = match kwargs.get("width").unwrap() {
+//             Val::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let height = match kwargs.get("height").unwrap() {
+//             Val::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let format = match kwargs.get("format").unwrap() {
+//             Val::String(s) => {
+//                 let format_cstr = CString::new(s.as_str()).unwrap();
+//                 let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
+//                 if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
+//                     return Err(Error::InvalidFilterArgValue(
+//                         s.clone(),
+//                         "Invalid pixel format".to_string(),
+//                     ));
+//                 }
+//                 format
+//             }
+//             _ => panic!("Expected string"),
+//         };
+
+//         // create output frame
+//         let f = unsafe { ffi::av_frame_alloc() };
+//         if f.is_null() {
+//             panic!("ERROR could not allocate frame");
+//         }
+
+//         unsafe {
+//             (*f).width = width as i32;
+//             (*f).height = height as i32;
+//             (*f).format = format;
+
+//             if ffi::av_frame_get_buffer(f, 0) < 0 {
+//                 panic!("ERROR could not allocate frame data");
+//             }
+
+//             let draw: *mut ffi::FFDrawContext =
+//                 ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawContext>())
+//                     as *mut ffi::FFDrawContext;
+
+//             if draw.is_null() {
+//                 panic!("ERROR could not allocate draw context");
+//             }
+
+//             let ret = ffi::ff_draw_init(draw, format, 0);
+//             if ret < 0 {
+//                 panic!("ERROR could not initialize draw context");
+//             }
+
+//             let color_rgba = [0u8, 0u8, 0u8, 255u8];
+//             let color: *mut ffi::FFDrawColor =
+//                 ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawColor>()) as *mut ffi::FFDrawColor;
+//             if color.is_null() {
+//                 panic!("ERROR could not allocate color");
+//             }
+
+//             ffi::ff_draw_color(draw, color, color_rgba.as_ptr());
+
+//             // fill with black
+//             ffi::ff_fill_rectangle(
+//                 draw,
+//                 color,
+//                 &mut (*f).data as *mut *mut u8,
+//                 &mut (*f).linesize as *mut i32,
+//                 0,
+//                 0,
+//                 width as i32,
+//                 height as i32,
+//             );
+
+//             ffi::av_free(color as *mut std::ffi::c_void);
+//             ffi::av_free(draw as *mut std::ffi::c_void);
+//         }
+
+//         let input_frames: Vec<&Frame> = args
+//             .iter()
+//             .map(|arg| match arg {
+//                 Val::Frame(f) => f,
+//                 _ => panic!("Expected frame"),
+//             })
+//             .collect();
+
+//         let each_frame_width = width / input_frames.len() as i64;
+
+//         for (i, frame) in input_frames.iter().enumerate() {
+//             let new_height =
+//                 (frame.height as f64 / frame.width as f64 * each_frame_width as f64).round() as i64;
+
+//             let mut temp_frame = unsafe { ffi::av_frame_alloc() };
+//             if temp_frame.is_null() {
+//                 panic!("ERROR could not allocate frame");
+//             }
+
+//             unsafe {
+//                 (*temp_frame).width = each_frame_width as i32;
+//                 (*temp_frame).height = new_height as i32;
+//                 (*temp_frame).format = format;
+
+//                 if ffi::av_frame_get_buffer(temp_frame, 0) < 0 {
+//                     panic!("ERROR could not allocate frame data");
+//                 }
+//             }
+
+//             let sws_ctx = unsafe {
+//                 ffi::sws_getContext(
+//                     frame.width,
+//                     frame.height,
+//                     frame.format,
+//                     each_frame_width as i32,
+//                     new_height as i32,
+//                     format,
+//                     ffi::SWS_BICUBIC as i32,
+//                     std::ptr::null_mut(),
+//                     std::ptr::null_mut(),
+//                     std::ptr::null_mut(),
+//                 )
+//             };
+
+//             unsafe {
+//                 ffi::sws_scale(
+//                     sws_ctx,
+//                     (*frame.inner.inner).data.as_ptr() as *const *const u8,
+//                     (*frame.inner.inner).linesize.as_ptr(),
+//                     0,
+//                     frame.height,
+//                     (*temp_frame).data.as_mut_ptr(),
+//                     (*temp_frame).linesize.as_mut_ptr(),
+//                 );
+//             }
+
+//             // Try to keep the image vertically centered
+//             let dst_y = (height - new_height) / 2;
+
+//             let draw: *mut ffi::FFDrawContext = unsafe {
+//                 ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawContext>())
+//                     as *mut ffi::FFDrawContext
+//             };
+//             if draw.is_null() {
+//                 panic!("ERROR could not allocate draw context");
+//             }
+//             let ret = unsafe { ffi::ff_draw_init(draw, format, 0) };
+//             if ret < 0 {
+//                 panic!("ERROR could not initialize draw context");
+//             }
+
+//             // use ff_copy_rectangle2 to copy temp_frame to f
+//             unsafe {
+//                 ffi::ff_copy_rectangle2(
+//                     draw,
+//                     &mut (*f).data as *mut *mut u8,
+//                     &mut (*f).linesize as *mut i32,
+//                     &mut (*temp_frame).data as *mut *mut u8,
+//                     &mut (*temp_frame).linesize as *mut i32,
+//                     i as i32 * each_frame_width as i32, // i as i32 * each_frame_width as i32
+//                     dst_y as i32,                       // dst_y as i32,
+//                     0,
+//                     0,
+//                     each_frame_width as i32,
+//                     new_height as i32,
+//                 )
+//             };
+
+//             unsafe {
+//                 ffi::av_frame_free(&mut temp_frame);
+//                 ffi::sws_freeContext(sws_ctx);
+//                 ffi::av_free(draw as *mut std::ffi::c_void);
+//             }
+//         }
+
+//         Ok(Frame::new(AVFrame { inner: f }))
+//     }
+
+//     fn filter_type(
+//         &self,
+//         args: &[ValType],
+//         kwargs: &BTreeMap<String, ValType>,
+//     ) -> Result<FrameType, Error> {
+//         let width = match kwargs.get("width").unwrap() {
+//             ValType::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let height = match kwargs.get("height").unwrap() {
+//             ValType::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let format = match kwargs.get("format").unwrap() {
+//             ValType::String(s) => {
+//                 let format_cstr = CString::new(s.as_str()).unwrap();
+//                 let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
+//                 if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
+//                     return Err(Error::InvalidFilterArgValue(
+//                         s.clone(),
+//                         "Invalid pixel format".to_string(),
+//                     ));
+//                 }
+//                 format
+//             }
+//             _ => panic!("Expected string"),
+//         };
+
+//         for input in args {
+//             match input {
+//                 ValType::Frame(_) => {}
+//                 _ => return Err(Error::MissingFilterArg),
+//             }
+//         }
+
+//         Ok(FrameType {
+//             width: width as usize,
+//             height: height as usize,
+//             format,
+//         })
+//     }
+// }
+
+// pub struct VStack {}
+// impl super::Filter for VStack {
+//     fn filter(
+//         &self,
+//         args: &[Val],
+//         kwargs: &BTreeMap<String, Val>,
+//     ) -> Result<Frame, crate::dve::Error> {
+//         let width = match kwargs.get("width").unwrap() {
+//             Val::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let height = match kwargs.get("height").unwrap() {
+//             Val::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let format = match kwargs.get("format").unwrap() {
+//             Val::String(s) => {
+//                 let format_cstr = CString::new(s.as_str()).unwrap();
+//                 let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
+//                 if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
+//                     return Err(Error::InvalidFilterArgValue(
+//                         s.clone(),
+//                         "Invalid pixel format".to_string(),
+//                     ));
+//                 }
+//                 format
+//             }
+//             _ => panic!("Expected string"),
+//         };
+
+//         // create output frame
+//         let f = unsafe { ffi::av_frame_alloc() };
+//         if f.is_null() {
+//             panic!("ERROR could not allocate frame");
+//         }
+
+//         unsafe {
+//             (*f).width = width as i32;
+//             (*f).height = height as i32;
+//             (*f).format = format;
+
+//             if ffi::av_frame_get_buffer(f, 0) < 0 {
+//                 panic!("ERROR could not allocate frame data");
+//             }
+
+//             let draw: *mut ffi::FFDrawContext =
+//                 ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawContext>())
+//                     as *mut ffi::FFDrawContext;
+
+//             if draw.is_null() {
+//                 panic!("ERROR could not allocate draw context");
+//             }
+
+//             let ret = ffi::ff_draw_init(draw, format, 0);
+//             if ret < 0 {
+//                 panic!("ERROR could not initialize draw context");
+//             }
+
+//             let color_rgba = [0u8, 0u8, 0u8, 255u8];
+//             let color: *mut ffi::FFDrawColor =
+//                 ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawColor>()) as *mut ffi::FFDrawColor;
+//             if color.is_null() {
+//                 panic!("ERROR could not allocate color");
+//             }
+
+//             ffi::ff_draw_color(draw, color, color_rgba.as_ptr());
+
+//             // fill with black
+//             ffi::ff_fill_rectangle(
+//                 draw,
+//                 color,
+//                 &mut (*f).data as *mut *mut u8,
+//                 &mut (*f).linesize as *mut i32,
+//                 0,
+//                 0,
+//                 width as i32,
+//                 height as i32,
+//             );
+
+//             ffi::av_free(color as *mut std::ffi::c_void);
+//             ffi::av_free(draw as *mut std::ffi::c_void);
+//         }
+
+//         let input_frames: Vec<&Frame> = args
+//             .iter()
+//             .map(|arg| match arg {
+//                 Val::Frame(f) => f,
+//                 _ => panic!("Expected frame"),
+//             })
+//             .collect();
+
+//         let each_frame_height = height / input_frames.len() as i64;
+
+//         for (i, frame) in input_frames.iter().enumerate() {
+//             let new_width = (frame.width as f64 / frame.height as f64 * each_frame_height as f64)
+//                 .round() as i64;
+
+//             let mut temp_frame = unsafe { ffi::av_frame_alloc() };
+//             if temp_frame.is_null() {
+//                 panic!("ERROR could not allocate frame");
+//             }
+
+//             unsafe {
+//                 (*temp_frame).width = new_width as i32;
+//                 (*temp_frame).height = each_frame_height as i32;
+//                 (*temp_frame).format = format;
+
+//                 if ffi::av_frame_get_buffer(temp_frame, 0) < 0 {
+//                     panic!("ERROR could not allocate frame data");
+//                 }
+//             }
+
+//             let sws_ctx = unsafe {
+//                 ffi::sws_getContext(
+//                     frame.width,
+//                     frame.height,
+//                     frame.format,
+//                     new_width as i32,
+//                     each_frame_height as i32,
+//                     format,
+//                     ffi::SWS_BICUBIC as i32,
+//                     std::ptr::null_mut(),
+//                     std::ptr::null_mut(),
+//                     std::ptr::null_mut(),
+//                 )
+//             };
+
+//             unsafe {
+//                 ffi::sws_scale(
+//                     sws_ctx,
+//                     (*frame.inner.inner).data.as_ptr() as *const *const u8,
+//                     (*frame.inner.inner).linesize.as_ptr(),
+//                     0,
+//                     frame.height,
+//                     (*temp_frame).data.as_mut_ptr(),
+//                     (*temp_frame).linesize.as_mut_ptr(),
+//                 );
+//             }
+
+//             // Try to keep the image horizontally centered
+//             let dst_x = (width - new_width) / 2;
+
+//             let draw: *mut ffi::FFDrawContext = unsafe {
+//                 ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawContext>())
+//                     as *mut ffi::FFDrawContext
+//             };
+//             if draw.is_null() {
+//                 panic!("ERROR could not allocate draw context");
+//             }
+//             let ret = unsafe { ffi::ff_draw_init(draw, format, 0) };
+//             if ret < 0 {
+//                 panic!("ERROR could not initialize draw context");
+//             }
+
+//             // use ff_copy_rectangle2 to copy temp_frame to f
+//             unsafe {
+//                 ffi::ff_copy_rectangle2(
+//                     draw,
+//                     &mut (*f).data as *mut *mut u8,
+//                     &mut (*f).linesize as *mut i32,
+//                     &mut (*temp_frame).data as *mut *mut u8,
+//                     &mut (*temp_frame).linesize as *mut i32,
+//                     dst_x as i32,
+//                     i as i32 * each_frame_height as i32,
+//                     0,
+//                     0,
+//                     new_width as i32,
+//                     each_frame_height as i32,
+//                 )
+//             };
+
+//             unsafe {
+//                 ffi::av_frame_free(&mut temp_frame);
+//                 ffi::sws_freeContext(sws_ctx);
+//                 ffi::av_free(draw as *mut std::ffi::c_void);
+//             }
+//         }
+
+//         Ok(Frame::new(AVFrame { inner: f }))
+//     }
+
+//     fn filter_type(
+//         &self,
+//         args: &[ValType],
+//         kwargs: &BTreeMap<String, ValType>,
+//     ) -> Result<FrameType, Error> {
+//         let width = match kwargs.get("width").unwrap() {
+//             ValType::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let height = match kwargs.get("height").unwrap() {
+//             ValType::Int(i) => *i,
+//             _ => panic!("Expected int"),
+//         };
+
+//         let format = match kwargs.get("format").unwrap() {
+//             ValType::String(s) => {
+//                 let format_cstr = CString::new(s.as_str()).unwrap();
+//                 let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
+//                 if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
+//                     return Err(Error::InvalidFilterArgValue(
+//                         s.clone(),
+//                         "Invalid pixel format".to_string(),
+//                     ));
+//                 }
+//                 format
+//             }
+//             _ => panic!("Expected string"),
+//         };
+
+//         for input in args {
+//             match input {
+//                 ValType::Frame(_) => {}
+//                 _ => return Err(Error::MissingFilterArg),
+//             }
+//         }
+
+//         Ok(FrameType {
+//             width: width as usize,
+//             height: height as usize,
+//             format,
+//         })
+//     }
+// }
 pub struct DrawText {}
 impl super::Filter for DrawText {
     fn filter(
