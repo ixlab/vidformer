@@ -1,0 +1,42 @@
+name: Docs
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  docs:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Deps
+      run: bash ./scripts/deps.sh
+    - name: Build vidformer docs
+      run: cargo doc --no-deps -p vidformer
+    - name: Install mdbook
+      run: cargo install mdbook
+    - name: Build docs
+      run: pushd docs && mdbook build && popd && cp -r docs/book/* target/doc
+    - name: Install vidformer-py # needed to import dependencies when building docs
+      run: pip3 install ./vidformer-py
+    - name: Install pdoc
+      run: pip3 install pdoc
+    - name: Build pdoc
+      run: pushd vidformer-py/src && pdoc vidformer.py -o ../../target/doc/vidformer-py && popd
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./target/doc
+        publish_branch: gh-pages
+        force_orphan: true
+        user_name: 'github-actions[bot]'
+        user_email: 'github-actions[bot]@users.noreply.github.com'
+        commit_message: 'Deploy docs'

@@ -1,0 +1,26 @@
+[project]
+name = "vidformer"
+dynamic = ["version", "description"]
+authors = [
+  { name="Dominik Winecki", email="dominikwinecki@gmail.com" },
+]
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  "requests",
+  "msgpack",
+  "numpy",
+]
+
+[project.urls]
+Homepage = "https://ixlab.github.io/vidformer/"
+Issues = "https://ixlab.github.io/vidformer/issues"
+
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"

@@ -1,0 +1,206 @@
+//! Spec Intermediate Representation
+//!
+//! The SIR is a high-level representation of constructing a video frame from source frames and data.
+//! This is the primary interface between specs and the rest of the system.
+
+use crate::dve::Range;
+use num_rational::Rational64;
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
+
+#[derive(Ord, PartialOrd, PartialEq, Eq, Debug, serde::Deserialize, serde::Serialize, Clone)]
+pub enum IndexConst {
+    ILoc(usize),
+    T(Rational64),
+}
+
+#[derive(Ord, PartialOrd, PartialEq, Eq, Debug, serde::Deserialize, serde::Serialize, Clone)]
+pub struct FrameSource {
+    pub(crate) video: String,
+    pub(crate) index: IndexConst,
+}
+
+impl FrameSource {
+    pub fn new(video: String, index: IndexConst) -> Self {
+        FrameSource { video, index }
+    }
+
+    pub fn video(&self) -> &str {
+        &self.video
+    }
+
+    pub fn index(&self) -> &IndexConst {
+        &self.index
+    }
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
+pub struct FilterExpr {
+    pub name: String,
+    pub args: Vec<Expr>,
+    pub kwargs: BTreeMap<String, Expr>,
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
+pub enum Expr {
+    Frame(FrameExpr),
+    Data(DataExpr),
+}
+
+impl Display for Expr {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Expr::Frame(frame) => write!(f, "{}", frame),
+            Expr::Data(data) => write!(f, "{}", data),
+        }
+    }
+}
+
+impl Expr {
+    pub(crate) fn add_deps<'a>(&'a self, deps: &mut BTreeSet<&'a FrameSource>) {
+        match self {
+            Expr::Frame(frame) => {
+                frame.add_deps(deps);
+            }
+            Expr::Data(_) => {}
+        }
+    }
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
+
+pub enum DataExpr {
+    Bool(bool),
+    Int(i64),
+    String(String),
+    ArrayRef(String, IndexConst),
+}
+
+impl Display for DataExpr {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            DataExpr::Bool(b) => write!(f, "{}", b),
+            DataExpr::Int(i) => write!(f, "{}", i),
+            DataExpr::String(s) => write!(f, "\"{}\"", s),
+            DataExpr::ArrayRef(name, IndexConst::ILoc(i)) => write!(f, "{}.iloc[{}]", name, i),
+            DataExpr::ArrayRef(name, IndexConst::T(t)) => write!(f, "{}[{}]", name, t),
+        }
+    }
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
+pub enum FrameExpr {
+    Source(FrameSource),
+    Filter(FilterExpr),
+}
+
+impl Display for FrameExpr {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            FrameExpr::Source(src) => {
+                write!(f, "{}{}", src.video, src.index)
+            }
+            FrameExpr::Filter(filter) => {
+                write!(f, "{}(", filter.name)?;
+                for arg in &filter.args {
+                    write!(f, "{}, ", arg)?;
+                }
+                for (k, v) in &filter.kwargs {
+                    write!(f, "{}={}, ", k, v)?;
+                }
+                write!(f, ")")
+            }
+        }
+    }
+}
+
+impl Display for IndexConst {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            IndexConst::ILoc(i) => write!(f, ".iloc[{}]", i),
+            IndexConst::T(t) => write!(f, "[{}]", t),
+        }
+    }
+}
+
+impl FrameExpr {
+    pub(crate) fn add_deps<'a>(&'a self, deps: &mut BTreeSet<&'a FrameSource>) {
+        match self {
+            FrameExpr::Source(src) => {
+                deps.insert(src);
+            }
+            FrameExpr::Filter(filter) => {
+                for arg in &filter.args {
+                    arg.add_deps(deps);
+                }
+                for arg in filter.kwargs.values() {
+                    arg.add_deps(deps);
+                }
+            }
+        }
+    }
+}
+
+pub(crate) struct ProcessSpan {
+    pub(crate) ts: Vec<Rational64>,
+    pub(crate) frames: Vec<FrameExpr>,
+    pub(crate) output_ts_offset: Option<Rational64>,
+}
+
+pub(crate) fn spec_domain(
+    spec: &dyn crate::spec::Spec,
+    context: &crate::dve::Context,
+) -> Vec<Rational64> {
+    spec.domain(&context.spec_ctx())
+}
+
+impl ProcessSpan {
+    pub(crate) fn create(
+        spec: &dyn crate::spec::Spec,
+        context: &crate::dve::Context,
+        range: &Option<Range>,
+    ) -> Self {
+        let spec_ctx = context.spec_ctx();
+
+        let mut ts = spec.domain(&spec_ctx);
+        ts.sort();
+        let ts = ts;
+
+        let mut range_start_ts = None;
+        let ts = match range {
+            Some(range_config) => {
+                assert!(ts.binary_search(&range_config.start).is_ok());
+                assert!(ts.binary_search(&range_config.end).is_ok());
+                if matches!(
+                    range_config.ts_format,
+                    crate::dve::RangeTsFormat::SegmentLocal
+                ) {
+                    range_start_ts = Some(range_config.start);
+                }
+                ts.into_iter()
+                    .filter(|t: &num_rational::Ratio<i64>| {
+                        t >= &range_config.start && t <= &range_config.end
+                    })
+                    .collect()
+            }
+            None => ts,
+        };
+
+        // TODO: parallelize?
+        let mut frames = Vec::with_capacity(ts.len());
+        for t in &ts {
+            frames.push(spec.render(&spec_ctx, t));
+        }
+
+        // TODO: Data-dependent optimizations somewhere here?
+
+        ProcessSpan {
+            ts,
+            frames,
+            output_ts_offset: range_start_ts,
+        }
+    }
+}

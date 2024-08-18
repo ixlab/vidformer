@@ -1,0 +1,38 @@
+name: Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Deps
+      run: bash ./scripts/deps.sh
+    - name: Download Test Video
+      run: curl -O https://f.dominik.win/data/dve2/tos_720p.mp4
+    - name: Build Debug
+      run: cargo build --verbose
+    - name: Build Release
+      run: cargo build --release --verbose
+    - name: Run vidformer tests
+      run: cargo test --verbose
+      timeout-minutes: 5
+    - name: Install vidformer-py
+      run: pip3 install ./vidformer-py
+    - name: snake-pit pytest
+      run: ln -s ../tos_720p.mp4 snake-pit/tos_720p.mp4 && pushd snake-pit && pytest . && popd
+      timeout-minutes: 10
+    - name: Valgrind Tests
+      run: bash ./scripts/valgrind_test.sh
+      timeout-minutes: 10

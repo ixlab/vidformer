@@ -1,0 +1,7 @@
+[env]
+FFMPEG_PKG_CONFIG_PATH = { value = "ffmpeg/build/lib/pkgconfig", relative = true }
+FFMPEG_INCLUDE_DIR = { value = "ffmpeg/build/include", relative = true }
+
+[profile.release-with-debug]
+inherits = "release"
+debug = true
