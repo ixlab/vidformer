@@ -79,8 +79,8 @@ pub struct Context {
 
 #[derive(Debug)]
 
-pub(crate) struct AVFrame {
-    pub(crate) inner: *mut ffi::AVFrame,
+pub struct AVFrame {
+    pub inner: *mut ffi::AVFrame,
 }
 
 impl AVFrame {

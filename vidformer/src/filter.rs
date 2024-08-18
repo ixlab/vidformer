@@ -15,7 +15,7 @@ pub mod builtin;
 /// A decoded video frame
 #[derive(Clone)]
 pub struct Frame {
-    inner: Arc<AVFrame>,
+    pub inner: Arc<AVFrame>,
     pub width: i32,
     pub height: i32,
     pub format: ffi::AVPixelFormat,
@@ -198,7 +198,7 @@ impl<'de> Deserialize<'de> for Frame {
 }
 
 impl Frame {
-    pub(crate) fn new(inner: AVFrame) -> Self {
+    pub fn new(inner: AVFrame) -> Self {
         let width = unsafe { (*inner.inner).width };
         let height = unsafe { (*inner.inner).height };
         let format = unsafe { (*inner.inner).format };
@@ -222,7 +222,7 @@ impl Frame {
         }
     }
 
-    pub(crate) fn inner(&self) -> *mut ffi::AVFrame {
+    pub fn inner(&self) -> *mut ffi::AVFrame {
         self.inner.inner
     }
 
@@ -287,14 +287,14 @@ impl ValType {
         }
     }
 
-    pub(crate) fn as_int(&self) -> Option<i64> {
+    pub fn as_int(&self) -> Option<i64> {
         match self {
             ValType::Int(i) => Some(*i),
             _ => None,
         }
     }
 
-    pub(crate) fn as_frame(&self) -> Option<&FrameType> {
+    pub fn as_frame(&self) -> Option<&FrameType> {
         match self {
             ValType::Frame(f) => Some(f),
             _ => None,
@@ -338,7 +338,7 @@ impl Val {
         }
     }
 
-    pub(crate) fn as_int(&self) -> Option<i64> {
+    pub fn as_int(&self) -> Option<i64> {
         match self {
             Val::Int(i) => Some(*i),
             _ => None,

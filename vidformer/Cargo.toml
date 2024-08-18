@@ -12,6 +12,7 @@ categories = ["multimedia", "multimedia::video"]
 
 [dependencies]
 rusty_ffmpeg = {git = "https://github.com/dominikWin/rusty_ffmpeg", rev = "5e8ffef38be8f8d25a832cd553676a249b424c7c", features = ["link_system_ffmpeg"]}
+# rusty_ffmpeg = {version = "0.13.3", features = ["link_system_ffmpeg"]}
 log = "0.4.20"
 "num-traits" = "0.2"
 "num-rational" = { version = "0.4", features=["serde"] }
@@ -21,7 +22,7 @@ serde_json = "1.0"
 uuid = { version = "1.7.0", features = ["v4",  "fast-rng"] }
 rayon = "1.9"
 thiserror = "1.0.58"
-opencv = { version = "0.92.2", default-features = false, features = ["clang-runtime", "imgproc"] }
+# opencv = { version = "0.92.2", default-features = false, features = ["clang-runtime", "imgproc"] }
 crossbeam-channel = "0.5"
 parking_lot = "0.12.2"
 opendal = { version = "0.46", features = ["layers-blocking", "services-fs", "services-http"] }

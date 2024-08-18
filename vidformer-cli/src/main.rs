@@ -5,6 +5,7 @@ use std::{collections::BTreeMap, fs::File, io::Write};
 use vidformer::{filter, run_spec, sir, source, spec};
 
 mod bench;
+mod filters;
 mod yrden;
 
 pub fn simple_source(
@@ -187,37 +188,37 @@ fn default_filters() -> BTreeMap<String, Box<dyn filter::Filter>> {
     let mut filters: BTreeMap<String, Box<dyn filter::Filter>> = BTreeMap::new();
     filters.insert(
         "PlaceholderFrame".to_string(),
-        Box::new(crate::filter::builtin::PlaceholderFrame {}),
+        Box::new(filters::PlaceholderFrame {}),
     );
     filters.insert(
         "Annotate".to_string(),
-        Box::new(crate::filter::builtin::Annotate {}),
+        Box::new(filters::Annotate {}),
     );
-    filters.insert("Box".to_string(), Box::new(crate::filter::builtin::Box {}));
+    filters.insert("Box".to_string(), Box::new(filters::Box {}));
     filters.insert(
         "BoundingBox".to_string(),
-        Box::new(crate::filter::builtin::BoundingBox {}),
+        Box::new(filters::BoundingBox {}),
     );
     filters.insert(
         "Scale".to_string(),
-        Box::new(crate::filter::builtin::Scale {}),
+        Box::new(filters::Scale {}),
     );
-    filters.insert("Pad".to_string(), Box::new(crate::filter::builtin::Pad {}));
+    filters.insert("Pad".to_string(), Box::new(filters::Pad {}));
     filters.insert(
         "HStack".to_string(),
-        Box::new(crate::filter::builtin::HStack {}),
+        Box::new(filters::HStack {}),
     );
     filters.insert(
         "VStack".to_string(),
-        Box::new(crate::filter::builtin::VStack {}),
+        Box::new(filters::VStack {}),
     );
     filters.insert(
         "DrawText".to_string(),
-        Box::new(crate::filter::builtin::DrawText {}),
+        Box::new(filters::DrawText {}),
     );
     filters.insert(
         "DrawText2".to_string(),
-        Box::new(crate::filter::builtin::DrawText2 {}),
+        Box::new(filters::DrawText2 {}),
     );
 
     filters
