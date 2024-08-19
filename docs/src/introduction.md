@@ -20,7 +20,7 @@ vidformer is ***NOT***:
 * A computer vision library (like OpenCV)
 * A computer vision AI model (like CLIP or Yolo)
 
-However, vidformer is highly adjacent to each of these.
+However, vidformer is highly complementary to each of these.
 If you're working on any of the later four, vidformer may be for you.
 
 <!-- ## Demo
