@@ -1,6 +1,6 @@
 """A Python library for creating and viewing videos with vidformer."""
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 
 import subprocess
 from fractions import Fraction
@@ -80,8 +80,6 @@ class Spec:
     def play(self, server, method="html"):
         """Play the video live in the notebook."""
 
-        from IPython.display import IFrame, HTML
-
         spec, sources, filters = self._to_json_spec()
         spec_json_bytes = json.dumps(spec).encode("utf-8")
         spec_obj_json_gzip = gzip.compress(spec_json_bytes, compresslevel=1)
@@ -112,9 +110,17 @@ class Spec:
         namespace = resp["namespace"]
         hls_js_url = server.hls_js_url()
 
+        if method == "link":
+            return hls_video_url
+        if method == "player":
+            return hls_player_url
         if method == "iframe":
+            from IPython.display import IFrame
+
             return IFrame(hls_player_url, width=1280, height=720)
         if method == "html":
+            from IPython.display import HTML
+
             # We add a namespace to the video element to avoid conflicts with other videos
             html_code = f"""
 <!DOCTYPE html>
@@ -438,6 +444,14 @@ class Source:
         if type(idx) != Fraction:
             raise Exception("Source index must be a Fraction")
         return SourceExpr(self, idx, False)
+
+    def play(self, *args, **kwargs):
+        """Play the video live in the notebook."""
+
+        domain = self.ts()
+        render = lambda t, i: self[t]
+        spec = Spec(domain, render, self.fmt())
+        return spec.play(*args, **kwargs)
 
 
 class StorageService:

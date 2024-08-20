@@ -79,6 +79,8 @@ This plays this result:
   <source src="https://f.dominik.win/data/dve2/quickstart-hello-world.mp4" type="video/mp4" />
 </video>
 
+> Some Jupyter environments are weird (i.e., VS Code), so  `.play()` might not work. Using `.play(..., method="iframe")` may help.
+
 It's worth noting that we are playing frames in order here and outputing video at the same framerate we recieved, but that doesn't need to be the case.
 Here are some things other things you can now try:
 
