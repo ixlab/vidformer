@@ -14,7 +14,7 @@ pub fn simple_source(
     assert_eq!(split.len(), 3);
     let (name, path, stream) = (split[0], split[1], split[2].parse::<usize>().unwrap());
     let fs_service = vidformer::service::Service::default();
-    source::SourceVideoStreamMeta::load_meta(name, stream, &fs_service, path)
+    source::SourceVideoStreamMeta::profile(name, path, stream, &fs_service)
 }
 
 pub fn opendal_source(
@@ -24,10 +24,10 @@ pub fn opendal_source(
     service: Option<&vidformer::service::Service>,
 ) -> Result<vidformer::source::SourceVideoStreamMeta, vidformer::Error> {
     if let Some(service) = service {
-        source::SourceVideoStreamMeta::load_meta(name, stream, service, path)
+        source::SourceVideoStreamMeta::profile(name, path, stream, service)
     } else {
         let fs_service = vidformer::service::Service::default();
-        source::SourceVideoStreamMeta::load_meta(name, stream, &fs_service, path)
+        source::SourceVideoStreamMeta::profile(name, path, stream, &fs_service)
     }
 }
 
@@ -72,6 +72,9 @@ struct YrdenCmd {
 
     #[clap(long)]
     print_url: bool,
+
+    #[clap(long, default_value = "/tmp/yrden.db")]
+    db_path: String,
 }
 
 #[derive(Parser, Debug)]

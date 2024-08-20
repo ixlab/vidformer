@@ -3,7 +3,7 @@ use num_rational::Rational64;
 use rusty_ffmpeg::ffi;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
-use std::{ffi::CStr, io::Write};
+use std::ffi::CStr;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SourceFileMeta {
@@ -30,63 +30,6 @@ pub fn create_profile_file(streams: &[SourceVideoStreamMeta]) -> SourceFileMeta 
 }
 
 impl SourceVideoStreamMeta {
-    pub fn load_meta(
-        source_name: &str,
-        stream: usize,
-        service: &crate::service::Service,
-        vid_path: &str,
-    ) -> Result<Self, crate::dve::Error> {
-        let cache_path = format!("{}.dve2src", vid_path);
-        if std::path::Path::new(&cache_path).exists() {
-            let file = std::fs::File::open(&cache_path).map_err(|e| {
-                crate::dve::Error::AVError(format!(
-                    "Failed to open profile file {} for reading: {}",
-                    cache_path, e
-                ))
-            })?;
-            let reader = std::io::BufReader::new(file);
-            let meta: SourceFileMeta = serde_json::from_reader(reader).map_err(|e| {
-                crate::dve::Error::AVError(format!(
-                    "Failed to parse profile file {}: {}",
-                    cache_path, e
-                ))
-            })?;
-
-            let stream = meta
-                .streams
-                .into_iter()
-                .find(|x| x.name == source_name && x.stream_idx == stream);
-
-            if let Some(stream) = stream {
-                return Ok(stream);
-            }
-            // if we don't find the stream, we will just re-profile it
-            warn!("Cache hit but stream not found, re-profiling");
-        }
-
-        // cache miss
-        let meta = SourceVideoStreamMeta::profile(source_name, vid_path, stream, service)?;
-        let mut file = std::fs::File::create(&cache_path).map_err(|e| {
-            crate::dve::Error::AVError(format!(
-                "Failed to open profile file {} for saving: {}",
-                cache_path, e
-            ))
-        })?;
-        serde_json::to_writer(&mut file, &create_profile_file(&[meta.clone()])).map_err(|e| {
-            crate::dve::Error::AVError(format!(
-                "Failed to write profile file {}: {}",
-                cache_path, e
-            ))
-        })?;
-        file.flush().map_err(|e| {
-            crate::dve::Error::AVError(format!(
-                "Failed to flush profile file {}: {}",
-                cache_path, e
-            ))
-        })?;
-        Ok(meta)
-    }
-
     pub fn profile(
         source_name: &str,
         vid_path: &str,
