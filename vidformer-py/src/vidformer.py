@@ -156,7 +156,7 @@ class Spec:
         assert encoder is None or type(encoder) == str
         assert encoder_opts is None or type(encoder_opts) == dict
         if encoder_opts is not None:
-            for k, v in encoder_opts:
+            for k, v in encoder_opts.items():
                 assert type(k) == str and type(v) == str
 
         spec, sources, filters = self._to_json_spec()

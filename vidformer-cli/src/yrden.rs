@@ -385,7 +385,21 @@ async fn yrden_http_req(
             for (name, filter) in request.filters {
                 if let std::collections::btree_map::Entry::Vacant(e) = filters.entry(name) {
                     assert!(filter.filter == "IPC");
-                    let filter = crate::filter::builtin::IPC::via_map(&filter.args).unwrap();
+                    let filter = crate::filter::builtin::IPC::via_map(&filter.args);
+
+                    let filter = match filter {
+                        Ok(filter) => filter,
+                        Err(err) => {
+                            return Ok(hyper::Response::builder()
+                                .status(hyper::StatusCode::BAD_REQUEST)
+                                .header("Access-Control-Allow-Origin", "*")
+                                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                                    format!("Error establishing UDF: {}", err),
+                                )))
+                                .unwrap());
+                        }
+                    };
+
                     e.insert(Box::new(filter));
                 }
             }
@@ -649,7 +663,20 @@ async fn yrden_http_req(
 
             let namespace = {
                 let global: std::sync::MutexGuard<'_, YrdenGlobal> = global.lock().unwrap();
-                global.namespaces.get(namespace_id).unwrap().clone()
+                let namespace = global.namespaces.get(namespace_id);
+
+                match namespace {
+                    Some(namespace) => namespace.clone(),
+                    None => {
+                        return Ok(hyper::Response::builder()
+                            .status(hyper::StatusCode::NOT_FOUND)
+                            .header("Access-Control-Allow-Origin", "*")
+                            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                                "Namespace not found".to_string(),
+                            )))
+                            .unwrap());
+                    }
+                }
             };
 
             let response = match parts[2] {
@@ -682,8 +709,21 @@ async fn yrden_http_req(
                 .unwrap();
 
             let namespace = {
-                let g = global.lock().unwrap();
-                g.namespaces.get(namespace_id).unwrap().clone()
+                let global: std::sync::MutexGuard<'_, YrdenGlobal> = global.lock().unwrap();
+                let namespace = global.namespaces.get(namespace_id);
+
+                match namespace {
+                    Some(namespace) => namespace.clone(),
+                    None => {
+                        return Ok(hyper::Response::builder()
+                            .status(hyper::StatusCode::NOT_FOUND)
+                            .header("Access-Control-Allow-Origin", "*")
+                            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                                "Namespace not found".to_string(),
+                            )))
+                            .unwrap());
+                    }
+                }
             };
 
             let (start, end) = &namespace.ranges[segment_number as usize];
