@@ -21,6 +21,9 @@ vidformer is a highly modular suite of tools that work together:
   - **You should use if:** You want to create faster video results in your workflows or projects.
   - Note that yrden servers may be spun up transparently by client libraries, so you might use yrden without realizing it.
 
+- *igni*: A *planned* scale-out Video-on-Demand server
+  - Will allow for scalable and secure public-facing VOD endpoints
+
 **Client libraries in other languages:**
 Writing a vidformer client library for other languages is simple.
 It's a few hundred lines of code, and you just have to construct some JSON.

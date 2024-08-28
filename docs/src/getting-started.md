@@ -15,12 +15,16 @@ We distibute the locally-running version, yrden, through `vidformer-cli`.
 Currently, `vidformer-cli` only runs on Linux, so using the vidformer docker image is highly advised:
 
 ```bash
-docker run --rm -it -p 8000:8000 dominikwinecki/vidformer:0.2.0 yrden --print-url
+docker pull dominikwinecki/vidformer:latest
+docker run --rm -it -p 8000:8000 dominikwinecki/vidformer:latest yrden --print-url
 ```
+
+This launches a vidformer yrden server, which is our reference server implementation for local usage, on port 8000.
+If you want to read or save video files locally add `-v /my/local/dir:/data` and then reference them as `/data` in the code.
 
 ## Hello, world!
 
-> We assume this is in a Jupyter notebook. If not then `.play()` won't work and you have to use `.save()` instead.
+> We assume this is in a Jupyter notebook. If not then [`.play()`](https://ixlab.github.io/vidformer/vidformer-py/vidformer.html#Spec.play) won't work and you have to use [`.save()`](https://ixlab.github.io/vidformer/vidformer-py/vidformer.html#Spec.save) instead.
 
 We start by connecting to a server and registering a source:
 ```python
