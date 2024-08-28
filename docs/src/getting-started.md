@@ -162,7 +162,7 @@ This plays this result (video is just a sample clip):
 
 ## Viewing Telemetry (and User-Defined Filters)
 
-This [notebook](https://github.com/ixlab/vidformer/blob/74962a9a72a7f1809f743f47cb1aadd24ece20e9/vidformer-py/UDFs.ipynb) shows how to build custom filters to overlay data.
+This [notebook](https://github.com/ixlab/vidformer/blob/main/misc/UDFs-demo.ipynb) shows how to build custom filters to overlay data.
 
 This plays this result (video is just a sample clip):
 <video controls width="100%">
