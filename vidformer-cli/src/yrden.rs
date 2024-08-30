@@ -5,6 +5,7 @@ use base64::Engine;
 use log::*;
 use num::Rational64;
 use rayon::prelude::*;
+use rusqlite::{Connection, Result};
 use std::collections::BTreeMap;
 use tokio::io::AsyncReadExt;
 
@@ -15,6 +16,7 @@ pub(crate) fn cmd_yrden(opt: &YrdenCmd) {
         port: opt.port,
         print_url: opt.print_url,
         namespaces: BTreeMap::new(),
+        db_path: opt.db_path.clone(),
     };
 
     let rt = tokio::runtime::Runtime::new().unwrap();
@@ -26,6 +28,56 @@ struct YrdenGlobal {
     port: u16,
     print_url: bool,
     namespaces: BTreeMap<String, std::sync::Arc<YrdenNamespace>>,
+    db_path: String,
+}
+
+impl YrdenGlobal {
+    fn init_db(&self) {
+        let conn = Connection::open(&self.db_path).unwrap();
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS sources (
+                name TEXT PRIMARY KEY,
+                meta TEXT NOT NULL
+            )",
+            [],
+        )
+        .unwrap();
+    }
+}
+
+fn load_source_meta(
+    db_path: &str,
+    name: &str,
+    path: &str,
+    stream: usize,
+    service: Option<&vidformer::service::Service>,
+) -> Result<source::SourceVideoStreamMeta, vidformer::Error> {
+    let conn = Connection::open(db_path).unwrap();
+    let mut stmt = conn
+        .prepare("SELECT meta FROM sources WHERE name = ?")
+        .unwrap();
+
+    let mut rows = stmt.query([name]).unwrap();
+    if let Some(row) = rows.next().unwrap() {
+        let meta: String = row.get(0).unwrap();
+        let meta: source::SourceVideoStreamMeta = serde_json::from_str(&meta).unwrap();
+        return Ok(meta);
+    }
+    drop(rows);
+    drop(stmt);
+    drop(conn);
+
+    let new_source = crate::opendal_source(name, path, stream, service)?;
+
+    let conn: Connection = Connection::open(db_path).unwrap();
+    let meta = serde_json::to_string(&new_source).unwrap();
+    conn.execute(
+        "INSERT INTO sources (name, meta) VALUES (?, ?)",
+        [name, &meta],
+    )
+    .unwrap();
+
+    Ok(new_source)
 }
 
 struct YrdenNamespace {
@@ -45,6 +97,8 @@ async fn yrden_main(global: YrdenGlobal) {
 
     let addr: SocketAddr = format!("[::]:{}", global.port).parse().unwrap();
     let listener = TcpListener::bind(addr).await.unwrap();
+
+    global.init_db();
 
     if global.print_url {
         // VSCode looks for urls in the output to forward ports.
@@ -163,14 +217,20 @@ async fn yrden_http_req(
                 }
             };
 
-            let service = request.service.unwrap_or_default();
+            let service = request.service;
+
+            let db_path = {
+                let global: std::sync::MutexGuard<'_, YrdenGlobal> = global.lock().unwrap();
+                global.db_path.clone()
+            };
 
             let source = tokio::task::spawn_blocking(move || {
-                source::SourceVideoStreamMeta::load_meta(
+                load_source_meta(
+                    &db_path,
                     &request.name,
-                    request.stream,
-                    &service,
                     &request.path,
+                    request.stream,
+                    service.as_ref(),
                 )
             })
             .await
@@ -252,19 +312,30 @@ async fn yrden_http_req(
             let end_time = std::time::Instant::now();
             debug!("Parsed request in {:?}", end_time - start_time);
 
+            let db_path = {
+                let global: std::sync::MutexGuard<'_, YrdenGlobal> = global.lock().unwrap();
+                global.db_path.clone()
+            };
+
             let start_time = std::time::Instant::now();
-            let sources: Vec<Result<source::SourceVideoStreamMeta, vidformer::Error>> = request
-                .sources
-                .par_iter()
-                .map(|source| {
-                    crate::opendal_source(
-                        &source.name,
-                        &source.path,
-                        source.stream,
-                        source.service.as_ref(),
-                    )
+            let sources: Vec<Result<source::SourceVideoStreamMeta, vidformer::Error>> =
+                tokio::task::spawn_blocking(move || {
+                    request
+                        .sources
+                        .par_iter()
+                        .map(|source| {
+                            load_source_meta(
+                                &db_path,
+                                &source.name,
+                                &source.path,
+                                source.stream,
+                                source.service.as_ref(),
+                            )
+                        })
+                        .collect()
                 })
-                .collect();
+                .await
+                .unwrap();
 
             if sources.iter().any(|s| s.is_err()) {
                 return Ok(hyper::Response::builder()
@@ -314,7 +385,21 @@ async fn yrden_http_req(
             for (name, filter) in request.filters {
                 if let std::collections::btree_map::Entry::Vacant(e) = filters.entry(name) {
                     assert!(filter.filter == "IPC");
-                    let filter = crate::filter::builtin::IPC::via_map(&filter.args).unwrap();
+                    let filter = crate::filter::builtin::IPC::via_map(&filter.args);
+
+                    let filter = match filter {
+                        Ok(filter) => filter,
+                        Err(err) => {
+                            return Ok(hyper::Response::builder()
+                                .status(hyper::StatusCode::BAD_REQUEST)
+                                .header("Access-Control-Allow-Origin", "*")
+                                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                                    format!("Error establishing UDF: {}", err),
+                                )))
+                                .unwrap());
+                        }
+                    };
+
                     e.insert(Box::new(filter));
                 }
             }
@@ -405,19 +490,30 @@ async fn yrden_http_req(
             let end_time = std::time::Instant::now();
             debug!("Parsed request in {:?}", end_time - start_time);
 
+            let db_path = {
+                let global: std::sync::MutexGuard<'_, YrdenGlobal> = global.lock().unwrap();
+                global.db_path.clone()
+            };
+
             let start_time = std::time::Instant::now();
-            let sources: Vec<Result<source::SourceVideoStreamMeta, vidformer::Error>> = request
-                .sources
-                .par_iter()
-                .map(|source| {
-                    crate::opendal_source(
-                        &source.name,
-                        &source.path,
-                        source.stream,
-                        source.service.as_ref(),
-                    )
+            let sources: Vec<Result<source::SourceVideoStreamMeta, vidformer::Error>> =
+                tokio::task::spawn_blocking(move || {
+                    request
+                        .sources
+                        .par_iter()
+                        .map(|source| {
+                            load_source_meta(
+                                &db_path,
+                                &source.name,
+                                &source.path,
+                                source.stream,
+                                source.service.as_ref(),
+                            )
+                        })
+                        .collect()
                 })
-                .collect();
+                .await
+                .unwrap();
 
             if sources.iter().any(|s| s.is_err()) {
                 return Ok(hyper::Response::builder()
@@ -567,7 +663,20 @@ async fn yrden_http_req(
 
             let namespace = {
                 let global: std::sync::MutexGuard<'_, YrdenGlobal> = global.lock().unwrap();
-                global.namespaces.get(namespace_id).unwrap().clone()
+                let namespace = global.namespaces.get(namespace_id);
+
+                match namespace {
+                    Some(namespace) => namespace.clone(),
+                    None => {
+                        return Ok(hyper::Response::builder()
+                            .status(hyper::StatusCode::NOT_FOUND)
+                            .header("Access-Control-Allow-Origin", "*")
+                            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                                "Namespace not found".to_string(),
+                            )))
+                            .unwrap());
+                    }
+                }
             };
 
             let response = match parts[2] {
@@ -600,8 +709,21 @@ async fn yrden_http_req(
                 .unwrap();
 
             let namespace = {
-                let g = global.lock().unwrap();
-                g.namespaces.get(namespace_id).unwrap().clone()
+                let global: std::sync::MutexGuard<'_, YrdenGlobal> = global.lock().unwrap();
+                let namespace = global.namespaces.get(namespace_id);
+
+                match namespace {
+                    Some(namespace) => namespace.clone(),
+                    None => {
+                        return Ok(hyper::Response::builder()
+                            .status(hyper::StatusCode::NOT_FOUND)
+                            .header("Access-Control-Allow-Origin", "*")
+                            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                                "Namespace not found".to_string(),
+                            )))
+                            .unwrap());
+                    }
+                }
             };
 
             let (start, end) = &namespace.ranges[segment_number as usize];

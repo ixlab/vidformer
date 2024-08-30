@@ -46,14 +46,14 @@ def test_output_codec_default():
 
 
 @pytest.mark.parametrize(
-    "codec,encoder,pix_fmt,container",
+    "codec,encoder,pix_fmt,container,opts",
     [
-        ("h264", "libx264", "yuv420p", "mp4"),
-        ("ffv1", "ffv1", "yuv420p", "mov"),
-        ("prores", "prores", "yuv422p10le", "mov"),
+        ("h264", "libx264", "yuv420p", "mp4", {"preset": "ultrafast", "crf": "18"}),
+        ("ffv1", "ffv1", "yuv420p", "mov", {}),
+        ("prores", "prores", "yuv422p10le", "mov", {}),
     ],
 )
-def test_output_codec(codec, encoder, pix_fmt, container):
+def test_output_codec(codec, encoder, pix_fmt, container, opts):
     server = vf.YrdenServer(bin="../target/release/vidformer-cli")
     tos = vf.Source(server, "tos_720p", "tos_720p.mp4", 0)
 
@@ -70,7 +70,7 @@ def test_output_codec(codec, encoder, pix_fmt, container):
     spec = vf.Spec(domain, render, fmt)
 
     pth = "enc." + container
-    spec.save(server, pth, encoder=encoder)
+    spec.save(server, pth, encoder=encoder, encoder_opts=opts)
     assert get_codec(pth) == codec
 
     os.remove(pth)

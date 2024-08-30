@@ -15,12 +15,16 @@ We distibute the locally-running version, yrden, through `vidformer-cli`.
 Currently, `vidformer-cli` only runs on Linux, so using the vidformer docker image is highly advised:
 
 ```bash
-docker run --rm -it -p 8000:8000 dominikwinecki/vidformer:0.2.0 yrden --print-url
+docker pull dominikwinecki/vidformer:latest
+docker run --rm -it -p 8000:8000 dominikwinecki/vidformer:latest yrden --print-url
 ```
+
+This launches a vidformer yrden server, which is our reference server implementation for local usage, on port 8000.
+If you want to read or save video files locally add `-v /my/local/dir:/data` and then reference them as `/data` in the code.
 
 ## Hello, world!
 
-> We assume this is in a Jupyter notebook. If not then `.play()` won't work and you have to use `.save()` instead.
+> We assume this is in a Jupyter notebook. If not then [`.play()`](https://ixlab.github.io/vidformer/vidformer-py/vidformer.html#Spec.play) won't work and you have to use [`.save()`](https://ixlab.github.io/vidformer/vidformer-py/vidformer.html#Spec.save) instead.
 
 We start by connecting to a server and registering a source:
 ```python
@@ -78,6 +82,8 @@ This plays this result:
 <video controls width="100%">
   <source src="https://f.dominik.win/data/dve2/quickstart-hello-world.mp4" type="video/mp4" />
 </video>
+
+> Some Jupyter environments are weird (i.e., VS Code), so  `.play()` might not work. Using `.play(..., method="iframe")` may help.
 
 It's worth noting that we are playing frames in order here and outputing video at the same framerate we recieved, but that doesn't need to be the case.
 Here are some things other things you can now try:
@@ -160,7 +166,7 @@ This plays this result (video is just a sample clip):
 
 ## Viewing Telemetry (and User-Defined Filters)
 
-This [notebook](https://github.com/ixlab/vidformer/blob/74962a9a72a7f1809f743f47cb1aadd24ece20e9/vidformer-py/UDFs.ipynb) shows how to build custom filters to overlay data.
+This [notebook](https://github.com/ixlab/vidformer/blob/main/misc/UDFs-demo.ipynb) shows how to build custom filters to overlay data.
 
 This plays this result (video is just a sample clip):
 <video controls width="100%">

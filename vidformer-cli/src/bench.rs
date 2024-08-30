@@ -35,11 +35,11 @@ impl DveBench {
             .sources
             .into_iter()
             .map(|(name, path, stream)| {
-                source::SourceVideoStreamMeta::load_meta(
+                source::SourceVideoStreamMeta::profile(
                     &name,
+                    &path,
                     stream,
                     &vidformer::service::Service::default(),
-                    &path,
                 )
                 .unwrap()
             })
