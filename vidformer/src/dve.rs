@@ -232,12 +232,11 @@ pub(crate) fn run_decoder(
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         unsafe {
             debug!(
-                "DECODE - Frame (type={}, size={} bytes, pts={} key_frame={}, dts={})",
+                "DECODE - Frame (type={}, size={} bytes, pts={} key_frame={})",
                 char::from(ffi::av_get_picture_type_char((*framesource.frame).pict_type) as u8),
                 (*framesource.frame).pkt_size,
                 (*framesource.frame).pts,
                 (*framesource.frame).key_frame,
-                (*framesource.frame).coded_picture_number
             );
         }
         let frame_t =
