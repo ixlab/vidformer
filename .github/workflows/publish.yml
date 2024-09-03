@@ -35,18 +35,16 @@ jobs:
 
   publish-crate:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 30
 
     steps:
     - uses: actions/checkout@v2
     - name: Deps
       run: bash ./scripts/deps.sh
-    - name: Build Debug
-      run: cargo build
-    - name: Build Release
-      run: cargo build --release
+    - name: Check Build
+      run: cargo check
     - name: Publish
-      run: cargo publish --dry-run -p vidformer --token ${{ secrets.CARGO_API_TOKEN }}
+      run: cargo publish -p vidformer --token ${{ secrets.CRATES_IO_API_TOKEN }}
 
   publish-docker:
     runs-on: ubuntu-latest
