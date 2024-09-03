@@ -33,6 +33,21 @@ jobs:
         FLIT_USERNAME: __token__
         FLIT_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
 
+  publish-crate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Deps
+      run: bash ./scripts/deps.sh
+    - name: Build Debug
+      run: cargo build
+    - name: Build Release
+      run: cargo build --release
+    - name: Publish
+      run: cargo publish --dry-run -p vidformer --token ${{ secrets.CARGO_API_TOKEN }}
+
   publish-docker:
     runs-on: ubuntu-latest
     timeout-minutes: 30

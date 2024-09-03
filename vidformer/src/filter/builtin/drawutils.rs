@@ -1,3 +1,8 @@
+/// This module reimplements the drawutils.c file from FFmpeg.
+/// We need to reimplement this file because it is not exposed in the FFmpeg Rust bindings.
+///
+/// The goal is to allow `ffi::` to be replaced with `drawutils::` and maintain API compatibility.
+/// The implementation is based on the original C code from FFmpeg and bindgen and cleaned up with manual/ChatGPT updates.
 use rusty_ffmpeg::ffi;
 
 const MAX_PLANES: usize = 4;
