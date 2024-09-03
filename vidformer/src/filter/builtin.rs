@@ -10,6 +10,7 @@ use std::collections::BTreeMap;
 use std::ffi::CString;
 use std::ptr;
 
+mod drawutils;
 mod ipc;
 pub use ipc::IPC;
 
@@ -745,19 +746,21 @@ impl super::Filter for Pad {
             }
         }
 
-        let draw_context: *mut ffi::FFDrawContext = unsafe {
-            ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawContext>()) as *mut ffi::FFDrawContext
+        let draw_context: *mut drawutils::FFDrawContext = unsafe {
+            ffi::av_calloc(1, std::mem::size_of::<drawutils::FFDrawContext>())
+                as *mut drawutils::FFDrawContext
         };
         if draw_context.is_null() {
             panic!("ERROR could not allocate draw context");
         }
-        let ret = unsafe { ffi::ff_draw_init(draw_context, input_frame.format, 0) };
+        let ret = unsafe { drawutils::ff_draw_init(draw_context, input_frame.format, 0) };
         if ret < 0 {
             panic!("ERROR could not initialize draw context");
         }
 
-        let color: *mut ffi::FFDrawColor = unsafe {
-            ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawColor>()) as *mut ffi::FFDrawColor
+        let color: *mut drawutils::FFDrawColor = unsafe {
+            ffi::av_calloc(1, std::mem::size_of::<drawutils::FFDrawColor>())
+                as *mut drawutils::FFDrawColor
         };
         if color.is_null() {
             panic!("ERROR could not allocate color");
@@ -790,7 +793,7 @@ impl super::Filter for Pad {
             }
         }
 
-        unsafe { ffi::ff_draw_color(draw_context, color, color_rgba.as_ptr()) };
+        unsafe { drawutils::ff_draw_color(draw_context, color, color_rgba.as_ptr()) };
 
         let in_w = input_frame.width as i64;
         let in_h = input_frame.height as i64;
@@ -798,7 +801,7 @@ impl super::Filter for Pad {
         // top bar
         if y != 0 {
             unsafe {
-                ffi::ff_fill_rectangle(
+                drawutils::ff_fill_rectangle(
                     draw_context,
                     color,
                     &mut (*f).data as *mut *mut u8,
@@ -814,7 +817,7 @@ impl super::Filter for Pad {
         // bottom bar
         if height > y + in_h {
             unsafe {
-                ffi::ff_fill_rectangle(
+                drawutils::ff_fill_rectangle(
                     draw_context,
                     color,
                     &mut (*f).data as *mut *mut u8,
@@ -830,7 +833,7 @@ impl super::Filter for Pad {
         // left border
         if x != 0 {
             unsafe {
-                ffi::ff_fill_rectangle(
+                drawutils::ff_fill_rectangle(
                     draw_context,
                     color,
                     &mut (*f).data as *mut *mut u8,
@@ -845,7 +848,7 @@ impl super::Filter for Pad {
 
         // copy input frame
         unsafe {
-            ffi::ff_copy_rectangle2(
+            drawutils::ff_copy_rectangle2(
                 draw_context,
                 &mut (*f).data as *mut *mut u8,
                 &mut (*f).linesize as *mut i32,
@@ -863,7 +866,7 @@ impl super::Filter for Pad {
         // right border
         if width > x + in_w {
             unsafe {
-                ffi::ff_fill_rectangle(
+                drawutils::ff_fill_rectangle(
                     draw_context,
                     color,
                     &mut (*f).data as *mut *mut u8,
@@ -998,30 +1001,31 @@ impl super::Filter for HStack {
                 panic!("ERROR could not allocate frame data");
             }
 
-            let draw: *mut ffi::FFDrawContext =
-                ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawContext>())
-                    as *mut ffi::FFDrawContext;
+            let draw: *mut drawutils::FFDrawContext =
+                ffi::av_calloc(1, std::mem::size_of::<drawutils::FFDrawContext>())
+                    as *mut drawutils::FFDrawContext;
 
             if draw.is_null() {
                 panic!("ERROR could not allocate draw context");
             }
 
-            let ret = ffi::ff_draw_init(draw, format, 0);
+            let ret = drawutils::ff_draw_init(draw, format, 0);
             if ret < 0 {
                 panic!("ERROR could not initialize draw context");
             }
 
             let color_rgba = [0u8, 0u8, 0u8, 255u8];
-            let color: *mut ffi::FFDrawColor =
-                ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawColor>()) as *mut ffi::FFDrawColor;
+            let color: *mut drawutils::FFDrawColor =
+                ffi::av_calloc(1, std::mem::size_of::<drawutils::FFDrawColor>())
+                    as *mut drawutils::FFDrawColor;
             if color.is_null() {
                 panic!("ERROR could not allocate color");
             }
 
-            ffi::ff_draw_color(draw, color, color_rgba.as_ptr());
+            drawutils::ff_draw_color(draw, color, color_rgba.as_ptr());
 
             // fill with black
-            ffi::ff_fill_rectangle(
+            drawutils::ff_fill_rectangle(
                 draw,
                 color,
                 &mut (*f).data as *mut *mut u8,
@@ -1095,21 +1099,21 @@ impl super::Filter for HStack {
             // Try to keep the image vertically centered
             let dst_y = (height - new_height) / 2;
 
-            let draw: *mut ffi::FFDrawContext = unsafe {
-                ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawContext>())
-                    as *mut ffi::FFDrawContext
+            let draw: *mut drawutils::FFDrawContext = unsafe {
+                ffi::av_calloc(1, std::mem::size_of::<drawutils::FFDrawContext>())
+                    as *mut drawutils::FFDrawContext
             };
             if draw.is_null() {
                 panic!("ERROR could not allocate draw context");
             }
-            let ret = unsafe { ffi::ff_draw_init(draw, format, 0) };
+            let ret = unsafe { drawutils::ff_draw_init(draw, format, 0) };
             if ret < 0 {
                 panic!("ERROR could not initialize draw context");
             }
 
             // use ff_copy_rectangle2 to copy temp_frame to f
             unsafe {
-                ffi::ff_copy_rectangle2(
+                drawutils::ff_copy_rectangle2(
                     draw,
                     &mut (*f).data as *mut *mut u8,
                     &mut (*f).linesize as *mut i32,
@@ -1226,30 +1230,31 @@ impl super::Filter for VStack {
                 panic!("ERROR could not allocate frame data");
             }
 
-            let draw: *mut ffi::FFDrawContext =
-                ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawContext>())
-                    as *mut ffi::FFDrawContext;
+            let draw: *mut drawutils::FFDrawContext =
+                ffi::av_calloc(1, std::mem::size_of::<drawutils::FFDrawContext>())
+                    as *mut drawutils::FFDrawContext;
 
             if draw.is_null() {
                 panic!("ERROR could not allocate draw context");
             }
 
-            let ret = ffi::ff_draw_init(draw, format, 0);
+            let ret = drawutils::ff_draw_init(draw, format, 0);
             if ret < 0 {
                 panic!("ERROR could not initialize draw context");
             }
 
             let color_rgba = [0u8, 0u8, 0u8, 255u8];
-            let color: *mut ffi::FFDrawColor =
-                ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawColor>()) as *mut ffi::FFDrawColor;
+            let color: *mut drawutils::FFDrawColor =
+                ffi::av_calloc(1, std::mem::size_of::<drawutils::FFDrawColor>())
+                    as *mut drawutils::FFDrawColor;
             if color.is_null() {
                 panic!("ERROR could not allocate color");
             }
 
-            ffi::ff_draw_color(draw, color, color_rgba.as_ptr());
+            drawutils::ff_draw_color(draw, color, color_rgba.as_ptr());
 
             // fill with black
-            ffi::ff_fill_rectangle(
+            drawutils::ff_fill_rectangle(
                 draw,
                 color,
                 &mut (*f).data as *mut *mut u8,
@@ -1323,21 +1328,21 @@ impl super::Filter for VStack {
             // Try to keep the image horizontally centered
             let dst_x = (width - new_width) / 2;
 
-            let draw: *mut ffi::FFDrawContext = unsafe {
-                ffi::av_calloc(1, std::mem::size_of::<ffi::FFDrawContext>())
-                    as *mut ffi::FFDrawContext
+            let draw: *mut drawutils::FFDrawContext = unsafe {
+                ffi::av_calloc(1, std::mem::size_of::<drawutils::FFDrawContext>())
+                    as *mut drawutils::FFDrawContext
             };
             if draw.is_null() {
                 panic!("ERROR could not allocate draw context");
             }
-            let ret = unsafe { ffi::ff_draw_init(draw, format, 0) };
+            let ret = unsafe { drawutils::ff_draw_init(draw, format, 0) };
             if ret < 0 {
                 panic!("ERROR could not initialize draw context");
             }
 
             // use ff_copy_rectangle2 to copy temp_frame to f
             unsafe {
-                ffi::ff_copy_rectangle2(
+                drawutils::ff_copy_rectangle2(
                     draw,
                     &mut (*f).data as *mut *mut u8,
                     &mut (*f).linesize as *mut i32,

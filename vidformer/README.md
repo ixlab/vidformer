@@ -5,4 +5,4 @@
 ## Building
 
 This crate requires linking with FFmpeg, as detailed in the `rusty_ffmpeg` crate.
-We currently target FFmpeg 6.1.1.
+We currently target FFmpeg 7.0.
