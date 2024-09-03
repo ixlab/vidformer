@@ -9,10 +9,8 @@ RUN sed -i -e's/ main/ main contrib non-free/g' /etc/apt/sources.list.d/debian.s
 WORKDIR /src
 
 # Build ffmpeg
-COPY ./scripts/ff_patch.patch ./
 RUN curl https://ffmpeg.org/releases/ffmpeg-7.0.tar.xz | tar xJ && \
-    mv ffmpeg-7.0 ffmpeg && \
-    patch -p0 < ff_patch.patch
+    mv ffmpeg-7.0 ffmpeg
 RUN cd ffmpeg && mkdir build && ./configure --prefix=/src/ffmpeg/build --pkg-config-flags="--static" --enable-nonfree --enable-gpl --enable-libx264 --enable-libvpx --enable-libfdk-aac --disable-stripping --disable-decoder=exr,phm && make -j$(nproc) && make install
 
 # Install rust toolchain
