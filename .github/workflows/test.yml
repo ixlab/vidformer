@@ -36,3 +36,125 @@ jobs:
     - name: Valgrind Tests
       run: bash ./scripts/valgrind_test.sh
       timeout-minutes: 10
+
+  system_ffmpeg_build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install packages
+      run: |
+        sudo apt update && sudo apt upgrade -y && sudo apt install -y \
+        autoconf \
+        automake \
+        build-essential \
+        cmake \
+        git-core \
+        libass-dev \
+        libfreetype6-dev \
+        libgnutls28-dev \
+        libsdl2-dev \
+        libtool \
+        libva-dev \
+        libvdpau-dev \
+        libvorbis-dev \
+        libxcb1-dev \
+        libxcb-shm0-dev \
+        libxcb-xfixes0-dev \
+        pkg-config \
+        texinfo \
+        wget \
+        yasm \
+        zlib1g-dev \
+        nasm \
+        libx264-dev \
+        libx265-dev \
+        libnuma-dev \
+        libvpx-dev \
+        libfdk-aac-dev \
+        libmp3lame-dev \
+        libopus-dev \
+        libraw1394-dev \
+        libdc1394-dev \
+        libavc1394-dev \
+        libiec61883-dev \
+        libjack-dev \
+        libfaad-dev \
+        libgsm1-dev \
+        libzmq3-dev \
+        libssh-dev \
+        libbluray-dev \
+        libopenmpt-dev \
+        ocl-icd-opencl-dev \
+        libogg-dev \
+        libspeex-dev \
+        libtheora-dev \
+        flite1-dev \
+        libchromaprint-dev \
+        libopenal-dev \
+        libcdio-dev \
+        libcaca-dev \
+        libpocketsphinx-dev \
+        libsphinxbase-dev \
+        libbs2b-dev \
+        liblilv-dev \
+        libsratom-dev \
+        libsord-dev \
+        libserd-dev \
+        librubberband-dev \
+        libsamplerate0-dev \
+        libmysofa-dev \
+        libvidstab-dev \
+        libzimg-dev \
+        libgme-dev \
+        librabbitmq-dev \
+        libdav1d-dev \
+        libzvbi-dev \
+        libsnappy-dev \
+        libaom-dev \
+        libcodec2-dev \
+        libshine-dev \
+        libtwolame-dev \
+        libwebp-dev \
+        libxvidcore-dev \
+        libsoxr-dev \
+        libcdio-paranoia-dev \
+        libcdio-cdda-dev \
+        libsrt-gnutls-dev \
+        libmfx-dev \
+        libvorbis-dev \
+        libavcodec-dev \
+        libavdevice-dev \
+        libavfilter-dev \
+        libavformat-dev \
+        libavutil-dev \
+        libpostproc-dev \
+        libswresample-dev \
+        libswscale-dev \
+        libopencv-dev \
+        libclang-dev \
+        clang \
+        glslang-dev \
+        libplacebo-dev \
+        spirv-tools \
+        libdvdnav-dev \
+        libdvdread-dev \
+        librist-dev \
+        librsvg2-dev \
+        libgdk-pixbuf2.0-dev \
+        libcairo2-dev \
+        libjxl-dev \
+        libopenjp2-7-dev \
+        librav1e-dev \
+        libsvtav1-dev \
+        libsvtav1enc-dev \
+        libvpl-dev \
+        curl \
+        git
+    - name: Install rust
+      run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    - name: Delete .cargo/config.toml
+      run: rm -f .cargo/config.toml
+    - name: Build
+      run: cargo build
