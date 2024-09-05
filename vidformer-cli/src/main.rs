@@ -165,6 +165,7 @@ fn cmd_x() {
         output_pix_fmt: "yuv420p".to_string(),
 
         encoder: None,
+        format: None,
     };
 
     let spec: Box<dyn spec::Spec> = Box::new(MySpec {});

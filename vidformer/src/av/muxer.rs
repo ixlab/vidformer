@@ -16,15 +16,23 @@ impl Muxer {
         output_path: &str,
         codecpar: *mut ffi::AVCodecParameters,
         time_base: &Rational64,
+        format_name: Option<&str>,
     ) -> Result<Self, crate::Error> {
         let output_path = CString::new(output_path).unwrap();
         let mut ofmt_ctx: *mut ffi::AVFormatContext = ptr::null_mut();
+
+        let format_name_cstr: Option<CString> = match format_name {
+            Some(name) => Some(CString::new(name).unwrap()),
+            None => None,
+        };
 
         if unsafe {
             ffi::avformat_alloc_output_context2(
                 &mut ofmt_ctx,
                 ptr::null_mut(),
-                ptr::null_mut(),
+                format_name_cstr
+                    .as_ref()
+                    .map_or(ptr::null(), |s| s.as_ptr()),
                 output_path.as_ptr(),
             )
         } < 0

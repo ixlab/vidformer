@@ -45,6 +45,24 @@ def test_output_codec_default():
     assert get_codec("enc.mp4") == "h264"
 
 
+def test_output_raw():
+    server = vf.YrdenServer(bin="../target/release/vidformer-cli")
+    tos = vf.Source(server, "tos_720p", "tos_720p.mp4", 0)
+
+    domain = tos.ts()[:50]
+
+    def render(t, i):
+        return tos.iloc[300 + i]
+
+    fmt = tos.fmt()
+
+    spec = vf.Spec(domain, render, fmt)
+
+    spec.save(server, "enc.raw", encoder="rawvideo", format="rawvideo")
+    assert os.path.exists("enc.raw")
+    os.remove("enc.raw")
+
+
 @pytest.mark.parametrize(
     "codec,encoder,pix_fmt,container,opts",
     [

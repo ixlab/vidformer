@@ -161,6 +161,7 @@ async fn yrden_http_req(
         output_path: Option<String>,
         encoder: Option<String>,
         encoder_opts: Option<BTreeMap<String, String>>,
+        format: Option<String>,
     }
 
     #[derive(Debug, serde::Serialize)]
@@ -417,6 +418,7 @@ async fn yrden_http_req(
                 output_pix_fmt: request.pix_fmt,
 
                 encoder: None,
+                format: None,
             };
             let dve_config = std::sync::Arc::new(dve_config);
 
@@ -585,6 +587,7 @@ async fn yrden_http_req(
                 }
                 None => None,
             };
+            let format: Option<String> = request.format;
 
             let context: vidformer::Context = vidformer::Context::new(sources, arrays, filters);
             let context = std::sync::Arc::new(context);
@@ -599,6 +602,7 @@ async fn yrden_http_req(
                 output_pix_fmt: request.pix_fmt,
 
                 encoder: enc_config,
+                format,
             };
             let dve_config = std::sync::Arc::new(dve_config);
 

@@ -150,7 +150,7 @@ class Spec:
         else:
             return hls_player_url
 
-    def save(self, server, pth, encoder=None, encoder_opts=None):
+    def save(self, server, pth, encoder=None, encoder_opts=None, format=None):
         """Save the video to a file."""
 
         assert encoder is None or type(encoder) == str
@@ -191,6 +191,7 @@ class Spec:
             self._fmt,
             encoder,
             encoder_opts,
+            format,
         )
 
         return resp
@@ -340,7 +341,9 @@ class YrdenServer:
 
         return r.json()
 
-    def _export(self, pth, spec, sources, filters, arrays, fmt, encoder, encoder_opts):
+    def _export(
+        self, pth, spec, sources, filters, arrays, fmt, encoder, encoder_opts, format
+    ):
         req = {
             "spec": spec,
             "sources": sources,
@@ -352,6 +355,7 @@ class YrdenServer:
             "output_path": pth,
             "encoder": encoder,
             "encoder_opts": encoder_opts,
+            "format": format,
         }
 
         r = requests.post(f"http://{self._domain}:{self._port}/export", json=req)

@@ -73,7 +73,8 @@ impl Encoder {
             )));
         }
 
-        {
+        // If supported pix_fmts are known make sure the output pix_fmt is supported
+        if !codec.pix_fmts.is_null() {
             let mut found = false;
             for i in 0.. {
                 let pix_fmt = unsafe { *codec.pix_fmts.add(i) };

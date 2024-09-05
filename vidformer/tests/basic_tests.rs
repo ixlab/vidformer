@@ -105,6 +105,7 @@ fn test_placeholder() {
         output_pix_fmt: "yuv420p".to_string(),
 
         encoder: None,
+        format: None,
     };
 
     let spec: Box<dyn spec::Spec> = Box::new(MySpec {});
@@ -159,6 +160,7 @@ fn test_bad_resolution() {
         output_pix_fmt: "yuv420p".to_string(),
 
         encoder: None,
+        format: None,
     };
 
     let spec: Box<dyn spec::Spec> = Box::new(MySpec {});
@@ -216,6 +218,7 @@ fn test_non_existant_source() {
         output_pix_fmt: "yuv420p".to_string(),
 
         encoder: None,
+        format: None,
     };
 
     let spec: Box<dyn spec::Spec> = Box::new(MySpec {});
@@ -287,6 +290,7 @@ fn test_no_source_file() {
         output_pix_fmt: "yuv420p".to_string(),
 
         encoder: None,
+        format: None,
     };
 
     let spec: Box<dyn spec::Spec> = Box::new(MySpec {});
@@ -361,6 +365,7 @@ fn test_tos_transcode_1dec() {
         output_pix_fmt: "yuv420p".to_string(),
 
         encoder: None,
+        format: None,
     });
     let spec: std::sync::Arc<Box<dyn spec::Spec>> = std::sync::Arc::new(Box::new(ClipSpec {
         num_frames: NUM_FRAMES,
@@ -389,6 +394,7 @@ fn test_tos_transcode_2dec() {
         output_pix_fmt: "yuv420p".to_string(),
 
         encoder: None,
+        format: None,
     });
     let spec: std::sync::Arc<Box<dyn spec::Spec>> = std::sync::Arc::new(Box::new(ClipSpec {
         num_frames: NUM_FRAMES,
@@ -417,6 +423,7 @@ fn test_tos_transcode_4dec() {
         output_pix_fmt: "yuv420p".to_string(),
 
         encoder: None,
+        format: None,
     });
     let spec: std::sync::Arc<Box<dyn spec::Spec>> = std::sync::Arc::new(Box::new(ClipSpec {
         num_frames: NUM_FRAMES,
@@ -445,6 +452,7 @@ fn test_tos_transcode_manydec() {
         output_pix_fmt: "yuv420p".to_string(),
 
         encoder: None,
+        format: None,
     });
     let spec: std::sync::Arc<Box<dyn spec::Spec>> = std::sync::Arc::new(Box::new(ClipSpec {
         num_frames: NUM_FRAMES,
@@ -473,6 +481,7 @@ fn test_tos_transcode_1dec_1pool() {
         output_pix_fmt: "yuv420p".to_string(),
 
         encoder: None,
+        format: None,
     });
     let spec: std::sync::Arc<Box<dyn spec::Spec>> =
         std::sync::Arc::new(Box::new(ClipSpec { num_frames: 2 * 24 })); // make sure we only need one source GOP

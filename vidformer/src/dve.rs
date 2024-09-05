@@ -386,6 +386,10 @@ pub struct Config {
 
     /// Configuration to use for output encoder
     pub encoder: Option<EncoderConfig>,
+
+    /// The name of the format to use for output.
+    /// If None, the format will be inferred from the output path.
+    pub format: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -1132,7 +1136,12 @@ fn encoder_thread(
         ));
     }
 
-    let mut muxer = av::muxer::Muxer::new(&output_path, encoder_codec_params, &output_time_base)?;
+    let mut muxer = av::muxer::Muxer::new(
+        &output_path,
+        encoder_codec_params,
+        &output_time_base,
+        config.format.as_ref().map(|x| x.as_str()),
+    )?;
     let muxer_time_base = crate::util::avrat_to_rat(&muxer.out_time_base);
     let encoder_to_muxer_ts_multiplier: num_rational::Ratio<i64> =
         encoder.time_base / muxer_time_base;
