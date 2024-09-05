@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use num_rational::Rational64;
 use std::{collections::BTreeMap, fs::File, io::Write};
 
-use vidformer::{filter, run_spec, sir, source, spec};
+use vidformer::{filter, run, sir, source, spec};
 
 mod bench;
 mod yrden;
@@ -177,7 +177,7 @@ fn cmd_x() {
     let dve_config = std::sync::Arc::new(dve_config);
 
     println!("Running spec...");
-    let stats = run_spec(&spec, output_path, &context, &dve_config, &None).unwrap();
+    let stats = run(&spec, output_path, &context, &dve_config, &None).unwrap();
 
     dbg!(&stats);
 

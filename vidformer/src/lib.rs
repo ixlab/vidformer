@@ -11,6 +11,7 @@ mod pool;
 mod util;
 
 pub use dve::{
-    create_spec_hls, run_spec, Config, Context, EncoderConfig, Error, Range, RangeTsFormat, Stats,
+    create_spec_hls, run, validate, Config, Context, EncoderConfig, Error, Range, RangeTsFormat,
+    Stats,
 };
 pub use util::{codecs, init, CodecDescriptor};

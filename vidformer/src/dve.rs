@@ -1040,8 +1040,8 @@ impl ExecContext {
     }
 }
 
-/// Execute a vidformer spec
-pub fn run_spec(
+/// Execute a spec, or a range of a spec.
+pub fn run(
     spec: &Arc<Box<dyn Spec>>,
     output_path: &str,
     context: &Arc<Context>,
@@ -1115,6 +1115,31 @@ pub fn run_spec(
     };
 
     exec_contex.run()
+}
+
+/// Validate that a spec can be run.
+pub fn validate(
+    spec: &Arc<Box<dyn Spec>>,
+    context: &Arc<Context>,
+    config: &Arc<Config>,
+) -> Result<(), Error> {
+    let expected_output_type = config.expected_output_type();
+
+    let process_span = Arc::new(crate::sir::ProcessSpan::create(
+        spec.as_ref().as_ref(),
+        context,
+        &None,
+    ));
+
+    // Type check frames
+    for oframe in &process_span.frames {
+        let frame_type = type_frame(context, config, oframe)?;
+        if frame_type != expected_output_type {
+            return Err(Error::InvalidOutputFrameType);
+        }
+    }
+
+    Ok(())
 }
 
 fn encoder_thread(

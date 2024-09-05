@@ -3,7 +3,7 @@ use glob::glob;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use vidformer::run_spec;
+use vidformer::run;
 
 #[derive(Deserialize)]
 struct DveBench {
@@ -69,11 +69,11 @@ pub(crate) fn cmd_benchmark(opt: &BenchmarkCmd) {
 
         println!("Running spec {} benches", entry.display());
         for _i in 0..opt.warmup_runs {
-            run_spec(&spec, "/tmp/output.mp4", &context, &config, &None).unwrap();
+            run(&spec, "/tmp/output.mp4", &context, &config, &None).unwrap();
         }
 
         for i in 0..opt.runs {
-            let stat = run_spec(&spec, "/tmp/output.mp4", &context, &config, &None).unwrap();
+            let stat = run(&spec, "/tmp/output.mp4", &context, &config, &None).unwrap();
 
             let benchmark_stat = BenchmarkStat {
                 bench: entry.display().to_string(),
