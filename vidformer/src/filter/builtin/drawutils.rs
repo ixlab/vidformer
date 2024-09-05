@@ -319,8 +319,8 @@ pub(crate) unsafe fn ff_copy_rectangle2(
         let src_linesize = std::slice::from_raw_parts_mut(src_linesize, draw.nb_planes as usize);
 
         for plane in 0..draw.nb_planes as usize {
-            let mut p = pointer_at(draw, &src, src_linesize, plane, src_x, src_y);
-            let mut q = pointer_at(draw, &dst, dst_linesize, plane, dst_x, dst_y);
+            let mut p = pointer_at(draw, src, src_linesize, plane, src_x, src_y);
+            let mut q = pointer_at(draw, dst, dst_linesize, plane, dst_x, dst_y);
             let wp =
                 ((w + (1 << draw.hsub[plane]) - 1) >> draw.hsub[plane]) * draw.pixelstep[plane];
             let hp = (h + (1 << draw.vsub[plane]) - 1) >> draw.vsub[plane];
@@ -351,7 +351,7 @@ pub(crate) unsafe fn ff_fill_rectangle(
         let dst_linesize = std::slice::from_raw_parts_mut(dst_linesize, draw.nb_planes as usize);
 
         for plane in 0..draw.nb_planes as usize {
-            let p0 = pointer_at(draw, &dst, dst_linesize, plane, dst_x, dst_y);
+            let p0 = pointer_at(draw, dst, dst_linesize, plane, dst_x, dst_y);
             let wp = ((w + (1 << draw.hsub[plane]) - 1) >> draw.hsub[plane]) as usize;
             let hp = ((h + (1 << draw.vsub[plane]) - 1) >> draw.vsub[plane]) as usize;
             if hp == 0 {

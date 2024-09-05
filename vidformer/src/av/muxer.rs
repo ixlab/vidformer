@@ -21,10 +21,7 @@ impl Muxer {
         let output_path = CString::new(output_path).unwrap();
         let mut ofmt_ctx: *mut ffi::AVFormatContext = ptr::null_mut();
 
-        let format_name_cstr: Option<CString> = match format_name {
-            Some(name) => Some(CString::new(name).unwrap()),
-            None => None,
-        };
+        let format_name_cstr: Option<CString> = format_name.map(|name| CString::new(name).unwrap());
 
         if unsafe {
             ffi::avformat_alloc_output_context2(

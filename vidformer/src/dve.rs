@@ -1140,7 +1140,7 @@ fn encoder_thread(
         &output_path,
         encoder_codec_params,
         &output_time_base,
-        config.format.as_ref().map(|x| x.as_str()),
+        config.format.as_deref(),
     )?;
     let muxer_time_base = crate::util::avrat_to_rat(&muxer.out_time_base);
     let encoder_to_muxer_ts_multiplier: num_rational::Ratio<i64> =
