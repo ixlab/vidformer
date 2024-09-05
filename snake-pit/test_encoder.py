@@ -80,7 +80,7 @@ def test_output_codec(codec, encoder, pix_fmt, container, opts):
     domain = tos.ts()[:50]
 
     def render(t, i):
-        return scale(tos.iloc[300 + i], format=pix_fmt)
+        return scale(tos.iloc[300 + i], pix_fmt=pix_fmt)
 
     fmt = tos.fmt()
     fmt["pix_fmt"] = pix_fmt

@@ -551,8 +551,8 @@ impl super::Filter for Scale {
         };
 
         let format = {
-            if kwargs.contains_key("format") {
-                match kwargs.get("format").unwrap() {
+            if kwargs.contains_key("pix_fmt") {
+                match kwargs.get("pix_fmt").unwrap() {
                     Val::String(s) => {
                         let format_cstr = CString::new(s.as_str()).unwrap();
                         let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
@@ -655,8 +655,8 @@ impl super::Filter for Scale {
         };
 
         let format = {
-            if kwargs.contains_key("format") {
-                match kwargs.get("format").unwrap() {
+            if kwargs.contains_key("pix_fmt") {
+                match kwargs.get("pix_fmt").unwrap() {
                     ValType::String(s) => {
                         let format_cstr = CString::new(s.as_str()).unwrap();
                         let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };

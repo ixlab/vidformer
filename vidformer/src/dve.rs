@@ -119,7 +119,7 @@ impl Context {
         }
     }
 
-    pub(crate) fn spec_ctx(&self) -> impl crate::spec::SpecContext {
+    pub fn spec_ctx(&self) -> impl crate::spec::SpecContext {
         EmptySpecCtx
     }
 
@@ -1300,7 +1300,7 @@ pub fn create_spec_hls(
     context: &Context,
     _config: &Config,
 ) -> (String, String, String, Vec<(Rational64, Rational64)>) {
-    let namespace = format!("vod-{}", crate::util::rand_uuid());
+    let namespace = format!("{}", crate::util::rand_uuid());
 
     let _playlist_path = format!("{namespace}/playlist.m3u8");
     let playlist_text = format!(

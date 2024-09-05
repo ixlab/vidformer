@@ -49,8 +49,8 @@ So invoking `my_filter` will need to convert around this:
 scale = vf.Filter('Scale')
 
 def render(t, i):
-    f = scale(tos[t], format="rgb24", width=1280, height=720)
+    f = scale(tos[t], pix_fmt="rgb24", width=1280, height=720)
     f = my_filter(f, "world")
-    f = scale(f, format="yuv420p", width=1280, height=720)
+    f = scale(f, pix_fmt="yuv420p", width=1280, height=720)
     return f
 ```

@@ -77,7 +77,7 @@ class Spec:
             frames.append(frame)
         return {"frames": frames}, s, f
 
-    def play(self, server, method="html"):
+    def play(self, server, method="html", verbose=False):
         """Play the video live in the notebook."""
 
         spec, sources, filters = self._to_json_spec()
@@ -103,7 +103,9 @@ class Spec:
         }
         arrays = []
 
-        print(f"Sending to server. Spec is {len(spec_obj_json_gzip_b64)} bytes")
+        if verbose:
+            print(f"Sending to server. Spec is {len(spec_obj_json_gzip_b64)} bytes")
+
         resp = server._new(spec_obj_json_gzip_b64, sources, filters, arrays, self._fmt)
         hls_video_url = resp["stream_url"]
         hls_player_url = resp["player_url"]
@@ -149,6 +151,34 @@ class Spec:
             return HTML(data=html_code)
         else:
             return hls_player_url
+
+    def load(self, server):
+        spec, sources, filters = self._to_json_spec()
+        spec_json_bytes = json.dumps(spec).encode("utf-8")
+        spec_obj_json_gzip = gzip.compress(spec_json_bytes, compresslevel=1)
+        spec_obj_json_gzip_b64 = base64.b64encode(spec_obj_json_gzip).decode("utf-8")
+
+        sources = [
+            {
+                "name": s._name,
+                "path": s._path,
+                "stream": s._stream,
+                "service": s._service.as_json() if s._service is not None else None,
+            }
+            for s in sources
+        ]
+        filters = {
+            k: {
+                "filter": v._func,
+                "args": v._kwargs,
+            }
+            for k, v in filters.items()
+        }
+        arrays = []
+
+        resp = server._new(spec_obj_json_gzip_b64, sources, filters, arrays, self._fmt)
+        namespace = resp["namespace"]
+        return Loader(server, namespace, self._domain)
 
     def save(self, server, pth, encoder=None, encoder_opts=None, format=None):
         """Save the video to a file."""
@@ -274,6 +304,53 @@ class Spec:
         return out
 
 
+class Loader:
+    def __init__(self, server, namespace: str, domain):
+        self._server = server
+        self._namespace = namespace
+        self._domain = domain
+
+    def _chunk(self, start_i, end_i):
+        return self._server._raw(self._namespace, start_i, end_i)
+
+    def __len__(self):
+        return len(self._domain)
+
+    def _find_index_by_rational(self, value):
+        if value not in self._domain:
+            raise ValueError(f"Rational timestamp {value} is not in the domain")
+        return self._domain.index(value)
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            start = index.start if index.start is not None else 0
+            end = index.stop if index.stop is not None else len(self._domain)
+            assert start >= 0 and start < len(self._domain)
+            assert end >= 0 and end <= len(self._domain)
+            assert start <= end
+            num_frames = end - start
+            all_bytes = self._chunk(start, end - 1)
+            all_bytes_len = len(all_bytes)
+            assert all_bytes_len % num_frames == 0
+            return [
+                all_bytes[
+                    i
+                    * all_bytes_len
+                    // num_frames : (i + 1)
+                    * all_bytes_len
+                    // num_frames
+                ]
+                for i in range(num_frames)
+            ]
+        elif isinstance(index, int):
+            assert index >= 0 and index < len(self._domain)
+            return self._chunk(index, index)
+        else:
+            raise TypeError(
+                "Invalid argument type for iloc. Use a slice or an integer."
+            )
+
+
 class YrdenServer:
     """A connection to a Yrden server"""
 
@@ -363,6 +440,14 @@ class YrdenServer:
             raise Exception(r.text)
 
         return r.json()
+
+    def _raw(self, namespace, start_i, end_i):
+        r = requests.get(
+            f"http://{self._domain}:{self._port}/{namespace}/raw/{start_i}-{end_i}"
+        )
+        if not r.ok:
+            raise Exception(r.text)
+        return r.content
 
     def hls_js_url(self):
         """Return the link to the yrden-hosted hls.js file"""

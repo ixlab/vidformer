@@ -5,6 +5,7 @@ use base64::Engine;
 use log::*;
 use num::Rational64;
 use rayon::prelude::*;
+use regex::Regex;
 use rusqlite::{Connection, Result};
 use std::collections::BTreeMap;
 use tokio::io::AsyncReadExt;
@@ -743,6 +744,105 @@ async fn yrden_http_req(
             };
 
             let tmp_path = format!("/tmp/{}.ts", uuid::Uuid::new_v4());
+            let tmp_path_2 = tmp_path.clone(); // copy that gets sent to the thread
+
+            // todo, don't unwrap
+            let spec_result = tokio::task::spawn_blocking(move || {
+                vidformer::run_spec(
+                    &spec,
+                    &tmp_path_2,
+                    &context,
+                    &config,
+                    &Some(dve_range_config),
+                )
+            })
+            .await
+            .unwrap();
+
+            if let Err(err) = spec_result {
+                warn!("Error running spec: {}", err);
+                return Ok(hyper::Response::builder()
+                    .status(hyper::StatusCode::INTERNAL_SERVER_ERROR)
+                    .header("Access-Control-Allow-Origin", "*")
+                    .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                        format!("Error running spec: {}", err),
+                    )))
+                    .unwrap());
+            }
+
+            let mut file = tokio::fs::File::open(&tmp_path).await.unwrap();
+            let mut buf = Vec::new();
+            file.read_to_end(&mut buf).await.unwrap();
+            let response = hyper::Response::builder()
+                .header("Access-Control-Allow-Origin", "*")
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(buf)))
+                .unwrap();
+
+            // delete file
+            tokio::fs::remove_file(tmp_path).await.unwrap();
+
+            Ok(response)
+        }
+        (&hyper::Method::GET, _)
+            if {
+                Regex::new(r"^/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/raw/\d+-\d+$").unwrap().is_match(req.uri().path())
+            } =>
+        {
+            let re = Regex::new(r"^/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/raw/(\d+)-(\d+)$").unwrap();
+            let caps = re.captures(req.uri().path()).unwrap();
+            let namespace_id = caps.get(1).unwrap().as_str();
+            let start_frame_idx = caps.get(2).unwrap().as_str().parse::<usize>().unwrap();
+            let end_frame_idx = caps.get(3).unwrap().as_str().parse::<usize>().unwrap();
+
+            let namespace = {
+                let global: std::sync::MutexGuard<'_, YrdenGlobal> = global.lock().unwrap();
+                let namespace = global.namespaces.get(namespace_id);
+
+                match namespace {
+                    Some(namespace) => namespace.clone(),
+                    None => {
+                        return Ok(hyper::Response::builder()
+                            .status(hyper::StatusCode::NOT_FOUND)
+                            .header("Access-Control-Allow-Origin", "*")
+                            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                                "Namespace not found".to_string(),
+                            )))
+                            .unwrap());
+                    }
+                }
+            };
+
+            let context = namespace.context.clone();
+            let spec = namespace.spec.clone();
+            let config: vidformer::Config = vidformer::Config {
+                decode_pool_size: 50,
+                decoder_view: usize::MAX,
+                decoders: u16::MAX as usize,
+                filterers: 8,
+                output_width: namespace.dve_config.output_width,
+                output_height: namespace.dve_config.output_height,
+                output_pix_fmt: namespace.dve_config.output_pix_fmt.clone(),
+
+                encoder: Some(vidformer::EncoderConfig {
+                    codec_name: "rawvideo".to_string(),
+                    opts: vec![],
+                }),
+                format: Some("rawvideo".to_string()),
+            };
+            let config = std::sync::Arc::new(config);
+
+            let (start, end) = {
+                let domain = spec.domain(&context.spec_ctx());
+                (domain[start_frame_idx], domain[end_frame_idx])
+            };
+
+            let dve_range_config = vidformer::Range {
+                start: start,
+                end: end,
+                ts_format: vidformer::RangeTsFormat::StreamLocal,
+            };
+
+            let tmp_path = format!("/tmp/{}.raw", uuid::Uuid::new_v4());
             let tmp_path_2 = tmp_path.clone(); // copy that gets sent to the thread
 
             // todo, don't unwrap

@@ -55,16 +55,16 @@ Scale(
     frame: Frame,
     width: int = None,
     height: int = None,
-    format: str = None)
+    pix_fmt: str = None)
 ```
 
 By default missing `width`, `height` and `format` values are set to match `frame`.
-`format` must match ffmpeg's name for a pixel format.
+`pix_fmt` must match ffmpeg's name for a pixel format.
 
 For example:
 
 ```python
-frame = Scale(frame, width=1280, height=720, format="rgb24")
+frame = Scale(frame, width=1280, height=720, pix_fmt="rgb24")
 ```
 
 ## IPC

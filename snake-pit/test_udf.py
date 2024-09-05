@@ -41,9 +41,9 @@ def test_udf():
     domain = tos.ts()[:500]
 
     def render(t, i):
-        f = scale(tos[t + Fraction(5 * 60)], format="rgb24", width=1280, height=720)
+        f = scale(tos[t + Fraction(5 * 60)], pix_fmt="rgb24", width=1280, height=720)
         f = my_filter(f, "world")
-        f = scale(f, format="yuv420p", width=1280, height=720)
+        f = scale(f, pix_fmt="yuv420p", width=1280, height=720)
         return f
 
     spec = vf.Spec(domain, render, tos.fmt())
