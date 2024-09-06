@@ -529,6 +529,9 @@ class Source:
     def ts(self):
         return self._src["ts"]
 
+    def __len__(self):
+        return len(self._src["ts"])
+
     def __getitem__(self, idx):
         if type(idx) != Fraction:
             raise Exception("Source index must be a Fraction")

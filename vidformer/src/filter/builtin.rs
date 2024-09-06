@@ -516,6 +516,74 @@ impl super::Filter for BoundingBox {
     }
 }
 
+pub struct DrawBox {}
+
+impl super::Filter for DrawBox {
+    fn filter(
+        &self,
+        args: &[Val],
+        kwargs: &BTreeMap<String, Val>,
+    ) -> Result<Frame, crate::dve::Error> {
+        assert!(args.len() == 1);
+
+        let input_frame = match &args[0] {
+            Val::Frame(f) => f,
+            _ => panic!("Expected frame"),
+        };
+
+        let x1 = match kwargs.get("x1").unwrap() {
+            Val::Int(val) => *val as i32,
+            _ => panic!("Expected a int for x1"),
+        };
+
+        let y1 = match kwargs.get("y1").unwrap() {
+            Val::Int(val) => *val as i32,
+            _ => panic!("Expected a int for y1"),
+        };
+
+        let x2 = match kwargs.get("x2").unwrap() {
+            Val::Int(val) => *val as i32,
+            _ => panic!("Expected a int for x2"),
+        };
+
+        let y2 = match kwargs.get("y2").unwrap() {
+            Val::Int(val) => *val as i32,
+            _ => panic!("Expected a int for y2"),
+        };
+
+        let filter = |frame: &mut Mat| {
+            let color = Scalar::new(255.0, 0.0, 0.0, 0.0);
+            let thickness = 2;
+            let line_type = opencv::imgproc::LINE_8;
+            let shift = 0;
+
+            let pt1 = Point::new(x1, y1);
+            let pt2 = Point::new(x2, y2);
+
+            imgproc::rectangle(
+                frame,
+                opencv::core::Rect2i::from_points(pt1, pt2),
+                color,
+                thickness,
+                line_type,
+                shift,
+            )
+            .unwrap();
+        };
+
+        opencv_backed_uniframe(input_frame, filter)
+    }
+
+    fn filter_type(
+        &self,
+        args: &[ValType],
+        _kwargs: &BTreeMap<String, ValType>,
+    ) -> Result<FrameType, Error> {
+        let frame = get_kwarg_or_err!(args, 0, Frame);
+        Ok(frame.clone())
+    }
+}
+
 /// Scale & convert pixel format of a frame
 ///
 /// # Arguments

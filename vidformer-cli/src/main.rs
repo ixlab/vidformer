@@ -203,6 +203,10 @@ fn default_filters() -> BTreeMap<String, Box<dyn filter::Filter>> {
         Box::new(crate::filter::builtin::BoundingBox {}),
     );
     filters.insert(
+        "DrawBox".to_string(),
+        Box::new(crate::filter::builtin::DrawBox {}),
+    );
+    filters.insert(
         "Scale".to_string(),
         Box::new(crate::filter::builtin::Scale {}),
     );
