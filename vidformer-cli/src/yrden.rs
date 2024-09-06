@@ -382,6 +382,7 @@ async fn yrden_http_req(
                 serde_json::from_reader(spec_content).expect("Unable to parse JSON");
 
             let spec: Box<dyn spec::Spec> = Box::new(spec);
+            let spec = std::sync::Arc::new(spec);
             let mut filters = crate::default_filters();
 
             for (name, filter) in request.filters {
@@ -423,18 +424,34 @@ async fn yrden_http_req(
             };
             let dve_config = std::sync::Arc::new(dve_config);
 
+            // Validate the spec
+            let validation_status = vidformer::validate(&spec, &context, &dve_config);
+            if let Err(err) = validation_status {
+                return Ok(hyper::Response::builder()
+                    .status(hyper::StatusCode::BAD_REQUEST)
+                    .header("Access-Control-Allow-Origin", "*")
+                    .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                        format!("Error validating spec: {}", err),
+                    )))
+                    .unwrap());
+            }
+
             let host_prefix = {
                 let global: std::sync::MutexGuard<'_, YrdenGlobal> = global.lock().unwrap();
                 global.host_prefix.clone()
             };
 
-            let (namespace_id, playlist, stream, ranges) =
-                vidformer::create_spec_hls(spec.as_ref(), &host_prefix, &context, &dve_config);
+            let (namespace_id, playlist, stream, ranges) = vidformer::create_spec_hls(
+                spec.as_ref().as_ref(),
+                &host_prefix,
+                &context,
+                &dve_config,
+            );
 
             let namespace = YrdenNamespace {
                 context,
                 dve_config,
-                spec: std::sync::Arc::new(spec),
+                spec,
                 playlist,
                 stream,
                 ranges,
@@ -625,7 +642,7 @@ async fn yrden_http_req(
             let spec = std::sync::Arc::new(spec);
 
             let spec_result = tokio::task::spawn_blocking(move || {
-                vidformer::run_spec(&spec, &output_path2, &context, &dve_config, &None)
+                vidformer::run(&spec, &output_path2, &context, &dve_config, &None)
             })
             .await
             .unwrap();
@@ -748,7 +765,7 @@ async fn yrden_http_req(
 
             // todo, don't unwrap
             let spec_result = tokio::task::spawn_blocking(move || {
-                vidformer::run_spec(
+                vidformer::run(
                     &spec,
                     &tmp_path_2,
                     &context,
@@ -847,7 +864,7 @@ async fn yrden_http_req(
 
             // todo, don't unwrap
             let spec_result = tokio::task::spawn_blocking(move || {
-                vidformer::run_spec(
+                vidformer::run(
                     &spec,
                     &tmp_path_2,
                     &context,

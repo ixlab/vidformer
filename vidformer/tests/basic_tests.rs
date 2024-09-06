@@ -115,7 +115,7 @@ fn test_placeholder() {
     let spec = std::sync::Arc::new(spec);
     let context = std::sync::Arc::new(context);
     let dve_config = std::sync::Arc::new(dve_config);
-    let stats = run_spec(&spec, output_path, &context, &dve_config, &None).unwrap();
+    let stats = run(&spec, output_path, &context, &dve_config, &None).unwrap();
     assert_eq!(stats.max_decoder_count, 0);
     assert_eq!(stats.frames_written, 24 * 3);
 
@@ -169,7 +169,7 @@ fn test_bad_resolution() {
     let context = std::sync::Arc::new(context);
     let dve_config = std::sync::Arc::new(dve_config);
     assert!(matches!(
-        run_spec(
+        run(
             &spec,
             test_output_path!(test_bad_resolution),
             &context,
@@ -227,7 +227,7 @@ fn test_non_existant_source() {
     let context = std::sync::Arc::new(context);
     let dve_config = std::sync::Arc::new(dve_config);
 
-    let ret = run_spec(
+    let ret = run(
         &spec,
         test_output_path!(test_non_existant_source),
         &context,
@@ -299,7 +299,7 @@ fn test_no_source_file() {
     let context = std::sync::Arc::new(context);
     let dve_config = std::sync::Arc::new(dve_config);
 
-    let ret = run_spec(
+    let ret = run(
         &spec,
         test_output_path!(test_non_existant_source),
         &context,
@@ -371,7 +371,7 @@ fn test_tos_transcode_1dec() {
         num_frames: NUM_FRAMES,
     }));
     let output_path = test_output_path!(test_tos_transcode_1dec);
-    let stats = run_spec(&spec, output_path, &context, &dve_config, &None).unwrap();
+    let stats = run(&spec, output_path, &context, &dve_config, &None).unwrap();
 
     assert_eq!(stats.max_decoder_count, 1);
     assert_eq!(stats.frames_written, NUM_FRAMES as usize);
@@ -400,7 +400,7 @@ fn test_tos_transcode_2dec() {
         num_frames: NUM_FRAMES,
     }));
     let output_path = test_output_path!(test_tos_transcode_2dec);
-    let stats = run_spec(&spec, output_path, &context, &dve_config, &None).unwrap();
+    let stats = run(&spec, output_path, &context, &dve_config, &None).unwrap();
 
     assert!(stats.max_decoder_count >= 1 && stats.max_decoder_count <= 2);
     assert_eq!(stats.frames_written, NUM_FRAMES as usize);
@@ -429,7 +429,7 @@ fn test_tos_transcode_4dec() {
         num_frames: NUM_FRAMES,
     }));
     let output_path = test_output_path!(test_tos_transcode_4dec);
-    let stats = run_spec(&spec, output_path, &context, &dve_config, &None).unwrap();
+    let stats = run(&spec, output_path, &context, &dve_config, &None).unwrap();
 
     assert!(stats.max_decoder_count >= 1 && stats.max_decoder_count <= 4);
     assert_eq!(stats.frames_written, NUM_FRAMES as usize);
@@ -458,7 +458,7 @@ fn test_tos_transcode_manydec() {
         num_frames: NUM_FRAMES,
     }));
     let output_path = test_output_path!(test_tos_transcode_manydec);
-    let stats = run_spec(&spec, output_path, &context, &dve_config, &None).unwrap();
+    let stats = run(&spec, output_path, &context, &dve_config, &None).unwrap();
 
     assert!(stats.max_decoder_count >= 1 && stats.max_decoder_count <= 100);
     assert_eq!(stats.frames_written, NUM_FRAMES as usize);
@@ -486,7 +486,7 @@ fn test_tos_transcode_1dec_1pool() {
     let spec: std::sync::Arc<Box<dyn spec::Spec>> =
         std::sync::Arc::new(Box::new(ClipSpec { num_frames: 2 * 24 })); // make sure we only need one source GOP
     let output_path = test_output_path!(test_tos_transcode_1dec_1pool);
-    let stats = run_spec(&spec, output_path, &context, &dve_config, &None).unwrap();
+    let stats = run(&spec, output_path, &context, &dve_config, &None).unwrap();
 
     assert_eq!(stats.max_decoder_count, 1);
     assert_eq!(stats.decoders_created, 1); // this is just a basic streaming edit. if our algorithm works it should just decode the one needed GOP
