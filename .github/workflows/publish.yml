@@ -72,19 +72,17 @@ jobs:
         tags: dominikwinecki/vidformer:latest,dominikwinecki/vidformer:${{ github.event.release.tag_name }}
 
   publish-binary:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 30
 
     steps:
     - uses: actions/checkout@v2
     - name: Deps
       run: bash ./scripts/deps.sh
-    - name: Check Build
-      run: cargo check
     - name: Build release
-      run: cargo build --release && cp ./target/release/vidformer-cli ./vidformer-cli-linux-amd64
+      run: cargo build --release && cp ./target/release/vidformer-cli ./vidformer-cli-ubuntu22.04-amd64
     - name: Upload release
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          vidformer-cli-linux-amd64
+          vidformer-cli-ubuntu22.04-amd64
