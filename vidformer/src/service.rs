@@ -44,7 +44,7 @@ impl Service {
                 }
             };
             let map = self.config.clone();
-            match opendal::Operator::via_map(scheme, map) {
+            match opendal::Operator::via_iter(scheme, map) {
                 Ok(op) => op,
                 Err(_) => {
                     return Err(crate::Error::AVError(format!(

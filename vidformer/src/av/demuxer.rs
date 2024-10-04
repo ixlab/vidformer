@@ -100,7 +100,16 @@ impl Demuxer {
             }
         })?;
 
-        let reader: opendal::StdReader = reader.into_std_read(0..file_size);
+        let reader: opendal::StdReader = match reader.into_std_read(0..file_size) {
+            Ok(reader) => reader,
+            Err(err) => {
+                return Err(crate::Error::IOError(format!(
+                    "OpenDAL failed to convert BlockingReader to StdReader: {}",
+                    err
+                )));
+            }
+        };
+
         let buffered_reader = std::io::BufReader::new(reader);
 
         let io_ctx = IoCtx {
