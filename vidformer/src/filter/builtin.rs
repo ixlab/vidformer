@@ -124,7 +124,7 @@ fn avfilter_backed_uniframe(
     unsafe {
         (*f).width = (*frame.inner).width;
         (*f).height = (*frame.inner).height;
-        (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_YUV420P;
+        (*f).format = ffi::AV_PIX_FMT_YUV420P;
 
         if ffi::av_frame_get_buffer(f, 0) < 0 {
             panic!(
@@ -221,7 +221,7 @@ where
     unsafe {
         (*f).width = width;
         (*f).height = height;
-        (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_YUV420P;
+        (*f).format = ffi::AV_PIX_FMT_YUV420P;
 
         if ffi::av_frame_get_buffer(f, 0) < 0 {
             panic!("ERROR could not allocate frame data");
@@ -295,7 +295,7 @@ impl super::Filter for PlaceholderFrame {
         unsafe {
             (*f).width = width as i32;
             (*f).height = height as i32;
-            (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_YUV420P;
+            (*f).format = ffi::AV_PIX_FMT_YUV420P;
 
             if ffi::av_frame_get_buffer(f, 0) < 0 {
                 panic!("ERROR could not allocate frame data");
@@ -333,7 +333,7 @@ impl super::Filter for PlaceholderFrame {
         Ok(FrameType::new(
             width as usize,
             height as usize,
-            ffi::AVPixelFormat_AV_PIX_FMT_YUV420P,
+            ffi::AV_PIX_FMT_YUV420P,
         ))
     }
 }
@@ -353,13 +353,13 @@ impl super::Filter for Annotate {
             _ => panic!("Expected frame"),
         };
 
-        assert_eq!(input_frame.format, ffi::AVPixelFormat_AV_PIX_FMT_YUV420P);
+        assert_eq!(input_frame.format, ffi::AV_PIX_FMT_YUV420P);
 
         let f = unsafe { ffi::av_frame_alloc() };
         unsafe {
             (*f).width = input_frame.width;
             (*f).height = input_frame.height;
-            (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_YUV420P;
+            (*f).format = ffi::AV_PIX_FMT_YUV420P;
 
             if ffi::av_frame_get_buffer(f, 0) < 0 {
                 panic!("ERROR could not allocate frame data");
@@ -624,7 +624,7 @@ impl super::Filter for Scale {
                     Val::String(s) => {
                         let format_cstr = CString::new(s.as_str()).unwrap();
                         let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
-                        if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
+                        if format == ffi::AV_PIX_FMT_NONE {
                             return Err(Error::InvalidFilterArgValue(
                                 s.clone(),
                                 "Invalid pixel format".to_string(),
@@ -728,7 +728,7 @@ impl super::Filter for Scale {
                     ValType::String(s) => {
                         let format_cstr = CString::new(s.as_str()).unwrap();
                         let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
-                        if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
+                        if format == ffi::AV_PIX_FMT_NONE {
                             return Err(Error::InvalidFilterArgValue(
                                 s.clone(),
                                 "Invalid pixel format".to_string(),
@@ -807,7 +807,7 @@ impl super::Filter for Pad {
         unsafe {
             (*f).width = width as i32;
             (*f).height = height as i32;
-            (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_YUV420P;
+            (*f).format = ffi::AV_PIX_FMT_YUV420P;
 
             if ffi::av_frame_get_buffer(f, 0) < 0 {
                 panic!("ERROR could not allocate frame data");
@@ -1043,7 +1043,7 @@ impl super::Filter for HStack {
             Val::String(s) => {
                 let format_cstr = CString::new(s.as_str()).unwrap();
                 let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
-                if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
+                if format == ffi::AV_PIX_FMT_NONE {
                     return Err(Error::InvalidFilterArgValue(
                         s.clone(),
                         "Invalid pixel format".to_string(),
@@ -1225,7 +1225,7 @@ impl super::Filter for HStack {
             ValType::String(s) => {
                 let format_cstr = CString::new(s.as_str()).unwrap();
                 let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
-                if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
+                if format == ffi::AV_PIX_FMT_NONE {
                     return Err(Error::InvalidFilterArgValue(
                         s.clone(),
                         "Invalid pixel format".to_string(),
@@ -1272,7 +1272,7 @@ impl super::Filter for VStack {
             Val::String(s) => {
                 let format_cstr = CString::new(s.as_str()).unwrap();
                 let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
-                if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
+                if format == ffi::AV_PIX_FMT_NONE {
                     return Err(Error::InvalidFilterArgValue(
                         s.clone(),
                         "Invalid pixel format".to_string(),
@@ -1454,7 +1454,7 @@ impl super::Filter for VStack {
             ValType::String(s) => {
                 let format_cstr = CString::new(s.as_str()).unwrap();
                 let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
-                if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
+                if format == ffi::AV_PIX_FMT_NONE {
                     return Err(Error::InvalidFilterArgValue(
                         s.clone(),
                         "Invalid pixel format".to_string(),

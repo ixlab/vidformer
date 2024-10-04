@@ -121,7 +121,7 @@ impl<'de> Deserialize<'de> for Frame {
                 let fmt_cstr = std::ffi::CString::new(format_str).unwrap();
 
                 let format = unsafe { ffi::av_get_pix_fmt(fmt_cstr.as_ptr()) };
-                if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
+                if format == ffi::AV_PIX_FMT_NONE {
                     return Err(serde::de::Error::custom(format!(
                         "Invalid pixel format {:?}",
                         format_str

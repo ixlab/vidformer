@@ -11,7 +11,7 @@ repository = "https://github.com/ixlab/vidformer"
 categories = ["multimedia", "multimedia::video"]
 
 [dependencies]
-rusty_ffmpeg = {version = "0.13.3", features = ["link_system_ffmpeg"]}
+rusty_ffmpeg = {version = "0.16.1", features = ["link_system_ffmpeg"]}
 log = "0.4.20"
 "num-traits" = "0.2"
 "num-rational" = { version = "0.4", features=["serde"] }

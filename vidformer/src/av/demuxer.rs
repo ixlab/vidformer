@@ -176,7 +176,7 @@ impl Demuxer {
             .enumerate()
         {
             if i != stream_idx {
-                stream.discard = ffi::AVDiscard_AVDISCARD_ALL;
+                stream.discard = ffi::AVDISCARD_ALL;
                 continue;
             }
 
@@ -185,7 +185,7 @@ impl Demuxer {
                 unsafe { ffi::avcodec_find_decoder(local_codec_params.codec_id).as_ref() }
                     .expect("ERROR unsupported codec!");
 
-            if local_codec_params.codec_type == ffi::AVMediaType_AVMEDIA_TYPE_VIDEO {
+            if local_codec_params.codec_type == ffi::AVMEDIA_TYPE_VIDEO {
                 if video_stream_index.is_none() {
                     video_stream_index = Some(i);
                     codec_ptr = local_codec;
