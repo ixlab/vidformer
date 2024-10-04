@@ -45,7 +45,7 @@ pub fn codecs() -> Vec<CodecDescriptor> {
             !codec.is_null()
         } {
             let codec = &*codec;
-            if codec.type_ != ffi::AVMEDIA_TYPE_VIDEO {
+            if codec.type_ != ffi::AVMediaType_AVMEDIA_TYPE_VIDEO {
                 continue;
             }
 
@@ -91,7 +91,7 @@ pub(crate) fn fmt_av_codec(format: &ffi::AVCodec) -> String {
 pub(crate) fn pixel_fmt_str_to_av_pix_fmt(s: &str) -> Result<ffi::AVPixelFormat, String> {
     let s = CString::new(s).unwrap();
     let fmt = unsafe { ffi::av_get_pix_fmt(s.as_ptr()) };
-    if fmt == ffi::AV_PIX_FMT_NONE {
+    if fmt == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
         Err(format!("Invalid pixel format: {}", s.to_str().unwrap()))
     } else {
         Ok(fmt)

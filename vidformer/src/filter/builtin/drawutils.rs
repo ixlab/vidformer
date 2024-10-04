@@ -46,8 +46,8 @@ pub(crate) unsafe fn ff_draw_init(
     ff_draw_init2(
         draw,
         format,
-        ffi::AVCOL_SPC_UNSPECIFIED,
-        ffi::AVCOL_RANGE_UNSPECIFIED,
+        ffi::AVColorSpace_AVCOL_SPC_UNSPECIFIED,
+        ffi::AVColorRange_AVCOL_RANGE_UNSPECIFIED,
         flags,
     )
 }
@@ -76,11 +76,11 @@ pub(crate) unsafe fn ff_draw_init2(
         }
 
         let mut csp = csp;
-        if csp == ffi::AVCOL_SPC_UNSPECIFIED {
+        if csp == ffi::AVColorSpace_AVCOL_SPC_UNSPECIFIED {
             csp = if (*desc).flags & ffi::AV_PIX_FMT_FLAG_RGB as u64 != 0 {
-                ffi::AVCOL_SPC_RGB
+                ffi::AVColorSpace_AVCOL_SPC_RGB
             } else {
-                ffi::AVCOL_SPC_SMPTE170M
+                ffi::AVColorSpace_AVCOL_SPC_SMPTE170M
             };
         }
 
@@ -94,19 +94,21 @@ pub(crate) unsafe fn ff_draw_init2(
         }
 
         let mut range = range;
-        if range == ffi::AVCOL_RANGE_UNSPECIFIED {
+        if range == ffi::AVColorRange_AVCOL_RANGE_UNSPECIFIED {
             range = match format {
-                ffi::AV_PIX_FMT_YUVJ420P
-                | ffi::AV_PIX_FMT_YUVJ422P
-                | ffi::AV_PIX_FMT_YUVJ444P
-                | ffi::AV_PIX_FMT_YUVJ411P
-                | ffi::AV_PIX_FMT_YUVJ440P
-                | _ if csp == ffi::AVCOL_SPC_RGB => ffi::AVCOL_RANGE_JPEG,
-                _ => ffi::AVCOL_RANGE_MPEG,
+                ffi::AVPixelFormat_AV_PIX_FMT_YUVJ420P
+                | ffi::AVPixelFormat_AV_PIX_FMT_YUVJ422P
+                | ffi::AVPixelFormat_AV_PIX_FMT_YUVJ444P
+                | ffi::AVPixelFormat_AV_PIX_FMT_YUVJ411P
+                | ffi::AVPixelFormat_AV_PIX_FMT_YUVJ440P
+                | _ if csp == ffi::AVColorSpace_AVCOL_SPC_RGB => ffi::AVColorRange_AVCOL_RANGE_JPEG,
+                _ => ffi::AVColorRange_AVCOL_RANGE_MPEG,
             };
         }
 
-        if range != ffi::AVCOL_RANGE_JPEG && range != ffi::AVCOL_RANGE_MPEG {
+        if range != ffi::AVColorRange_AVCOL_RANGE_JPEG
+            && range != ffi::AVColorRange_AVCOL_RANGE_MPEG
+        {
             return ffi::AVERROR(ffi::EINVAL);
         }
 
@@ -244,7 +246,7 @@ pub(crate) unsafe fn ff_draw_color(
         // Adjust YUV values according to the color range
         for i in 0..3 {
             let chroma = (desc.flags & ffi::AV_PIX_FMT_FLAG_RGB as u64 == 0) && i > 0;
-            if draw.range == ffi::AVCOL_RANGE_MPEG {
+            if draw.range == ffi::AVColorRange_AVCOL_RANGE_MPEG {
                 yuvad[i] *= if chroma { 224.0 / 255.0 } else { 219.0 / 255.0 };
                 yuvad[i] += if chroma { 128.0 / 255.0 } else { 16.0 / 255.0 };
             } else if chroma {

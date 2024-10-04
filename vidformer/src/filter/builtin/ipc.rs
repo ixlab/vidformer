@@ -142,7 +142,7 @@ impl crate::filter::Filter for IPC {
     ) -> Result<FrameType, Error> {
         for (i, arg) in args.iter().enumerate() {
             if let ValType::Frame(ft) = arg {
-                if ft.format != ffi::AV_PIX_FMT_RGB24 {
+                if ft.format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
                     return Err(Error::FilterInternalError(format!(
                         "Unsupported pixel format {} in argument {}",
                         crate::util::pixel_fmt_str(ft.format),
@@ -154,7 +154,7 @@ impl crate::filter::Filter for IPC {
 
         for (key, val) in kwargs.iter() {
             if let ValType::Frame(ft) = val {
-                if ft.format != ffi::AV_PIX_FMT_RGB24 {
+                if ft.format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
                     return Err(Error::FilterInternalError(format!(
                         "Unsupported pixel format {:?} in keyword argument {}",
                         crate::util::pixel_fmt_str(ft.format),

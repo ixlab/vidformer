@@ -20,7 +20,7 @@ impl Encoder {
         let codec = match &config.encoder {
             Some(enc_cfg) => enc_cfg.avcodec()?,
             None => {
-                let codec = unsafe { ffi::avcodec_find_encoder(ffi::AV_CODEC_ID_H264) };
+                let codec = unsafe { ffi::avcodec_find_encoder(ffi::AVCodecID_AV_CODEC_ID_H264) };
                 match unsafe { codec.as_ref() } {
                     Some(codec) => codec,
                     None => panic!("Failed to find default h264 encoder"),
@@ -66,7 +66,7 @@ impl Encoder {
 
         let pix_fmt_name = CString::new(config.output_pix_fmt.clone()).unwrap();
         let output_pix_fmt = unsafe { ffi::av_get_pix_fmt(pix_fmt_name.as_ptr()) };
-        if output_pix_fmt == ffi::AV_PIX_FMT_NONE {
+        if output_pix_fmt == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
             return Err(crate::Error::ConfigError(format!(
                 "Failed to find output pix fmt `{}`",
                 config.output_pix_fmt
@@ -133,7 +133,7 @@ impl Encoder {
         unsafe {
             // It's none of our business what the input frame type is
             // Also, we don't want the encoder to complain if something looks weird
-            (*frame.inner).pict_type = ffi::AV_PICTURE_TYPE_NONE;
+            (*frame.inner).pict_type = ffi::AVPictureType_AV_PICTURE_TYPE_NONE;
         }
 
         let time_scaled = pts / self.time_base;
