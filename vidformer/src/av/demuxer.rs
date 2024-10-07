@@ -10,6 +10,7 @@ struct IoCtx {
     canary: u64, // We're doing some unsafe opaque pointer passing, so let's add a canary to make sure we didn't mess up. Valid value is 0xdeadbeef
     size: u64,
     buf_reader: std::io::BufReader<opendal::StdReader>,
+    err: Option<std::io::Error>,
 }
 
 unsafe extern "C" fn vidformer_avio_read_packet(
@@ -26,6 +27,9 @@ unsafe extern "C" fn vidformer_avio_read_packet(
         Ok(read) => read as i32,
         Err(e) => {
             error!("Error reading packet: {}", e);
+            if io_ctx.err.is_none() {
+                io_ctx.err = Some(e);
+            }
             ffi::AVERROR_EXTERNAL
         }
     }
@@ -56,6 +60,9 @@ unsafe extern "C" fn vidformer_avio_seek(
         Ok(seeked) => seeked as i64,
         Err(e) => {
             error!("Error seeking: {}", e);
+            if io_ctx.err.is_none() {
+                io_ctx.err = Some(e);
+            }
             ffi::AVERROR_EXTERNAL as i64
         }
     }
@@ -92,6 +99,31 @@ impl Demuxer {
 
         let op = service.blocking_operator(io_runtime_handle)?;
 
+        // // Validate file works before passing to libav
+        // match op.stat(file_path) {
+        //     Ok(stats) => {
+        //         if !stats.is_file() {
+        //             return Err(crate::Error::IOError(format!("`{}` is not a file", file_path)));
+        //         }
+        //         if stats.content_length() != file_size {
+        //             return Err(crate::Error::IOError(format!(
+        //                 "File `{}` has changed size since last read",
+        //                 file_path
+        //             )));
+        //         }
+        //     }
+        //     Err(e) => {
+        //         match e.kind() {
+        //             opendal::ErrorKind::NotFound => {
+        //                 return Err(crate::Error::IOError(format!("File `{}` not found", file_path)))
+        //             }
+        //             _ => {
+        //                 return Err(crate::Error::IOError(format!("OpenDAL error: {}", e)))
+        //             }
+        //         }
+        //     }
+        // }
+
         let reader: opendal::BlockingReader = op.reader(file_path).map_err(|e| {
             if e.kind() == opendal::ErrorKind::NotFound {
                 crate::Error::IOError(format!("File `{}` not found", file_path))
@@ -109,13 +141,13 @@ impl Demuxer {
                 )));
             }
         };
-
         let buffered_reader = std::io::BufReader::new(reader);
 
         let io_ctx = IoCtx {
             canary: 0xdeadbeef,
             size: file_size,
             buf_reader: buffered_reader,
+            err: None,
         };
         let io_ctx = Box::pin(io_ctx);
         let io_ctx_ptr =
@@ -147,18 +179,32 @@ impl Demuxer {
             (*format_context).pb = avio_context;
         }
 
-        if unsafe {
+        let ret = unsafe {
             ffi::avformat_open_input(
                 &mut format_context,
                 ptr::null_mut(),
                 ptr::null_mut(),
                 ptr::null_mut(),
             )
-        } != 0
-        {
-            return Err(crate::Error::AVError(
-                "failed to open media format".to_string(),
-            ));
+        };
+        if ret != 0 {
+            if ret == ffi::AVERROR_EXTERNAL {
+                let err = io_ctx.err.as_ref().unwrap();
+                if err.kind() == std::io::ErrorKind::NotFound {
+                    return Err(crate::Error::IOError(format!(
+                        "File `{}` not found",
+                        file_path
+                    )));
+                } else {
+                    return Err(crate::Error::IOError(format!("OpenDAL error: {}", err)));
+                }
+            }
+
+            let err_str = crate::util::libav_error_str(ret);
+            return Err(crate::Error::AVError(format!(
+                "failed to open media format: {}",
+                err_str
+            )));
         }
 
         // TODO: This may decode a few frames, which could be slow. Maybe don't do that when actually running a spec?

@@ -104,3 +104,11 @@ pub(crate) fn pixel_fmt_str(n: i32) -> &'static str {
         CStr::from_ptr(fmt).to_str().unwrap()
     }
 }
+
+pub(crate) fn libav_error_str(err: i32) -> String {
+    let mut buf = [0u8; 1024];
+    unsafe {
+        ffi::av_strerror(err, buf.as_mut_ptr() as *mut i8, buf.len());
+    }
+    String::from_utf8_lossy(&buf).to_string()
+}
