@@ -15,6 +15,7 @@ import uuid
 import threading
 import gzip
 import base64
+import re
 
 import requests
 import msgpack
@@ -507,6 +508,21 @@ class Source:
     def __init__(
         self, server: YrdenServer, name: str, path: str, stream: int, service=None
     ):
+        if service is None:
+            # check if path is a http URL and, if so, automatically set the service
+            # for example, the following code should work with just vf.Source(server, "tos_720p", "https://f.dominik.win/data/dve2/tos_720p.mp4")
+            # this creates a storage service with endpoint "https://f.dominik.win/" and path "data/dve2/tos_720p.mp4"
+            # don't use the root parameter in this case
+
+            match = re.match(r"(http|https)://([^/]+)(.*)", path)
+            if match is not None:
+                endpoint = f"{match.group(1)}://{match.group(2)}"
+                path = match.group(3)
+                # remove leading slash
+                if path.startswith("/"):
+                    path = path[1:]
+                service = StorageService("http", endpoint=endpoint)
+
         self._server = server
         self._name = name
         self._path = path

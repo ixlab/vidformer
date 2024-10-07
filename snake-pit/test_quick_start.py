@@ -53,16 +53,8 @@ def test_hello_world():
     from fractions import Fraction
 
     server = vf.YrdenServer(bin="../target/release/vidformer-cli")
-    example_vids = vf.StorageService(
-        "http", endpoint="https://f.dominik.win", root="/data/dve2/"
-    )
-
     tos = vidformer.Source(
-        server,
-        "tos_720p",  # name (for pretty printing)
-        "tos_720p.mp4",  # path
-        stream=0,  # index of the video stream we want to use
-        service=example_vids,
+        server, "tos_720p", "https://f.dominik.win/data/dve2/tos_720p.mp4", 0
     )
 
     tos.ts()
