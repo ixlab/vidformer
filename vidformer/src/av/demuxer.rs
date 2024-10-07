@@ -99,31 +99,6 @@ impl Demuxer {
 
         let op = service.blocking_operator(io_runtime_handle)?;
 
-        // // Validate file works before passing to libav
-        // match op.stat(file_path) {
-        //     Ok(stats) => {
-        //         if !stats.is_file() {
-        //             return Err(crate::Error::IOError(format!("`{}` is not a file", file_path)));
-        //         }
-        //         if stats.content_length() != file_size {
-        //             return Err(crate::Error::IOError(format!(
-        //                 "File `{}` has changed size since last read",
-        //                 file_path
-        //             )));
-        //         }
-        //     }
-        //     Err(e) => {
-        //         match e.kind() {
-        //             opendal::ErrorKind::NotFound => {
-        //                 return Err(crate::Error::IOError(format!("File `{}` not found", file_path)))
-        //             }
-        //             _ => {
-        //                 return Err(crate::Error::IOError(format!("OpenDAL error: {}", e)))
-        //             }
-        //         }
-        //     }
-        // }
-
         let reader: opendal::BlockingReader = op.reader(file_path).map_err(|e| {
             if e.kind() == opendal::ErrorKind::NotFound {
                 crate::Error::IOError(format!("File `{}` not found", file_path))
