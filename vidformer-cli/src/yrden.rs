@@ -235,8 +235,20 @@ async fn yrden_http_req(
                     service.as_ref(),
                 )
             })
-            .await
-            .unwrap();
+            .await;
+
+            let source = match source {
+                Ok(source) => source,
+                Err(err) => {
+                    return Ok(hyper::Response::builder()
+                        .status(hyper::StatusCode::BAD_REQUEST)
+                        .header("Access-Control-Allow-Origin", "*")
+                        .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                            format!("Unknown failure when loading source: {}", err),
+                        )))
+                        .unwrap());
+                }
+            };
 
             let source = match source {
                 Ok(source) => source,
