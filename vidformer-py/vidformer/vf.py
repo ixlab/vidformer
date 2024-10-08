@@ -1,7 +1,3 @@
-"""A Python library for creating and viewing videos with vidformer."""
-
-__version__ = "0.5.4"
-
 import subprocess
 from fractions import Fraction
 import random
@@ -20,6 +16,8 @@ import re
 import requests
 import msgpack
 import numpy as np
+
+from . import __version__
 
 _in_notebook = False
 try:

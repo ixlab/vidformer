@@ -44,4 +44,11 @@ RUN sed -i -e's/fpic/fPIC/g' /etc/R/Makeconf && echo 'MAKEFLAGS = -j8' >> /etc/R
 
 USER vscode
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y && . "$HOME/.cargo/env" && cargo install mdbook
+
+# We manage our own packages without debian's package manager
+RUN mkdir -p ~/.config/pip && cat >> ~/.config/pip/pip.conf <<EOF
+[global]
+break-system-packages = true
+EOF
+
 USER root
