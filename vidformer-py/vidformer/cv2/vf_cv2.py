@@ -3,7 +3,9 @@ from .. import vf
 import uuid
 from fractions import Fraction
 
-server = vf.YrdenServer(bin="../target/release/vidformer-cli")
+server = vf.YrdenServer(
+    bin="../target/release/vidformer-cli"
+)  # TODO: don't hardcode this
 
 CAP_PROP_FPS = "CAP_PROP_FPS"
 CAP_PROP_FRAME_WIDTH = "CAP_PROP_FRAME_WIDTH"
@@ -63,6 +65,10 @@ class VideoWriter:
         self._frames.append(frame)
 
     def release(self):
+        spec = self.vf_spec()
+        spec.save(server, self._path)
+
+    def vf_spec(self):
         fmt = {
             "width": self._size[0],
             "height": self._size[1],
@@ -70,7 +76,7 @@ class VideoWriter:
         }
         domain = _fps_to_ts(self._fps, len(self._frames))
         spec = vf.Spec(domain, lambda t, i: self._frames[i], fmt)
-        spec.save(server, self._path)
+        return spec
 
 
 class VideoWriter_fourcc:
