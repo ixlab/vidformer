@@ -18,7 +18,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Deps
-      run: bash ./scripts/deps.sh
+      run: bash ./scripts/deps_ci.sh
     - name: Download Test Video
       run: curl -O https://f.dominik.win/data/dve2/tos_720p.mp4
     - name: Build Debug

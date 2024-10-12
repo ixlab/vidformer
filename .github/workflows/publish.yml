@@ -40,7 +40,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Deps
-      run: bash ./scripts/deps.sh
+      run: bash ./scripts/deps_ci.sh
     - name: Check Build
       run: cargo check
     - name: Publish
@@ -78,7 +78,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Deps
-      run: bash ./scripts/deps.sh
+      run: bash ./scripts/deps_ci.sh
     - name: Build release
       run: cargo build --release && cp ./target/release/vidformer-cli ./vidformer-cli-ubuntu22.04-amd64
     - name: Upload release

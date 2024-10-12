@@ -17,7 +17,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Deps
-      run: bash ./scripts/deps.sh
+      run: bash ./scripts/deps_ci.sh
     - name: Build vidformer docs
       run: cargo doc --no-deps -p vidformer
     - name: Install mdbook
