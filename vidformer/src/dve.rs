@@ -510,10 +510,10 @@ pub(crate) fn type_frame(
                 match arg {
                     crate::sir::Expr::Frame(frame) => {
                         let frame = type_frame(context, _config, frame)?;
-                        args.push(filter::ValType::Frame(frame));
+                        args.push(filter::Val::FrameType(frame));
                     }
                     crate::sir::Expr::Data(data) => {
-                        args.push(crate::filter::ValType::from_expr(data, context));
+                        args.push(crate::filter::Val::from_expr(data, context));
                     }
                 }
             }
@@ -521,10 +521,10 @@ pub(crate) fn type_frame(
                 match v {
                     crate::sir::Expr::Frame(frame) => {
                         let frame = type_frame(context, _config, frame)?;
-                        kwargs.insert(k.clone(), filter::ValType::Frame(frame));
+                        kwargs.insert(k.clone(), filter::Val::FrameType(frame));
                     }
                     crate::sir::Expr::Data(data) => {
-                        kwargs.insert(k.clone(), crate::filter::ValType::from_expr(data, context));
+                        kwargs.insert(k.clone(), crate::filter::Val::from_expr(data, context));
                     }
                 }
             }

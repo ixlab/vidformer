@@ -258,29 +258,6 @@ where
     Ok(Frame::new(AVFrame { inner: f }))
 }
 
-macro_rules! get_kwarg_or_err {
-    ($map:expr, $arg:expr, Int) => {
-        $map.get($arg)
-            .and_then(|val| val.as_int())
-            .ok_or(Error::MissingFilterArg)?
-    };
-    ($map:expr, $arg:expr, Str) => {
-        $map.get($arg)
-            .and_then(|val| val.as_str())
-            .ok_or(Error::MissingFilterArg)?
-    };
-    ($map:expr, $arg:expr, Bool) => {
-        $map.get($arg)
-            .and_then(|val| val.as_bool())
-            .ok_or(Error::MissingFilterArg)?
-    };
-    ($map:expr, $arg:expr, Frame) => {
-        $map.get($arg)
-            .and_then(|val| val.as_frame())
-            .ok_or(Error::MissingFilterArg)?
-    };
-}
-
 pub struct PlaceholderFrame {}
 impl super::Filter for PlaceholderFrame {
     fn filter(
@@ -288,8 +265,8 @@ impl super::Filter for PlaceholderFrame {
         _args: &[Val],
         kwargs: &BTreeMap<String, Val>,
     ) -> Result<Frame, crate::dve::Error> {
-        let width = get_kwarg_or_err!(kwargs, "width", Int);
-        let height: i64 = get_kwarg_or_err!(kwargs, "height", Int);
+        let width = kwargs.get("width").unwrap().as_int().unwrap();
+        let height: i64 = kwargs.get("height").unwrap().as_int().unwrap();
 
         let f = unsafe { ffi::av_frame_alloc() };
         unsafe {
@@ -324,11 +301,11 @@ impl super::Filter for PlaceholderFrame {
 
     fn filter_type(
         &self,
-        _args: &[ValType],
-        kwargs: &BTreeMap<String, ValType>,
+        _args: &[Val],
+        kwargs: &BTreeMap<String, Val>,
     ) -> Result<FrameType, Error> {
-        let width = get_kwarg_or_err!(kwargs, "width", Int);
-        let height: i64 = get_kwarg_or_err!(kwargs, "height", Int);
+        let width = kwargs.get("width").unwrap().as_int().unwrap();
+        let height: i64 = kwargs.get("height").unwrap().as_int().unwrap();
 
         Ok(FrameType::new(
             width as usize,
@@ -395,8 +372,8 @@ impl super::Filter for Annotate {
 
     fn filter_type(
         &self,
-        _args: &[ValType],
-        _kwargs: &BTreeMap<String, ValType>,
+        _args: &[Val],
+        _kwargs: &BTreeMap<String, Val>,
     ) -> Result<FrameType, Error> {
         todo!()
     }
@@ -425,12 +402,12 @@ impl super::Filter for Box {
 
     fn filter_type(
         &self,
-        args: &[ValType],
-        _kwargs: &BTreeMap<String, ValType>,
+        args: &[Val],
+        _kwargs: &BTreeMap<String, Val>,
     ) -> Result<FrameType, Error> {
         let input_frame = &args[0];
         match input_frame {
-            ValType::Frame(frame_type) => Ok(frame_type.clone()),
+            Val::FrameType(frame_type) => Ok(frame_type.clone()),
             _ => Err(Error::MissingFilterArg),
         }
     }
@@ -508,10 +485,10 @@ impl super::Filter for BoundingBox {
 
     fn filter_type(
         &self,
-        args: &[ValType],
-        _kwargs: &BTreeMap<String, ValType>,
+        args: &[Val],
+        _kwargs: &BTreeMap<String, Val>,
     ) -> Result<FrameType, Error> {
-        let frame = get_kwarg_or_err!(args, 0, Frame);
+        let frame = args[0].as_frame_type().unwrap();
         Ok(frame.clone())
     }
 }
@@ -576,10 +553,10 @@ impl super::Filter for DrawBox {
 
     fn filter_type(
         &self,
-        args: &[ValType],
-        _kwargs: &BTreeMap<String, ValType>,
+        args: &[Val],
+        _kwargs: &BTreeMap<String, Val>,
     ) -> Result<FrameType, Error> {
-        let frame = get_kwarg_or_err!(args, 0, Frame);
+        let frame = args[0].as_frame_type().unwrap();
         Ok(frame.clone())
     }
 }
@@ -699,8 +676,8 @@ impl super::Filter for Scale {
 
     fn filter_type(
         &self,
-        args: &[ValType],
-        kwargs: &BTreeMap<String, ValType>,
+        args: &[Val],
+        kwargs: &BTreeMap<String, Val>,
     ) -> Result<FrameType, Error> {
         let (width, height) = {
             if kwargs.contains_key("width") || kwargs.contains_key("height") {
@@ -709,11 +686,11 @@ impl super::Filter for Scale {
                 }
                 (
                     match kwargs.get("width").unwrap() {
-                        ValType::Int(i) => Some(*i),
+                        Val::Int(i) => Some(*i),
                         _ => return Err(Error::MissingFilterArg),
                     },
                     match kwargs.get("height").unwrap() {
-                        ValType::Int(i) => Some(*i),
+                        Val::Int(i) => Some(*i),
                         _ => return Err(Error::MissingFilterArg),
                     },
                 )
@@ -725,7 +702,7 @@ impl super::Filter for Scale {
         let format = {
             if kwargs.contains_key("pix_fmt") {
                 match kwargs.get("pix_fmt").unwrap() {
-                    ValType::String(s) => {
+                    Val::String(s) => {
                         let format_cstr = CString::new(s.as_str()).unwrap();
                         let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
                         if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
@@ -747,7 +724,7 @@ impl super::Filter for Scale {
 
         let frame = &args[0];
         match frame {
-            ValType::Frame(frame_type) => {
+            Val::FrameType(frame_type) => {
                 let mut new_frame_type = frame_type.clone();
                 if let Some(width) = width {
                     assert!(width > 0 && width % 2 == 0);
@@ -957,37 +934,37 @@ impl super::Filter for Pad {
 
     fn filter_type(
         &self,
-        args: &[ValType],
-        kwargs: &BTreeMap<String, ValType>,
+        args: &[Val],
+        kwargs: &BTreeMap<String, Val>,
     ) -> Result<FrameType, crate::dve::Error> {
         let _x = match kwargs.get("x").unwrap() {
-            ValType::Int(i) => *i,
+            Val::Int(i) => *i,
             _ => panic!("Expected int"),
         };
 
         let _y = match kwargs.get("y").unwrap() {
-            ValType::Int(i) => *i,
+            Val::Int(i) => *i,
             _ => panic!("Expected int"),
         };
 
         let width = match kwargs.get("width").unwrap() {
-            ValType::Int(i) => *i,
+            Val::Int(i) => *i,
             _ => panic!("Expected int"),
         };
 
         let height = match kwargs.get("height").unwrap() {
-            ValType::Int(i) => *i,
+            Val::Int(i) => *i,
             _ => panic!("Expected int"),
         };
 
         let input_frame = match &args[0] {
-            ValType::Frame(f) => f,
+            Val::FrameType(f) => f,
             _ => panic!("Expected frame"),
         };
 
         let mut color = [0u8; 4];
         match kwargs.get("color") {
-            Some(ValType::String(s)) => {
+            Some(Val::String(s)) => {
                 let color_str = CString::new(s.to_string()).unwrap();
                 let ret = unsafe {
                     ffi::av_parse_color(
@@ -1208,21 +1185,21 @@ impl super::Filter for HStack {
 
     fn filter_type(
         &self,
-        args: &[ValType],
-        kwargs: &BTreeMap<String, ValType>,
+        args: &[Val],
+        kwargs: &BTreeMap<String, Val>,
     ) -> Result<FrameType, Error> {
         let width = match kwargs.get("width").unwrap() {
-            ValType::Int(i) => *i,
+            Val::Int(i) => *i,
             _ => panic!("Expected int"),
         };
 
         let height = match kwargs.get("height").unwrap() {
-            ValType::Int(i) => *i,
+            Val::Int(i) => *i,
             _ => panic!("Expected int"),
         };
 
         let format = match kwargs.get("format").unwrap() {
-            ValType::String(s) => {
+            Val::String(s) => {
                 let format_cstr = CString::new(s.as_str()).unwrap();
                 let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
                 if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
@@ -1238,7 +1215,7 @@ impl super::Filter for HStack {
 
         for input in args {
             match input {
-                ValType::Frame(_) => {}
+                Val::FrameType(_) => {}
                 _ => return Err(Error::MissingFilterArg),
             }
         }
@@ -1437,21 +1414,21 @@ impl super::Filter for VStack {
 
     fn filter_type(
         &self,
-        args: &[ValType],
-        kwargs: &BTreeMap<String, ValType>,
+        args: &[Val],
+        kwargs: &BTreeMap<String, Val>,
     ) -> Result<FrameType, Error> {
         let width = match kwargs.get("width").unwrap() {
-            ValType::Int(i) => *i,
+            Val::Int(i) => *i,
             _ => panic!("Expected int"),
         };
 
         let height = match kwargs.get("height").unwrap() {
-            ValType::Int(i) => *i,
+            Val::Int(i) => *i,
             _ => panic!("Expected int"),
         };
 
         let format = match kwargs.get("format").unwrap() {
-            ValType::String(s) => {
+            Val::String(s) => {
                 let format_cstr = CString::new(s.as_str()).unwrap();
                 let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
                 if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
@@ -1467,7 +1444,7 @@ impl super::Filter for VStack {
 
         for input in args {
             match input {
-                ValType::Frame(_) => {}
+                Val::FrameType(_) => {}
                 _ => return Err(Error::MissingFilterArg),
             }
         }
@@ -1540,215 +1517,13 @@ impl super::Filter for DrawText {
 
     fn filter_type(
         &self,
-        args: &[ValType],
-        _kwargs: &BTreeMap<String, ValType>,
+        args: &[Val],
+        _kwargs: &BTreeMap<String, Val>,
     ) -> Result<FrameType, Error> {
         let input_frame = &args[0];
         match input_frame {
-            ValType::Frame(frame_type) => Ok(frame_type.clone()),
+            Val::FrameType(frame_type) => Ok(frame_type.clone()),
             _ => Err(Error::MissingFilterArg),
         }
     }
-}
-
-macro_rules! extract_arg {
-    ($args:ident => $arg_name:ident, $kwarg_type:ident, true) => {
-        let $arg_name = match $args.next() {
-            Some(Val::$kwarg_type(val)) => val,
-            Some(wrong_val) => {
-                return Err(Error::InvalidFilterArgType(
-                    stringify!($kwarg_name).to_string(),
-                    stringify!($kwarg_type).to_string(),
-                    format!("{:?}", wrong_val),
-                ))
-            }
-            None => return Err(Error::MissingFilterArg),
-        };
-    };
-    ($args:ident => $arg_name:ident, $kwarg_type:ident, false) => {
-        let $arg_name = match $args.next() {
-            Some(Val::$kwarg_type(val)) => Some(val),
-            Some(wrong_val) => {
-                return Err(Error::InvalidFilterArgType(
-                    stringify!($kwarg_name).to_string(),
-                    stringify!($kwarg_type).to_string(),
-                    format!("{:?}", wrong_val),
-                ))
-            }
-            None => None,
-        };
-    };
-}
-
-macro_rules! extract_kwarg {
-    ($kwargs:ident => $kwarg_name:ident, $kwarg_type:ident, true) => {
-        let $kwarg_name = match $kwargs.get(stringify!($kwarg_name)) {
-            Some(Val::$kwarg_type(val)) => val,
-            Some(wrong_val) => {
-                return Err(Error::InvalidFilterArgType(
-                    stringify!($kwarg_name).to_string(),
-                    stringify!($kwarg_type).to_string(),
-                    format!("{:?}", wrong_val),
-                ))
-            }
-            None => return Err(Error::MissingFilterArg),
-        };
-    };
-    ($kwargs:ident => $kwarg_name:ident, $kwarg_type:ident, false) => {
-        let $kwarg_name = match $kwargs.get(stringify!($kwarg_name)) {
-            Some(Val::$kwarg_type(val)) => Some(val),
-            Some(wrong_val) => {
-                return Err(Error::InvalidFilterArgType(
-                    stringify!($kwarg_name).to_string(),
-                    stringify!($kwarg_type).to_string(),
-                    format!("{:?}", wrong_val),
-                ))
-            }
-            None => None,
-        };
-    };
-}
-
-macro_rules! extract_tyarg {
-    ($args:ident => $arg_name:ident, $kwarg_type:ident, true) => {
-        let $arg_name = match $args.next() {
-            Some(ValType::$kwarg_type(val)) => val,
-            Some(wrong_val) => {
-                return Err(Error::InvalidFilterArgType(
-                    stringify!($kwarg_name).to_string(),
-                    stringify!($kwarg_type).to_string(),
-                    format!("{:?}", wrong_val),
-                ))
-            }
-            None => return Err(Error::MissingFilterArg),
-        };
-    };
-    ($args:ident => $arg_name:ident, $kwarg_type:ident, false) => {
-        let $arg_name = match $args.next() {
-            Some(ValType::$kwarg_type(val)) => Some(val),
-            Some(wrong_val) => {
-                return Err(Error::InvalidFilterArgType(
-                    stringify!($kwarg_name).to_string(),
-                    stringify!($kwarg_type).to_string(),
-                    format!("{:?}", wrong_val),
-                ))
-            }
-            None => None,
-        };
-    };
-}
-
-macro_rules! extract_tykwarg {
-    ($kwargs:ident => $kwarg_name:ident, $kwarg_type:ident, true) => {
-        let $kwarg_name = match $kwargs.get(stringify!($kwarg_name)) {
-            Some(ValType::$kwarg_type(val)) => val,
-            Some(wrong_val) => {
-                return Err(Error::InvalidFilterArgType(
-                    stringify!($kwarg_name).to_string(),
-                    stringify!($kwarg_type).to_string(),
-                    format!("{:?}", wrong_val),
-                ))
-            }
-            None => return Err(Error::MissingFilterArg),
-        };
-    };
-    ($kwargs:ident => $kwarg_name:ident, $kwarg_type:ident, false) => {
-        let $kwarg_name = match $kwargs.get(stringify!($kwarg_name)) {
-            Some(ValType::$kwarg_type(val)) => Some(val),
-            Some(wrong_val) => {
-                return Err(Error::InvalidFilterArgType(
-                    stringify!($kwarg_name).to_string(),
-                    stringify!($kwarg_type).to_string(),
-                    format!("{:?}", wrong_val),
-                ))
-            }
-            None => None,
-        };
-    };
-}
-
-macro_rules! create_filter {
-    ($struct_name:ident, $func:ident, $tyfunc:ident, { $($arg_name:ident: $arg_type:ident $req:ident),* }, { $($kwarg_name:ident: $kwarg_type:ident $kwreq:ident),* }) => {
-        impl Filter for $struct_name {
-            fn filter(&self, args: &[Val], kwargs: &BTreeMap<String, Val>) -> Result<Frame, crate::dve::Error> {
-
-                let mut args = args.iter();
-                $(
-                    extract_arg!( args => $arg_name, $arg_type, $req);
-                )*
-
-                $(
-                    extract_kwarg!( kwargs => $kwarg_name, $kwarg_type, $kwreq);
-                )*
-
-                self.$func($($arg_name,)* $($kwarg_name,)*)
-            }
-
-            fn filter_type(&self, args: &[ValType], kwargs: &BTreeMap<String, ValType>) -> Result<FrameType, Error> {
-                let mut args = args.iter();
-                $(
-                    extract_tyarg!( args => $arg_name, $arg_type, $req);
-                )*
-
-                $(
-                    extract_tykwarg!( kwargs => $kwarg_name, $kwarg_type, $kwreq);
-                )*
-                self.$tyfunc($($arg_name,)* $($kwarg_name,)*)
-            }
-        }
-    };
-}
-
-pub struct DrawText2;
-
-impl DrawText2 {
-    fn draw_text(
-        &self,
-        frame: &Frame,
-        text: &str,
-        x: &i64,
-        y: &i64,
-        size: Option<&i64>,
-    ) -> Result<Frame, crate::dve::Error> {
-        let filter = |mat: &mut Mat| {
-            let color = opencv::core::Scalar::new(255.0, 255.0, 255.0, 0.0);
-            let font_face = opencv::imgproc::FONT_HERSHEY_SIMPLEX;
-            let font_scale = 1.0;
-            let thickness = *size.unwrap_or(&2) as i32;
-            let line_type = opencv::imgproc::LINE_8;
-            let bottom_left_origin = false;
-
-            opencv::imgproc::put_text(
-                mat,
-                text,
-                Point::new(*x as i32, *y as i32),
-                font_face,
-                font_scale,
-                color,
-                thickness,
-                line_type,
-                bottom_left_origin,
-            )
-            .unwrap();
-        };
-
-        opencv_backed_uniframe(frame, filter)
-    }
-
-    fn draw_text_type(
-        &self,
-        frame: &FrameType,
-        _text: &str,
-        _x: &i64,
-        _y: &i64,
-        _size: Option<&i64>,
-    ) -> Result<FrameType, Error> {
-        Ok(frame.clone())
-    }
-}
-
-create_filter! {
-    DrawText2, draw_text, draw_text_type,
-    { frame: Frame true, text: String true, x: Int true, y: Int true},
-    { size: Int false }
 }

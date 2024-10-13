@@ -175,7 +175,7 @@ impl Demuxer {
                 }
             }
 
-            let err_str = crate::util::libav_error_str(ret);
+            let err_str = crate::util::av_strerror(ret);
             return Err(crate::Error::AVError(format!(
                 "failed to open media format: {}",
                 err_str

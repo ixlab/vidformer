@@ -4,8 +4,6 @@
 //! As with the rest of the vidformer data model, arrays are duel-indexed by a timestamp or a position.
 //! Arrays can be backed by a variety of sources, such as a JSON file or a database.
 
-use core::panic;
-
 use num::Rational64;
 
 /// A trait for an array
@@ -26,12 +24,6 @@ pub trait Array: Sync + Send {
 
     /// Returns the value at a given time index.
     fn index_t(&self, idx: Rational64) -> crate::sir::DataExpr;
-
-    /// Returns the type of the array.
-    ///
-    /// Must be constant for a given array.
-    /// Must return instantaneously.
-    fn r#type(&self) -> crate::filter::ValType;
 }
 
 /// An array backed by a JSON file
@@ -55,14 +47,5 @@ impl Array for JsonArary {
             .binary_search_by(|(t, _)| t.partial_cmp(&idx).unwrap())
             .unwrap();
         self.index(idx)
-    }
-
-    fn r#type(&self) -> crate::filter::ValType {
-        match self.array[0].1 {
-            crate::sir::DataExpr::Int(_) => crate::filter::ValType::IntType,
-            crate::sir::DataExpr::String(_) => crate::filter::ValType::StringType,
-            crate::sir::DataExpr::Bool(_) => crate::filter::ValType::BoolType,
-            crate::sir::DataExpr::ArrayRef(_, _) => panic!("Arrays cannot contain ArrayRefs"),
-        }
     }
 }

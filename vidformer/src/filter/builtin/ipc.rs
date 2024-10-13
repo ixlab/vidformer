@@ -96,8 +96,8 @@ pub(crate) struct IPCFilterResponse {
 pub(crate) struct IPCFilterTypeRequest {
     pub(crate) func: String,
     pub(crate) op: &'static str,
-    pub(crate) args: Vec<ValType>,
-    pub(crate) kwargs: BTreeMap<String, ValType>,
+    pub(crate) args: Vec<Val>,
+    pub(crate) kwargs: BTreeMap<String, Val>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -137,11 +137,11 @@ impl crate::filter::Filter for IPC {
 
     fn filter_type(
         &self,
-        args: &[ValType],
-        kwargs: &BTreeMap<String, ValType>,
+        args: &[Val],
+        kwargs: &BTreeMap<String, Val>,
     ) -> Result<FrameType, Error> {
         for (i, arg) in args.iter().enumerate() {
-            if let ValType::Frame(ft) = arg {
+            if let Val::FrameType(ft) = arg {
                 if ft.format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
                     return Err(Error::FilterInternalError(format!(
                         "Unsupported pixel format {} in argument {}",
@@ -153,7 +153,7 @@ impl crate::filter::Filter for IPC {
         }
 
         for (key, val) in kwargs.iter() {
-            if let ValType::Frame(ft) = val {
+            if let Val::FrameType(ft) = val {
                 if ft.format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
                     return Err(Error::FilterInternalError(format!(
                         "Unsupported pixel format {:?} in keyword argument {}",

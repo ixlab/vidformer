@@ -247,59 +247,12 @@ impl std::fmt::Debug for Frame {
 #[derive(Debug, Clone, serde::Serialize)]
 pub enum Val {
     Frame(Frame),
+    FrameType(FrameType),
     Bool(bool),
     Int(i64),
     String(String),
-}
-
-/// A value passed to a filter known at type-check time
-///
-/// If the data is passed directly in a spec, it is available.
-/// If the data is passed as a reference, it is not available, but the type is known.
-/// Frames are always passed as `FrameType`.
-#[derive(Debug, Clone, serde::Serialize)]
-pub enum ValType {
-    Frame(FrameType),
-    BoolType,
-    Bool(bool),
-    IntType,
-    Int(i64),
-    StringType,
-    String(String),
-}
-
-impl ValType {
-    pub fn from_expr(expr: &crate::sir::DataExpr, context: &crate::dve::Context) -> Self {
-        match expr {
-            crate::sir::DataExpr::Bool(b) => ValType::Bool(*b),
-            crate::sir::DataExpr::Int(i) => ValType::Int(*i),
-            crate::sir::DataExpr::String(s) => ValType::String(s.to_string()),
-            crate::sir::DataExpr::ArrayRef(name, crate::sir::IndexConst::ILoc(_idx)) => {
-                // TODO: Check the index exists
-                let array = &context.arrays[name];
-                array.r#type()
-            }
-            crate::sir::DataExpr::ArrayRef(name, crate::sir::IndexConst::T(_t)) => {
-                // TODO: Check the index exists
-                let array = &context.arrays[name];
-                array.r#type()
-            }
-        }
-    }
-
-    pub(crate) fn as_int(&self) -> Option<i64> {
-        match self {
-            ValType::Int(i) => Some(*i),
-            _ => None,
-        }
-    }
-
-    pub(crate) fn as_frame(&self) -> Option<&FrameType> {
-        match self {
-            ValType::Frame(f) => Some(f),
-            _ => None,
-        }
-    }
+    Float(f64),
+    List(Vec<Val>),
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -325,6 +278,7 @@ impl Val {
             crate::sir::DataExpr::Bool(b) => Val::Bool(*b),
             crate::sir::DataExpr::Int(i) => Val::Int(*i),
             crate::sir::DataExpr::String(s) => Val::String(s.to_string()),
+            crate::sir::DataExpr::Float(f) => Val::Float(*f),
             crate::sir::DataExpr::ArrayRef(name, crate::sir::IndexConst::ILoc(idx)) => {
                 let array = &context.arrays[name];
                 let val = array.index(*idx);
@@ -335,12 +289,26 @@ impl Val {
                 let val = array.index_t(*t);
                 Val::from_expr(&val, context)
             }
+            crate::sir::DataExpr::List(list) => {
+                let list = list
+                    .iter()
+                    .map(|expr| Val::from_expr(expr, context))
+                    .collect();
+                Val::List(list)
+            }
         }
     }
 
     pub(crate) fn as_int(&self) -> Option<i64> {
         match self {
             Val::Int(i) => Some(*i),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn as_frame_type(&self) -> Option<&FrameType> {
+        match self {
+            Val::FrameType(frame_type) => Some(frame_type),
             _ => None,
         }
     }
@@ -360,7 +328,7 @@ pub trait Filter: Send + Sync {
 
     fn filter_type(
         &self,
-        args: &[ValType],
-        kwargs: &BTreeMap<String, ValType>,
+        args: &[Val],
+        kwargs: &BTreeMap<String, Val>,
     ) -> Result<FrameType, crate::dve::Error>;
 }

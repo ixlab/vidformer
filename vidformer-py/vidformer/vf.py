@@ -749,9 +749,9 @@ class UDF:
         keys = list(obj.keys())
         assert len(keys) == 1
         type_key = keys[0]
-        assert type_key in ["Frame", "String", "Int", "Bool"]
+        assert type_key in ["FrameType", "String", "Int", "Bool"]
 
-        if type_key == "Frame":
+        if type_key == "FrameType":
             frame = obj[type_key]
             assert type(frame) == dict
             assert "width" in frame
