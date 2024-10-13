@@ -15,5 +15,6 @@
 				"rust-lang.rust-analyzer"
 			]
 		}
-	}
+	},
+	"postCreateCommand": "bash ./scripts/deps_devcontainer.sh"
 }
