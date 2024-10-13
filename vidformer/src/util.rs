@@ -108,7 +108,7 @@ pub(crate) fn pixel_fmt_str(n: i32) -> &'static str {
 pub(crate) fn av_strerror(err: i32) -> String {
     let mut buf = [0u8; 1024];
     unsafe {
-        ffi::av_strerror(err, buf.as_mut_ptr() as *mut u8, buf.len());
+        ffi::av_strerror(err, buf.as_mut_ptr() as *mut _, buf.len());
     }
     String::from_utf8_lossy(&buf).to_string()
 }
