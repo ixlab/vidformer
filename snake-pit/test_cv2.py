@@ -7,6 +7,29 @@ VID_PATH = "../tos_720p.mp4"
 TMP_PATH = "tmp.mp4"
 
 
+def test_constants():
+    assert ocv_cv2.CAP_PROP_POS_MSEC == vf_cv2.CAP_PROP_POS_MSEC
+    assert ocv_cv2.CAP_PROP_POS_FRAMES == vf_cv2.CAP_PROP_POS_FRAMES
+    assert ocv_cv2.CAP_PROP_FRAME_WIDTH == vf_cv2.CAP_PROP_FRAME_WIDTH
+    assert ocv_cv2.CAP_PROP_FRAME_HEIGHT == vf_cv2.CAP_PROP_FRAME_HEIGHT
+    assert ocv_cv2.CAP_PROP_FPS == vf_cv2.CAP_PROP_FPS
+
+    assert ocv_cv2.FONT_HERSHEY_SIMPLEX == vf_cv2.FONT_HERSHEY_SIMPLEX
+    assert ocv_cv2.FONT_HERSHEY_PLAIN == vf_cv2.FONT_HERSHEY_PLAIN
+    assert ocv_cv2.FONT_HERSHEY_DUPLEX == vf_cv2.FONT_HERSHEY_DUPLEX
+    assert ocv_cv2.FONT_HERSHEY_COMPLEX == vf_cv2.FONT_HERSHEY_COMPLEX
+    assert ocv_cv2.FONT_HERSHEY_TRIPLEX == vf_cv2.FONT_HERSHEY_TRIPLEX
+    assert ocv_cv2.FONT_HERSHEY_COMPLEX_SMALL == vf_cv2.FONT_HERSHEY_COMPLEX_SMALL
+    assert ocv_cv2.FONT_HERSHEY_SCRIPT_SIMPLEX == vf_cv2.FONT_HERSHEY_SCRIPT_SIMPLEX
+    assert ocv_cv2.FONT_HERSHEY_SCRIPT_COMPLEX == vf_cv2.FONT_HERSHEY_SCRIPT_COMPLEX
+    assert ocv_cv2.FONT_ITALIC == vf_cv2.FONT_ITALIC
+
+    assert ocv_cv2.FILLED == vf_cv2.FILLED
+    assert ocv_cv2.LINE_4 == vf_cv2.LINE_4
+    assert ocv_cv2.LINE_8 == vf_cv2.LINE_8
+    assert ocv_cv2.LINE_AA == vf_cv2.LINE_AA
+
+
 def rw(cv2):
     cap = cv2.VideoCapture(VID_PATH)
     assert cap.isOpened()
