@@ -39,10 +39,8 @@ RUN sed -i -e's/ main/ main contrib non-free/g' /etc/apt/sources.list.d/debian.s
 USER vscode
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y && . "$HOME/.cargo/env" && cargo install mdbook
 
-# We manage our own packages without debian's package manager
-RUN mkdir -p ~/.config/pip && cat >> ~/.config/pip/pip.conf <<EOF
-[global]
-break-system-packages = true
-EOF
+RUN mkdir -p ~/.config/pip && \
+    echo '[global]' > ~/.config/pip/pip.conf && \
+    echo 'break-system-packages = true' >> ~/.config/pip/pip.conf
 
 USER root
