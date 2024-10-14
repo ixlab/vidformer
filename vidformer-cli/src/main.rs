@@ -223,6 +223,14 @@ fn default_filters() -> BTreeMap<String, Box<dyn filter::Filter>> {
         "DrawText".to_string(),
         Box::new(crate::filter::builtin::DrawText {}),
     );
+    filters.insert(
+        "cv2.rectangle".to_string(),
+        Box::new(crate::filter::cv2::Rectangle {}),
+    );
+    filters.insert(
+        "cv2.putText".to_string(),
+        Box::new(crate::filter::cv2::PutText {}),
+    );
 
     filters
 }

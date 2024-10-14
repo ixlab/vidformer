@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 pub mod builtin;
+pub mod cv2;
 
 /// A decoded video frame
 #[derive(Clone)]

@@ -70,7 +70,7 @@ def test_hello_world():
     spec.save(server, "quickstart-hello-world.mp4")
 
     assert os.path.exists("quickstart-hello-world.mp4")
-    # os.remove("quickstart-hello-world.mp4")
+    os.remove("quickstart-hello-world.mp4")
 
 
 def test_bounding_boxes():
@@ -100,7 +100,7 @@ def test_bounding_boxes():
     spec.save(server, "quickstart-bounding-box.mp4")
 
     assert os.path.exists("quickstart-bounding-box.mp4")
-    # os.remove("quickstart-bounding-box.mp4")
+    os.remove("quickstart-bounding-box.mp4")
 
 
 def test_composition():
@@ -136,4 +136,4 @@ def test_composition():
     spec.save(server, "quickstart-composition.mp4")
 
     assert os.path.exists("quickstart-composition.mp4")
-    # os.remove("tos-grid.mp4")
+    os.remove("quickstart-composition.mp4")

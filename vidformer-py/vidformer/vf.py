@@ -577,17 +577,31 @@ class StorageService:
         return f"{self._service}(config={self._config})"
 
 
-def _json_arg(arg):
+def _json_arg(arg, skip_data_anot=False):
     if type(arg) == FilterExpr or type(arg) == SourceExpr:
         return {"Frame": arg._to_json_spec()}
     elif type(arg) == int:
+        if skip_data_anot:
+            return {"Int": arg}
         return {"Data": {"Int": arg}}
     elif type(arg) == str:
+        if skip_data_anot:
+            return {"String": arg}
         return {"Data": {"String": arg}}
+    elif type(arg) == float:
+        if skip_data_anot:
+            return {"Float": arg}
+        return {"Data": {"Float": arg}}
     elif type(arg) == bool:
+        if skip_data_anot:
+            return {"Bool": arg}
         return {"Data": {"Bool": arg}}
+    elif type(arg) == tuple or type(arg) == list:
+        if skip_data_anot:
+            return {"List": [_json_arg(x, True) for x in list(arg)]}
+        return {"Data": {"List": [_json_arg(x, True) for x in list(arg)]}}
     else:
-        assert False
+        raise Exception(f"Unknown arg type: {type(arg)}")
 
 
 class Filter:

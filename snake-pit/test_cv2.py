@@ -40,3 +40,87 @@ def test_rw_ocv():
 
 def test_rw_vf():
     rw(vf_cv2)
+
+
+def rectangle(cv2):
+    cap = cv2.VideoCapture(VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    out = cv2.VideoWriter(
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+    )
+
+    count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret or count > 100:
+            break
+
+        cv2.rectangle(frame, (100, 100), (200, 200), (0, 255, 0, 255), 3)
+
+        out.write(frame)
+        count += 1
+
+    cap.release()
+    out.release()
+
+    assert os.path.exists(TMP_PATH)
+    os.remove(TMP_PATH)
+
+
+def test_rectangle_ocv():
+    rectangle(ocv_cv2)
+
+
+def test_rectangle_vf():
+    rectangle(vf_cv2)
+
+
+def text(cv2):
+    cap = cv2.VideoCapture(VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    out = cv2.VideoWriter(
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+    )
+
+    count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret or count > 100:
+            break
+
+        cv2.putText(
+            frame,
+            "Hello, World!",
+            (100, 100),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (255, 0, 0),
+            1,
+        )
+
+        out.write(frame)
+        count += 1
+
+    cap.release()
+    out.release()
+
+    assert os.path.exists(TMP_PATH)
+    os.remove(TMP_PATH)
+
+
+def test_text_ocv():
+    text(ocv_cv2)
+
+
+def test_text_vf():
+    text(vf_cv2)
