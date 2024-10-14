@@ -2,6 +2,7 @@ from .. import vf
 
 import uuid
 from fractions import Fraction
+from bisect import bisect_right
 
 server = vf.YrdenServer(
     bin="../target/release/vidformer-cli"
@@ -10,6 +11,8 @@ server = vf.YrdenServer(
 CAP_PROP_FPS = "CAP_PROP_FPS"
 CAP_PROP_FRAME_WIDTH = "CAP_PROP_FRAME_WIDTH"
 CAP_PROP_FRAME_HEIGHT = "CAP_PROP_FRAME_HEIGHT"
+CAP_PROP_POS_MSEC = "CAP_PROP_POS_MSEC"
+CAP_PROP_POS_FRAMES = "CAP_PROP_POS_FRAMES"
 
 FONT_HERSHEY_SIMPLEX = 0
 FONT_HERSHEY_PLAIN = 1
@@ -20,6 +23,11 @@ FONT_HERSHEY_COMPLEX_SMALL = 5
 FONT_HERSHEY_SCRIPT_SIMPLEX = 6
 FONT_HERSHEY_SCRIPT_COMPLEX = 7
 FONT_ITALIC = 16
+
+LINE_FILLED = -1
+LINE_4 = 4
+LINE_8 = 8
+LINE_AA = 16
 
 _filter_scale = vf.Filter("Scale")
 _filter_rectangle = vf.Filter("cv2.rectangle")
@@ -38,6 +46,9 @@ def _fps_to_ts(fps, n_frames):
 class _Frame:
     def __init__(self, f):
         self._f = f
+
+        # denotes that the frame has not yet been modified
+        # when a frame is modified, it is converted to rgb24 first
         self._modified = False
 
     def _mut(self):
@@ -63,6 +74,18 @@ class VideoCapture:
             return self._source.fmt()["height"]
 
         raise Exception(f"Unknown property {prop}")
+
+    def set(self, prop, value):
+        if prop == CAP_PROP_POS_FRAMES:
+            assert value >= 0 and value < len(self._source.ts())
+            self._next_frame_idx = value
+        elif prop == CAP_PROP_POS_MSEC:
+            t = Fraction(value, 1000)
+            ts = self._source.ts()
+            next_frame_idx = bisect_right(ts, t)
+            self._next_frame_idx = next_frame_idx
+        else:
+            raise Exception(f"Unsupported property {prop}")
 
     def read(self):
         if self._next_frame_idx >= len(self._source.ts()):

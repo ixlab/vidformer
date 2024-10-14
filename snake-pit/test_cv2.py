@@ -124,3 +124,52 @@ def test_text_ocv():
 
 def test_text_vf():
     text(vf_cv2)
+
+
+def seek(cv2):
+    # seek to 4 different places, two of which with msec and two with frames; read 3 seconds at each place
+
+    cap = cv2.VideoCapture(VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    out = cv2.VideoWriter(
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+    )
+
+    count = 0
+    while True:
+        if count == 0:
+            cap.set(cv2.CAP_PROP_POS_MSEC, 1000)
+        elif count == 25:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 1000)
+        elif count == 50:
+            cap.set(cv2.CAP_PROP_POS_MSEC, 20000)
+        elif count == 75:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 2000)
+        elif count == 100:
+            break
+
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        out.write(frame)
+        count += 1
+
+    cap.release()
+    out.release()
+
+    assert os.path.exists(TMP_PATH)
+    os.remove(TMP_PATH)
+
+
+def test_seek_ocv():
+    seek(ocv_cv2)
+
+
+def test_seek_vf():
+    seek(vf_cv2)

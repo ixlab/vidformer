@@ -234,8 +234,8 @@ impl Rectangle {
             ],
         };
 
-        let mut kwargs = kwargs.clone();
-        let mut args = args.to_vec();
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
         let parsed_args = parse_arguments(&signature, args, kwargs)?;
 
         let img = match parsed_args.get("img") {
@@ -434,8 +434,8 @@ impl PutText {
             ],
         };
 
-        let mut kwargs = kwargs.clone();
-        let mut args = args.to_vec();
+        let kwargs = kwargs.clone();
+        let args: Vec<Val> = args.to_vec();
         let parsed_args = parse_arguments(&signature, args, kwargs)?;
 
         let img = match parsed_args.get("img") {

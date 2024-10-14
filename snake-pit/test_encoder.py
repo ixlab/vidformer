@@ -43,6 +43,7 @@ def test_output_codec_default():
 
     spec.save(server, "enc.mp4")
     assert get_codec("enc.mp4") == "h264"
+    os.remove("enc.mp4")
 
 
 def test_output_raw():
