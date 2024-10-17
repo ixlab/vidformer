@@ -114,6 +114,43 @@ fn parse_arguments(
     Ok(parsed_args)
 }
 
+fn get_color(parsed_args: &BTreeMap<String, Val>) -> Result<[f64; 4], String> {
+    let color = match parsed_args.get("color") {
+        Some(Val::List(list)) => {
+            if list.len() != 4 {
+                return Err("Expected 'color' to be a list of four floats".into());
+            }
+            match (
+                list[0].clone(),
+                list[1].clone(),
+                list[2].clone(),
+                list[3].clone(),
+            ) {
+                (Val::Float(r), Val::Float(g), Val::Float(b), Val::Float(a)) => [r, g, b, a],
+                _ => return Err("Expected 'color' to be a list of four floats".into()),
+            }
+        }
+        _ => return Err("Expected 'color' to be a list of four floats".into()),
+    };
+    Ok(color)
+}
+
+fn get_point(parsed_args: &BTreeMap<String, Val>, key: &str) -> Result<(i32, i32), String> {
+    let pt = match parsed_args.get(key) {
+        Some(Val::List(list)) => {
+            if list.len() != 2 {
+                return Err(format!("Expected '{key}' to be a list of two integers"));
+            }
+            match (list[0].clone(), list[1].clone()) {
+                (Val::Int(x), Val::Int(y)) => (x as i32, y as i32),
+                _ => return Err(format!("Expected '{key}' to be a list of two integers")),
+            }
+        }
+        _ => return Err(format!("Expected '{key}' to be a list of two integers")),
+    };
+    Ok(pt)
+}
+
 enum FrameArg {
     Frame(filter::Frame),
     FrameType(filter::FrameType),
@@ -248,51 +285,13 @@ impl Rectangle {
         };
 
         // pt1 is a list of two integers
-        let pt1 = match parsed_args.get("pt1") {
-            Some(Val::List(list)) => {
-                if list.len() != 2 {
-                    return Err("Expected 'pt1' to be a list of two integers".into());
-                }
-                match (list[0].clone(), list[1].clone()) {
-                    (Val::Int(x), Val::Int(y)) => (x as i32, y as i32),
-                    _ => return Err("Expected 'pt1' to be a list of two integers".into()),
-                }
-            }
-            _ => return Err("Expected 'pt1' to be a list of two integers".into()),
-        };
+        let pt1 = get_point(&parsed_args, "pt1")?;
 
         // pt2 is a list of two integers
-        let pt2 = match parsed_args.get("pt2") {
-            Some(Val::List(list)) => {
-                if list.len() != 2 {
-                    return Err("Expected 'pt2' to be a list of two integers".into());
-                }
-                match (list[0].clone(), list[1].clone()) {
-                    (Val::Int(x), Val::Int(y)) => (x as i32, y as i32),
-                    _ => return Err("Expected 'pt2' to be a list of two integers".into()),
-                }
-            }
-            _ => return Err("Expected 'pt2' to be a list of two integers".into()),
-        };
+        let pt2 = get_point(&parsed_args, "pt2")?;
 
         // color is a list of four floats
-        let color = match parsed_args.get("color") {
-            Some(Val::List(list)) => {
-                if list.len() != 4 {
-                    return Err("Expected 'color' to be a list of four floats".into());
-                }
-                match (
-                    list[0].clone(),
-                    list[1].clone(),
-                    list[2].clone(),
-                    list[3].clone(),
-                ) {
-                    (Val::Float(r), Val::Float(g), Val::Float(b), Val::Float(a)) => [r, g, b, a],
-                    _ => return Err("Expected 'color' to be a list of four floats".into()),
-                }
-            }
-            _ => return Err("Expected 'color' to be a list of four floats".into()),
-        };
+        let color = get_color(&parsed_args)?;
 
         // thickness is an integer
         let thickness = match parsed_args.get("thickness") {
@@ -454,19 +453,7 @@ impl PutText {
         };
 
         // org is a list of two integers
-        let org = match parsed_args.get("org") {
-            Some(Val::List(list)) => {
-                if list.len() != 2 {
-                    return Err("Expected 'org' to be a list of two integers".into());
-                }
-                match (list[0].clone(), list[1].clone()) {
-                    (Val::Int(x), Val::Int(y)) => (x as i32, y as i32),
-                    _ => return Err("Expected 'org' to be a list of two integers".into()),
-                }
-            }
-
-            _ => return Err("Expected 'org' to be a list of two integers".into()),
-        };
+        let org = get_point(&parsed_args, "org")?;
 
         // fontFace is an integer
         let font_face = match parsed_args.get("fontFace") {
@@ -481,23 +468,7 @@ impl PutText {
         };
 
         // color is a list of four floats
-        let color = match parsed_args.get("color") {
-            Some(Val::List(list)) => {
-                if list.len() != 4 {
-                    return Err("Expected 'color' to be a list of four floats".into());
-                }
-                match (
-                    list[0].clone(),
-                    list[1].clone(),
-                    list[2].clone(),
-                    list[3].clone(),
-                ) {
-                    (Val::Float(r), Val::Float(g), Val::Float(b), Val::Float(a)) => [r, g, b, a],
-                    _ => return Err("Expected 'color' to be a list of four floats".into()),
-                }
-            }
-            _ => return Err("Expected 'color' to be a list of four floats".into()),
-        };
+        let color = get_color(&parsed_args)?;
 
         // thickness is an integer
         let thickness = match parsed_args.get("thickness") {
@@ -650,51 +621,13 @@ impl ArrowedLine {
         };
 
         // pt1 is a list of two integers
-        let pt1 = match parsed_args.get("pt1") {
-            Some(Val::List(list)) => {
-                if list.len() != 2 {
-                    return Err("Expected 'pt1' to be a list of two integers".into());
-                }
-                match (list[0].clone(), list[1].clone()) {
-                    (Val::Int(x), Val::Int(y)) => (x as i32, y as i32),
-                    _ => return Err("Expected 'pt1' to be a list of two integers".into()),
-                }
-            }
-            _ => return Err("Expected 'pt1' to be a list of two integers".into()),
-        };
+        let pt1 = get_point(&parsed_args, "pt1")?;
 
         // pt2 is a list of two integers
-        let pt2 = match parsed_args.get("pt2") {
-            Some(Val::List(list)) => {
-                if list.len() != 2 {
-                    return Err("Expected 'pt2' to be a list of two integers".into());
-                }
-                match (list[0].clone(), list[1].clone()) {
-                    (Val::Int(x), Val::Int(y)) => (x as i32, y as i32),
-                    _ => return Err("Expected 'pt2' to be a list of two integers".into()),
-                }
-            }
-            _ => return Err("Expected 'pt2' to be a list of two integers".into()),
-        };
+        let pt2 = get_point(&parsed_args, "pt2")?;
 
         // color is a list of four floats
-        let color = match parsed_args.get("color") {
-            Some(Val::List(list)) => {
-                if list.len() != 4 {
-                    return Err("Expected 'color' to be a list of four floats".into());
-                }
-                match (
-                    list[0].clone(),
-                    list[1].clone(),
-                    list[2].clone(),
-                    list[3].clone(),
-                ) {
-                    (Val::Float(r), Val::Float(g), Val::Float(b), Val::Float(a)) => [r, g, b, a],
-                    _ => return Err("Expected 'color' to be a list of four floats".into()),
-                }
-            }
-            _ => return Err("Expected 'color' to be a list of four floats".into()),
-        };
+        let color = get_color(&parsed_args)?;
 
         // thickness is an integer
         let thickness = match parsed_args.get("thickness") {
@@ -847,51 +780,13 @@ impl Line {
         };
 
         // pt1 is a list of two integers
-        let pt1 = match parsed_args.get("pt1") {
-            Some(Val::List(list)) => {
-                if list.len() != 2 {
-                    return Err("Expected 'pt1' to be a list of two integers".into());
-                }
-                match (list[0].clone(), list[1].clone()) {
-                    (Val::Int(x), Val::Int(y)) => (x as i32, y as i32),
-                    _ => return Err("Expected 'pt1' to be a list of two integers".into()),
-                }
-            }
-            _ => return Err("Expected 'pt1' to be a list of two integers".into()),
-        };
+        let pt1 = get_point(&parsed_args, "pt1")?;
 
         // pt2 is a list of two integers
-        let pt2 = match parsed_args.get("pt2") {
-            Some(Val::List(list)) => {
-                if list.len() != 2 {
-                    return Err("Expected 'pt2' to be a list of two integers".into());
-                }
-                match (list[0].clone(), list[1].clone()) {
-                    (Val::Int(x), Val::Int(y)) => (x as i32, y as i32),
-                    _ => return Err("Expected 'pt2' to be a list of two integers".into()),
-                }
-            }
-            _ => return Err("Expected 'pt2' to be a list of two integers".into()),
-        };
+        let pt2 = get_point(&parsed_args, "pt2")?;
 
         // color is a list of four floats
-        let color = match parsed_args.get("color") {
-            Some(Val::List(list)) => {
-                if list.len() != 4 {
-                    return Err("Expected 'color' to be a list of four floats".into());
-                }
-                match (
-                    list[0].clone(),
-                    list[1].clone(),
-                    list[2].clone(),
-                    list[3].clone(),
-                ) {
-                    (Val::Float(r), Val::Float(g), Val::Float(b), Val::Float(a)) => [r, g, b, a],
-                    _ => return Err("Expected 'color' to be a list of four floats".into()),
-                }
-            }
-            _ => return Err("Expected 'color' to be a list of four floats".into()),
-        };
+        let color = get_color(&parsed_args)?;
 
         // thickness is an integer
         let thickness = match parsed_args.get("thickness") {
@@ -1040,18 +935,7 @@ impl Circle {
         };
 
         // center is a list of two integers
-        let center = match parsed_args.get("center") {
-            Some(Val::List(list)) => {
-                if list.len() != 2 {
-                    return Err("Expected 'center' to be a list of two integers".into());
-                }
-                match (list[0].clone(), list[1].clone()) {
-                    (Val::Int(x), Val::Int(y)) => (x as i32, y as i32),
-                    _ => return Err("Expected 'center' to be a list of two integers".into()),
-                }
-            }
-            _ => return Err("Expected 'center' to be a list of two integers".into()),
-        };
+        let center = get_point(&parsed_args, "center")?;
 
         // radius is an integer
         let radius = match parsed_args.get("radius") {
@@ -1060,23 +944,7 @@ impl Circle {
         };
 
         // color is a list of four floats
-        let color = match parsed_args.get("color") {
-            Some(Val::List(list)) => {
-                if list.len() != 4 {
-                    return Err("Expected 'color' to be a list of four floats".into());
-                }
-                match (
-                    list[0].clone(),
-                    list[1].clone(),
-                    list[2].clone(),
-                    list[3].clone(),
-                ) {
-                    (Val::Float(r), Val::Float(g), Val::Float(b), Val::Float(a)) => [r, g, b, a],
-                    _ => return Err("Expected 'color' to be a list of four floats".into()),
-                }
-            }
-            _ => return Err("Expected 'color' to be a list of four floats".into()),
-        };
+        let color = get_color(&parsed_args)?;
 
         // thickness is an integer
         let thickness = match parsed_args.get("thickness") {
