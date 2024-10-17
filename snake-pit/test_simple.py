@@ -6,7 +6,7 @@ import pytest
 
 
 def test_source_ts():
-    server = vidformer.YrdenServer(bin="../target/release/vidformer-cli")
+    server = vidformer.YrdenServer()
     tos = vidformer.Source(server, "tos_720p", "tos_720p.mp4", 0)
     assert len(tos.ts()) == 17616
 

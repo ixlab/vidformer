@@ -7,7 +7,7 @@ import cv2
 
 
 def test_udf():
-    server = vf.YrdenServer(bin="../target/release/vidformer-cli")
+    server = vf.YrdenServer()
     tos = vf.Source(server, "tos_720p", "tos_720p.mp4", 0)
 
     class MyFilter(vf.UDF):

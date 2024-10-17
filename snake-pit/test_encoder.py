@@ -29,7 +29,7 @@ def get_codec(pth):
 def test_output_codec_default():
     """Make sure we properly default to h264."""
 
-    server = vf.YrdenServer(bin="../target/release/vidformer-cli")
+    server = vf.YrdenServer()
     tos = vf.Source(server, "tos_720p", "tos_720p.mp4", 0)
 
     domain = tos.ts()[:50]
@@ -47,7 +47,7 @@ def test_output_codec_default():
 
 
 def test_output_raw():
-    server = vf.YrdenServer(bin="../target/release/vidformer-cli")
+    server = vf.YrdenServer()
     tos = vf.Source(server, "tos_720p", "tos_720p.mp4", 0)
 
     domain = tos.ts()[:50]
@@ -73,7 +73,7 @@ def test_output_raw():
     ],
 )
 def test_output_codec(codec, encoder, pix_fmt, container, opts):
-    server = vf.YrdenServer(bin="../target/release/vidformer-cli")
+    server = vf.YrdenServer()
     tos = vf.Source(server, "tos_720p", "tos_720p.mp4", 0)
 
     scale = vf.Filter("Scale")

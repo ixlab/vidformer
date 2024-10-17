@@ -353,7 +353,7 @@ class Loader:
 class YrdenServer:
     """A connection to a Yrden server"""
 
-    def __init__(self, domain=None, port=None, bin="vidformer-cli"):
+    def __init__(self, domain=None, port=None, bin=None):
         """Connect to a Yrden server
 
         Can either connect to an existing server, if domain and port are provided, or start a new server using the provided binary
@@ -363,7 +363,12 @@ class YrdenServer:
         self._port = port
         self._proc = None
         if self._port is None:
-            assert bin is not None
+            if bin is None:
+                if os.getenv("VIDFORMER_BIN") is not None:
+                    bin = os.getenv("VIDFORMER_BIN")
+                else:
+                    bin = "vidformer-cli"
+
             self._domain = "localhost"
             self._port = random.randint(49152, 65535)
             cmd = [bin, "yrden", "--port", str(self._port)]

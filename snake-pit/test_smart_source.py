@@ -10,7 +10,7 @@ def test_http_path():
     import vidformer as vf
     from fractions import Fraction
 
-    server = vf.YrdenServer(bin="../target/debug/vidformer-cli")
+    server = vf.YrdenServer()
     tos = vidformer.Source(
         server, "tos_720p-XYZ", "https://f.dominik.win/data/dve2/tos_720p.mp4", 0
     )

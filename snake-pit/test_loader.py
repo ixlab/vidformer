@@ -4,7 +4,7 @@ import numpy as np
 
 
 def test_loader_rgb24():
-    server = vf.YrdenServer(bin="../target/release/vidformer-cli")
+    server = vf.YrdenServer()
     tos = vf.Source(server, "tos_720p", "tos_720p.mp4", 0)
 
     domain = tos.ts()[:10]
@@ -56,7 +56,7 @@ def test_loader_rgb24():
 
 
 def test_loader_yuv420p():
-    server = vf.YrdenServer(bin="../target/release/vidformer-cli")
+    server = vf.YrdenServer()
     tos = vf.Source(server, "tos_720p", "tos_720p.mp4", 0)
 
     domain = tos.ts()[:10]

@@ -4,10 +4,6 @@ import uuid
 from fractions import Fraction
 from bisect import bisect_right
 
-server = vf.YrdenServer(
-    bin="../target/release/vidformer-cli"
-)  # TODO: don't hardcode this
-
 CAP_PROP_POS_MSEC = 0
 CAP_PROP_POS_FRAMES = 1
 CAP_PROP_FRAME_WIDTH = 3
@@ -43,6 +39,23 @@ def _fps_to_ts(fps, n_frames):
     return [Fraction(i, fps) for i in range(n_frames)]
 
 
+_global_cv2_server = None
+
+
+def _server():
+    global _global_cv2_server
+    if _global_cv2_server is None:
+        _global_cv2_server = vf.YrdenServer()
+    return _global_cv2_server
+
+
+def set_cv2_server(server):
+    """Set the server to use for the cv2 frontend."""
+    global _global_cv2_server
+    assert isinstance(server, vf.YrdenServer)
+    _global_cv2_server = server
+
+
 class _Frame:
     def __init__(self, f):
         self._f = f
@@ -59,6 +72,7 @@ class _Frame:
 class VideoCapture:
     def __init__(self, path):
         self._path = path
+        server = _server()
         self._source = vf.Source(server, str(uuid.uuid4()), path, 0)
         self._next_frame_idx = 0
 
@@ -121,6 +135,7 @@ class VideoWriter:
 
     def release(self):
         spec = self.vf_spec()
+        server = _server()
         spec.save(server, self._path)
 
     def vf_spec(self):

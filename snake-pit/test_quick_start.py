@@ -7,7 +7,7 @@ import pandas as pd
 
 
 def test_quick_start():
-    server = vidformer.YrdenServer(bin="../target/release/vidformer-cli")
+    server = vidformer.YrdenServer()
     tos = vidformer.Source(server, "tos_720p", "tos_720p.mp4", 0)
 
     df = pd.read_csv("https://f.dominik.win/data/dve2/detections-tos.csv")
@@ -52,7 +52,7 @@ def test_hello_world():
     import vidformer as vf
     from fractions import Fraction
 
-    server = vf.YrdenServer(bin="../target/release/vidformer-cli")
+    server = vf.YrdenServer()
     tos = vidformer.Source(
         server, "tos_720p", "https://f.dominik.win/data/dve2/tos_720p.mp4", 0
     )
@@ -76,7 +76,7 @@ def test_hello_world():
 def test_bounding_boxes():
     import vidformer as vf
 
-    server = vf.YrdenServer(bin="../target/release/vidformer-cli")
+    server = vf.YrdenServer()
     tos = vidformer.Source(server, "tos_720p", "tos_720p.mp4", 0)
 
     # Load some data
@@ -106,7 +106,7 @@ def test_bounding_boxes():
 def test_composition():
     import vidformer as vf
 
-    server = vf.YrdenServer(bin="../target/release/vidformer-cli")
+    server = vf.YrdenServer()
     tos = vidformer.Source(server, "tos_720p", "tos_720p.mp4", 0)
 
     hstack = vf.Filter("HStack")
