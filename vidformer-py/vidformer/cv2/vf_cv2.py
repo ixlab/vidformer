@@ -33,6 +33,9 @@ LINE_AA = 16
 _filter_scale = vf.Filter("Scale")
 _filter_rectangle = vf.Filter("cv2.rectangle")
 _filter_putText = vf.Filter("cv2.putText")
+_filter_arrowedLine = vf.Filter("cv2.arrowedLine")
+_filter_line = vf.Filter("cv2.line")
+_filter_circle = vf.Filter("cv2.circle")
 
 
 def _ts_to_fps(timestamps):
@@ -241,6 +244,119 @@ def putText(
     img._f = _filter_putText(img._f, text, org, fontFace, fontScale, color, *args)
 
 
+def arrowedLine(
+    img, pt1, pt2, color, thickness=None, line_type=None, shift=None, tipLength=None
+):
+    """
+    cv.arrowedLine(	img, pt1, pt2, color[, thickness[, line_type[, shift[, tipLength]]]]	)
+    """
+    assert isinstance(img, _Frame)
+    img._mut()
+
+    assert len(pt1) == 2
+    assert len(pt2) == 2
+    assert all(isinstance(x, int) for x in pt1)
+    assert all(isinstance(x, int) for x in pt2)
+
+    assert len(color) == 3 or len(color) == 4
+    color = [float(x) for x in color]
+    if len(color) == 3:
+        color.append(255.0)
+
+    args = []
+    if thickness is not None:
+        assert isinstance(thickness, int)
+        args.append(thickness)
+    if line_type is not None:
+        assert isinstance(line_type, int)
+        assert thickness is not None
+        args.append(line_type)
+    if shift is not None:
+        assert isinstance(shift, int)
+        assert shift is not None
+        args.append(shift)
+    if tipLength is not None:
+        assert isinstance(tipLength, float)
+        assert shift is not None
+        args.append(tipLength)
+
+    img._f = _filter_arrowedLine(img._f, pt1, pt2, color, *args)
+
+
+def line(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
+    assert isinstance(img, _Frame)
+    img._mut()
+
+    assert len(pt1) == 2
+    assert len(pt2) == 2
+    assert all(isinstance(x, int) for x in pt1)
+    assert all(isinstance(x, int) for x in pt2)
+
+    assert len(color) == 3 or len(color) == 4
+    color = [float(x) for x in color]
+    if len(color) == 3:
+        color.append(255.0)
+
+    args = []
+    if thickness is not None:
+        assert isinstance(thickness, int)
+        args.append(thickness)
+    if lineType is not None:
+        assert isinstance(lineType, int)
+        assert thickness is not None
+        args.append(lineType)
+    if shift is not None:
+        assert isinstance(shift, int)
+        assert shift is not None
+        args.append(shift)
+
+    img._f = _filter_line(img._f, pt1, pt2, color, *args)
+
+
+"""
+void cv::circle 	( 	InputOutputArray  	img,
+		Point  	center,
+		int  	radius,
+		const Scalar &  	color,
+		int  	thickness = 1,
+		int  	lineType = LINE_8,
+		int  	shift = 0 
+	) 		
+Python:
+	cv.circle(	img, center, radius, color[, thickness[, lineType[, shift]]]	) -> 	img
+    """
+
+
+def circle(img, center, radius, color, thickness=None, lineType=None, shift=None):
+    assert isinstance(img, _Frame)
+    img._mut()
+
+    assert len(center) == 2
+    assert all(isinstance(x, int) for x in center)
+
+    assert isinstance(radius, int)
+
+    assert len(color) == 3 or len(color) == 4
+    color = [float(x) for x in color]
+    if len(color) == 3:
+        color.append(255.0)
+
+    args = []
+    if thickness is not None:
+        assert isinstance(thickness, int)
+        args.append(thickness)
+    if lineType is not None:
+        assert isinstance(lineType, int)
+        assert thickness is not None
+        args.append(lineType)
+    if shift is not None:
+        assert isinstance(shift, int)
+        assert shift is not None
+        args.append(shift)
+
+    img._f = _filter_circle(img._f, center, radius, color, *args)
+
+
 def getFontScaleFromHeight(*args, **kwargs):
     """
     cv.getFontScaleFromHeight(	fontFace, pixelHeight[, thickness]	)
@@ -260,14 +376,6 @@ def getTextSize(*args, **kwargs):
 
 
 # Stubs for unimplemented functions
-
-
-def arrowedLine(*args, **kwargs):
-    raise NotImplementedError("arrowedLine is not yet implemented in the cv2 frontend")
-
-
-def circle(*args, **kwargs):
-    raise NotImplementedError("circle is not yet implemented in the cv2 frontend")
 
 
 def clipLine(*args, **kwargs):
@@ -298,10 +406,6 @@ def fillConvexPoly(*args, **kwargs):
 
 def fillPoly(*args, **kwargs):
     raise NotImplementedError("fillPoly is not yet implemented in the cv2 frontend")
-
-
-def line(*args, **kwargs):
-    raise NotImplementedError("line is not yet implemented in the cv2 frontend")
 
 
 def polylines(*args, **kwargs):

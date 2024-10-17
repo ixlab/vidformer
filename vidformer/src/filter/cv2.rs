@@ -590,3 +590,578 @@ impl filter::Filter for PutText {
         Ok(opts.img.unwrap_frame_type())
     }
 }
+
+pub struct ArrowedLine {}
+
+struct ArrowedLineArgs {
+    img: FrameArg,
+    pt1: (i32, i32),
+    pt2: (i32, i32),
+    color: [f64; 4],
+    thickness: i32,
+    linetype: i32,
+    shift: i32,
+    tip_length: f64,
+}
+
+impl ArrowedLine {
+    fn args(
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> Result<ArrowedLineArgs, String> {
+        let signature = FunctionSignature {
+            parameters: vec![
+                Parameter::Positional { name: "img".into() },
+                Parameter::Positional { name: "pt1".into() },
+                Parameter::Positional { name: "pt2".into() },
+                Parameter::Positional {
+                    name: "color".into(),
+                },
+                Parameter::PositionalOptional {
+                    name: "thickness".into(),
+                    default_value: Val::Int(1),
+                },
+                Parameter::PositionalOptional {
+                    name: "lineType".into(),
+                    default_value: Val::Int(8),
+                },
+                Parameter::PositionalOptional {
+                    name: "shift".into(),
+                    default_value: Val::Int(0),
+                },
+                Parameter::PositionalOptional {
+                    name: "tipLength".into(),
+                    default_value: Val::Float(0.1),
+                },
+            ],
+        };
+
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
+        let parsed_args = parse_arguments(&signature, args, kwargs)?;
+
+        let img = match parsed_args.get("img") {
+            Some(Val::Frame(frame)) => FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => FrameArg::FrameType(frame_type.clone()),
+            x => {
+                dbg! {x};
+                return Err("Expected 'img' to be a Frame".into());
+            }
+        };
+
+        // pt1 is a list of two integers
+        let pt1 = match parsed_args.get("pt1") {
+            Some(Val::List(list)) => {
+                if list.len() != 2 {
+                    return Err("Expected 'pt1' to be a list of two integers".into());
+                }
+                match (list[0].clone(), list[1].clone()) {
+                    (Val::Int(x), Val::Int(y)) => (x as i32, y as i32),
+                    _ => return Err("Expected 'pt1' to be a list of two integers".into()),
+                }
+            }
+            _ => return Err("Expected 'pt1' to be a list of two integers".into()),
+        };
+
+        // pt2 is a list of two integers
+        let pt2 = match parsed_args.get("pt2") {
+            Some(Val::List(list)) => {
+                if list.len() != 2 {
+                    return Err("Expected 'pt2' to be a list of two integers".into());
+                }
+                match (list[0].clone(), list[1].clone()) {
+                    (Val::Int(x), Val::Int(y)) => (x as i32, y as i32),
+                    _ => return Err("Expected 'pt2' to be a list of two integers".into()),
+                }
+            }
+            _ => return Err("Expected 'pt2' to be a list of two integers".into()),
+        };
+
+        // color is a list of four floats
+        let color = match parsed_args.get("color") {
+            Some(Val::List(list)) => {
+                if list.len() != 4 {
+                    return Err("Expected 'color' to be a list of four floats".into());
+                }
+                match (
+                    list[0].clone(),
+                    list[1].clone(),
+                    list[2].clone(),
+                    list[3].clone(),
+                ) {
+                    (Val::Float(r), Val::Float(g), Val::Float(b), Val::Float(a)) => [r, g, b, a],
+                    _ => return Err("Expected 'color' to be a list of four floats".into()),
+                }
+            }
+            _ => return Err("Expected 'color' to be a list of four floats".into()),
+        };
+
+        // thickness is an integer
+        let thickness = match parsed_args.get("thickness") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'thickness' to be an integer".into()),
+        };
+
+        // lineType is an integer
+        let linetype = match parsed_args.get("lineType") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'lineType' to be an integer".into()),
+        };
+
+        // shift is an integer
+        let shift = match parsed_args.get("shift") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'shift' to be an integer".into()),
+        };
+
+        // tipLength is a float
+        let tip_length = match parsed_args.get("tipLength") {
+            Some(Val::Float(value)) => *value,
+            _ => return Err("Expected 'tipLength' to be a float".into()),
+        };
+
+        Ok(ArrowedLineArgs {
+            img,
+            pt1,
+            pt2,
+            color,
+            thickness,
+            linetype,
+            shift,
+            tip_length,
+        })
+    }
+}
+
+impl filter::Filter for ArrowedLine {
+    fn filter(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::Frame, dve::Error> {
+        let opts: ArrowedLineArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        let img = opts.img.unwrap_frame();
+        let (width, height) = (img.width, img.height);
+        debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+
+        let mut mat = frame_to_mat(img, width, height);
+
+        let pt1 = opencv::core::Point::new(opts.pt1.0, opts.pt1.1);
+        let pt2 = opencv::core::Point::new(opts.pt2.0, opts.pt2.1);
+        let color =
+            opencv::core::Scalar::new(opts.color[0], opts.color[1], opts.color[2], opts.color[3]);
+
+        imgproc::arrowed_line(
+            &mut mat,
+            pt1,
+            pt2,
+            color,
+            opts.thickness,
+            opts.linetype,
+            opts.shift,
+            opts.tip_length,
+        )
+        .unwrap();
+
+        let f = match mat_to_frame(mat, width, height) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        Ok(filter::Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::FrameType, dve::Error> {
+        let opts: ArrowedLineArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(dve::Error::AVError("Expected RGB24 frame".into()));
+        }
+
+        Ok(opts.img.unwrap_frame_type())
+    }
+}
+
+pub struct Line {}
+
+struct LineArgs {
+    img: FrameArg,
+    pt1: (i32, i32),
+    pt2: (i32, i32),
+    color: [f64; 4],
+    thickness: i32,
+    linetype: i32,
+    shift: i32,
+}
+
+impl Line {
+    fn args(
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> Result<LineArgs, String> {
+        let signature = FunctionSignature {
+            parameters: vec![
+                Parameter::Positional { name: "img".into() },
+                Parameter::Positional { name: "pt1".into() },
+                Parameter::Positional { name: "pt2".into() },
+                Parameter::Positional {
+                    name: "color".into(),
+                },
+                Parameter::PositionalOptional {
+                    name: "thickness".into(),
+                    default_value: Val::Int(1),
+                },
+                Parameter::PositionalOptional {
+                    name: "lineType".into(),
+                    default_value: Val::Int(8),
+                },
+                Parameter::PositionalOptional {
+                    name: "shift".into(),
+                    default_value: Val::Int(0),
+                },
+            ],
+        };
+
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
+        let parsed_args = parse_arguments(&signature, args, kwargs)?;
+
+        let img = match parsed_args.get("img") {
+            Some(Val::Frame(frame)) => FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => FrameArg::FrameType(frame_type.clone()),
+            x => {
+                dbg! {x};
+                return Err("Expected 'img' to be a Frame".into());
+            }
+        };
+
+        // pt1 is a list of two integers
+        let pt1 = match parsed_args.get("pt1") {
+            Some(Val::List(list)) => {
+                if list.len() != 2 {
+                    return Err("Expected 'pt1' to be a list of two integers".into());
+                }
+                match (list[0].clone(), list[1].clone()) {
+                    (Val::Int(x), Val::Int(y)) => (x as i32, y as i32),
+                    _ => return Err("Expected 'pt1' to be a list of two integers".into()),
+                }
+            }
+            _ => return Err("Expected 'pt1' to be a list of two integers".into()),
+        };
+
+        // pt2 is a list of two integers
+        let pt2 = match parsed_args.get("pt2") {
+            Some(Val::List(list)) => {
+                if list.len() != 2 {
+                    return Err("Expected 'pt2' to be a list of two integers".into());
+                }
+                match (list[0].clone(), list[1].clone()) {
+                    (Val::Int(x), Val::Int(y)) => (x as i32, y as i32),
+                    _ => return Err("Expected 'pt2' to be a list of two integers".into()),
+                }
+            }
+            _ => return Err("Expected 'pt2' to be a list of two integers".into()),
+        };
+
+        // color is a list of four floats
+        let color = match parsed_args.get("color") {
+            Some(Val::List(list)) => {
+                if list.len() != 4 {
+                    return Err("Expected 'color' to be a list of four floats".into());
+                }
+                match (
+                    list[0].clone(),
+                    list[1].clone(),
+                    list[2].clone(),
+                    list[3].clone(),
+                ) {
+                    (Val::Float(r), Val::Float(g), Val::Float(b), Val::Float(a)) => [r, g, b, a],
+                    _ => return Err("Expected 'color' to be a list of four floats".into()),
+                }
+            }
+            _ => return Err("Expected 'color' to be a list of four floats".into()),
+        };
+
+        // thickness is an integer
+        let thickness = match parsed_args.get("thickness") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'thickness' to be an integer".into()),
+        };
+
+        // lineType is an integer
+        let linetype = match parsed_args.get("lineType") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'lineType' to be an integer".into()),
+        };
+
+        // shift is an integer
+        let shift = match parsed_args.get("shift") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'shift' to be an integer".into()),
+        };
+
+        Ok(LineArgs {
+            img,
+            pt1,
+            pt2,
+            color,
+            thickness,
+            linetype,
+            shift,
+        })
+    }
+}
+
+impl filter::Filter for Line {
+    fn filter(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::Frame, dve::Error> {
+        let opts: LineArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        let img = opts.img.unwrap_frame();
+        let (width, height) = (img.width, img.height);
+        debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+
+        let mut mat = frame_to_mat(img, width, height);
+
+        let pt1 = opencv::core::Point::new(opts.pt1.0, opts.pt1.1);
+        let pt2 = opencv::core::Point::new(opts.pt2.0, opts.pt2.1);
+        let color =
+            opencv::core::Scalar::new(opts.color[0], opts.color[1], opts.color[2], opts.color[3]);
+
+        imgproc::line(
+            &mut mat,
+            pt1,
+            pt2,
+            color,
+            opts.thickness,
+            opts.linetype,
+            opts.shift,
+        )
+        .unwrap();
+
+        let f = match mat_to_frame(mat, width, height) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        Ok(filter::Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::FrameType, dve::Error> {
+        let opts: LineArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(dve::Error::AVError("Expected RGB24 frame".into()));
+        }
+
+        Ok(opts.img.unwrap_frame_type())
+    }
+}
+
+pub struct Circle {}
+
+struct CircleArgs {
+    img: FrameArg,
+    center: (i32, i32),
+    radius: i32,
+    color: [f64; 4],
+    thickness: i32,
+    linetype: i32,
+    shift: i32,
+}
+
+impl Circle {
+    fn args(
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> Result<CircleArgs, String> {
+        let signature = FunctionSignature {
+            parameters: vec![
+                Parameter::Positional { name: "img".into() },
+                Parameter::Positional {
+                    name: "center".into(),
+                },
+                Parameter::Positional {
+                    name: "radius".into(),
+                },
+                Parameter::Positional {
+                    name: "color".into(),
+                },
+                Parameter::PositionalOptional {
+                    name: "thickness".into(),
+                    default_value: Val::Int(1),
+                },
+                Parameter::PositionalOptional {
+                    name: "lineType".into(),
+                    default_value: Val::Int(8),
+                },
+                Parameter::PositionalOptional {
+                    name: "shift".into(),
+                    default_value: Val::Int(0),
+                },
+            ],
+        };
+
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
+        let parsed_args = parse_arguments(&signature, args, kwargs)?;
+
+        let img = match parsed_args.get("img") {
+            Some(Val::Frame(frame)) => FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => FrameArg::FrameType(frame_type.clone()),
+            x => {
+                dbg! {x};
+                return Err("Expected 'img' to be a Frame".into());
+            }
+        };
+
+        // center is a list of two integers
+        let center = match parsed_args.get("center") {
+            Some(Val::List(list)) => {
+                if list.len() != 2 {
+                    return Err("Expected 'center' to be a list of two integers".into());
+                }
+                match (list[0].clone(), list[1].clone()) {
+                    (Val::Int(x), Val::Int(y)) => (x as i32, y as i32),
+                    _ => return Err("Expected 'center' to be a list of two integers".into()),
+                }
+            }
+            _ => return Err("Expected 'center' to be a list of two integers".into()),
+        };
+
+        // radius is an integer
+        let radius = match parsed_args.get("radius") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'radius' to be an integer".into()),
+        };
+
+        // color is a list of four floats
+        let color = match parsed_args.get("color") {
+            Some(Val::List(list)) => {
+                if list.len() != 4 {
+                    return Err("Expected 'color' to be a list of four floats".into());
+                }
+                match (
+                    list[0].clone(),
+                    list[1].clone(),
+                    list[2].clone(),
+                    list[3].clone(),
+                ) {
+                    (Val::Float(r), Val::Float(g), Val::Float(b), Val::Float(a)) => [r, g, b, a],
+                    _ => return Err("Expected 'color' to be a list of four floats".into()),
+                }
+            }
+            _ => return Err("Expected 'color' to be a list of four floats".into()),
+        };
+
+        // thickness is an integer
+        let thickness = match parsed_args.get("thickness") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'thickness' to be an integer".into()),
+        };
+
+        // lineType is an integer
+        let linetype = match parsed_args.get("lineType") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'lineType' to be an integer".into()),
+        };
+
+        // shift is an integer
+        let shift = match parsed_args.get("shift") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'shift' to be an integer".into()),
+        };
+
+        Ok(CircleArgs {
+            img,
+            center,
+            radius,
+            color,
+            thickness,
+            linetype,
+            shift,
+        })
+    }
+}
+
+impl filter::Filter for Circle {
+    fn filter(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::Frame, dve::Error> {
+        let opts: CircleArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        let img = opts.img.unwrap_frame();
+        let (width, height) = (img.width, img.height);
+        debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+
+        let mut mat = frame_to_mat(img, width, height);
+
+        let center = opencv::core::Point::new(opts.center.0, opts.center.1);
+        let color =
+            opencv::core::Scalar::new(opts.color[0], opts.color[1], opts.color[2], opts.color[3]);
+
+        imgproc::circle(
+            &mut mat,
+            center,
+            opts.radius,
+            color,
+            opts.thickness,
+            opts.linetype,
+            opts.shift,
+        )
+        .unwrap();
+
+        let f = match mat_to_frame(mat, width, height) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        Ok(filter::Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::FrameType, dve::Error> {
+        let opts: CircleArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(dve::Error::AVError("Expected RGB24 frame".into()));
+        }
+
+        Ok(opts.img.unwrap_frame_type())
+    }
+}

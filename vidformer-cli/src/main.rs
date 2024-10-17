@@ -231,6 +231,18 @@ fn default_filters() -> BTreeMap<String, Box<dyn filter::Filter>> {
         "cv2.putText".to_string(),
         Box::new(crate::filter::cv2::PutText {}),
     );
+    filters.insert(
+        "cv2.arrowedLine".to_string(),
+        Box::new(crate::filter::cv2::ArrowedLine {}),
+    );
+    filters.insert(
+        "cv2.line".to_string(),
+        Box::new(crate::filter::cv2::Line {}),
+    );
+    filters.insert(
+        "cv2.circle".to_string(),
+        Box::new(crate::filter::cv2::Circle {}),
+    );
 
     filters
 }

@@ -103,7 +103,7 @@ def test_rectangle_vf():
     rectangle(vf_cv2)
 
 
-def text(cv2):
+def putText(cv2):
     cap = cv2.VideoCapture(VID_PATH)
     assert cap.isOpened()
 
@@ -142,11 +142,143 @@ def text(cv2):
 
 
 def test_text_ocv():
-    text(ocv_cv2)
+    putText(ocv_cv2)
 
 
 def test_text_vf():
-    text(vf_cv2)
+    putText(vf_cv2)
+
+
+def arrowedLine(cv2):
+    cap = cv2.VideoCapture(VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    out = cv2.VideoWriter(
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+    )
+
+    count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret or count > 100:
+            break
+
+        cv2.arrowedLine(
+            frame,
+            (100, 100),
+            (200, 200),
+            (0, 255, 0, 255),
+            3,
+        )
+
+        out.write(frame)
+        count += 1
+
+    cap.release()
+    out.release()
+
+    assert os.path.exists(TMP_PATH)
+    os.remove(TMP_PATH)
+
+
+def test_arrowedLine_ocv():
+    arrowedLine(ocv_cv2)
+
+
+def test_arrowedLine_vf():
+    arrowedLine(vf_cv2)
+
+
+def line(cv2):
+    cap = cv2.VideoCapture(VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    out = cv2.VideoWriter(
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+    )
+
+    count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret or count > 100:
+            break
+
+        cv2.line(
+            frame,
+            (100, 100),
+            (200, 200),
+            (0, 255, 0, 255),
+            3,
+        )
+
+        out.write(frame)
+        count += 1
+
+    cap.release()
+    out.release()
+
+    assert os.path.exists(TMP_PATH)
+    os.remove(TMP_PATH)
+
+
+def test_line_ocv():
+    line(ocv_cv2)
+
+
+def test_line_vf():
+    line(vf_cv2)
+
+
+def circle(cv2):
+    cap = cv2.VideoCapture(VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    out = cv2.VideoWriter(
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+    )
+
+    count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret or count > 100:
+            break
+
+        cv2.circle(
+            frame,
+            (150, 150),
+            50,
+            (0, 255, 0, 255),
+            3,
+        )
+
+        out.write(frame)
+        count += 1
+
+    cap.release()
+    out.release()
+
+    assert os.path.exists(TMP_PATH)
+    os.remove(TMP_PATH)
+
+
+def test_circle_ocv():
+    circle(ocv_cv2)
+
+
+def test_circle_vf():
+    circle(vf_cv2)
 
 
 def seek(cv2):
