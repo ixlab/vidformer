@@ -196,3 +196,55 @@ def test_seek_ocv():
 
 def test_seek_vf():
     seek(vf_cv2)
+
+
+def test_getFontScaleFromHeight():
+    import vidformer.cv2 as vf_cv2
+    import cv2 as ocv_cv2
+
+    fonts = [
+        ocv_cv2.FONT_HERSHEY_SIMPLEX,
+        ocv_cv2.FONT_HERSHEY_PLAIN,
+        ocv_cv2.FONT_HERSHEY_DUPLEX,
+        ocv_cv2.FONT_HERSHEY_COMPLEX,
+        ocv_cv2.FONT_HERSHEY_TRIPLEX,
+        ocv_cv2.FONT_HERSHEY_COMPLEX_SMALL,
+        ocv_cv2.FONT_HERSHEY_SCRIPT_SIMPLEX,
+        ocv_cv2.FONT_HERSHEY_SCRIPT_COMPLEX,
+    ]
+    font_sizes = list(range(50))
+    font_thicknesses = list(range(1, 10))
+
+    for font in fonts:
+        for size in font_sizes:
+            for thickness in font_thicknesses:
+                assert ocv_cv2.getFontScaleFromHeight(
+                    font, size, thickness
+                ) == vf_cv2.getFontScaleFromHeight(font, size, thickness)
+
+
+def test_getTextSize():
+    import vidformer.cv2 as vf_cv2
+    import cv2 as ocv_cv2
+
+    texts = ["", "hello", "hello, world!", "123456890+-3", "a" * 1000]
+    fonts = [
+        ocv_cv2.FONT_HERSHEY_SIMPLEX,
+        ocv_cv2.FONT_HERSHEY_PLAIN,
+        ocv_cv2.FONT_HERSHEY_DUPLEX,
+        ocv_cv2.FONT_HERSHEY_COMPLEX,
+        ocv_cv2.FONT_HERSHEY_TRIPLEX,
+        ocv_cv2.FONT_HERSHEY_COMPLEX_SMALL,
+        ocv_cv2.FONT_HERSHEY_SCRIPT_SIMPLEX,
+        ocv_cv2.FONT_HERSHEY_SCRIPT_COMPLEX,
+    ]
+    font_sizes = list(range(50))
+    font_thicknesses = list(range(1, 10))
+
+    for text in texts:
+        for font in fonts:
+            for size in font_sizes:
+                for thickness in font_thicknesses:
+                    assert ocv_cv2.getTextSize(
+                        text, font, size, thickness
+                    ) == vf_cv2.getTextSize(text, font, size, thickness)

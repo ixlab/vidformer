@@ -1,5 +1,10 @@
 from .. import vf
 
+try:
+    import cv2 as _opencv2
+except:
+    _opencv2 = None
+
 import uuid
 from fractions import Fraction
 from bisect import bisect_right
@@ -236,6 +241,24 @@ def putText(
     img._f = _filter_putText(img._f, text, org, fontFace, fontScale, color, *args)
 
 
+def getFontScaleFromHeight(*args, **kwargs):
+    """
+    cv.getFontScaleFromHeight(	fontFace, pixelHeight[, thickness]	)
+    """
+    if _opencv2 is None:
+        raise NotImplementedError("getFontScaleFromHeight requires the cv2 module")
+    return _opencv2.getFontScaleFromHeight(*args, **kwargs)
+
+
+def getTextSize(*args, **kwargs):
+    """
+    cv.getTextSize(	text, fontFace, fontScale, thickness	)
+    """
+    if _opencv2 is None:
+        raise NotImplementedError("getTextSize requires the cv2 module")
+    return _opencv2.getTextSize(*args, **kwargs)
+
+
 # Stubs for unimplemented functions
 
 
@@ -275,16 +298,6 @@ def fillConvexPoly(*args, **kwargs):
 
 def fillPoly(*args, **kwargs):
     raise NotImplementedError("fillPoly is not yet implemented in the cv2 frontend")
-
-
-def getFontScaleFromHeight(*args, **kwargs):
-    raise NotImplementedError(
-        "getFontScaleFromHeight is not yet implemented in the cv2 frontend"
-    )
-
-
-def getTextSize(*args, **kwargs):
-    raise NotImplementedError("getTextSize is not yet implemented in the cv2 frontend")
 
 
 def line(*args, **kwargs):
