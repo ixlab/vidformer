@@ -189,61 +189,8 @@ fn cmd_x() {
 
 fn default_filters() -> BTreeMap<String, Box<dyn filter::Filter>> {
     let mut filters: BTreeMap<String, Box<dyn filter::Filter>> = BTreeMap::new();
-    filters.insert(
-        "PlaceholderFrame".to_string(),
-        Box::new(crate::filter::builtin::PlaceholderFrame {}),
-    );
-    filters.insert(
-        "Annotate".to_string(),
-        Box::new(crate::filter::builtin::Annotate {}),
-    );
-    filters.insert("Box".to_string(), Box::new(crate::filter::builtin::Box {}));
-    filters.insert(
-        "BoundingBox".to_string(),
-        Box::new(crate::filter::builtin::BoundingBox {}),
-    );
-    filters.insert(
-        "DrawBox".to_string(),
-        Box::new(crate::filter::builtin::DrawBox {}),
-    );
-    filters.insert(
-        "Scale".to_string(),
-        Box::new(crate::filter::builtin::Scale {}),
-    );
-    filters.insert("Pad".to_string(), Box::new(crate::filter::builtin::Pad {}));
-    filters.insert(
-        "HStack".to_string(),
-        Box::new(crate::filter::builtin::HStack {}),
-    );
-    filters.insert(
-        "VStack".to_string(),
-        Box::new(crate::filter::builtin::VStack {}),
-    );
-    filters.insert(
-        "DrawText".to_string(),
-        Box::new(crate::filter::builtin::DrawText {}),
-    );
-    filters.insert(
-        "cv2.rectangle".to_string(),
-        Box::new(crate::filter::cv2::Rectangle {}),
-    );
-    filters.insert(
-        "cv2.putText".to_string(),
-        Box::new(crate::filter::cv2::PutText {}),
-    );
-    filters.insert(
-        "cv2.arrowedLine".to_string(),
-        Box::new(crate::filter::cv2::ArrowedLine {}),
-    );
-    filters.insert(
-        "cv2.line".to_string(),
-        Box::new(crate::filter::cv2::Line {}),
-    );
-    filters.insert(
-        "cv2.circle".to_string(),
-        Box::new(crate::filter::cv2::Circle {}),
-    );
-
+    filters.extend(vidformer::filter::builtin::filters());
+    filters.extend(vidformer::filter::cv2::filters());
     filters
 }
 

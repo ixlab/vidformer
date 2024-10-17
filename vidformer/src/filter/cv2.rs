@@ -1,4 +1,4 @@
-//! vidformer built-in filters
+//! vidformer cv2 filters
 
 use crate::dve;
 use crate::dve::AVFrame;
@@ -8,6 +8,32 @@ use opencv::imgproc;
 use opencv::prelude::MatTraitConst;
 use rusty_ffmpeg::ffi;
 use std::collections::BTreeMap;
+
+/// vidformer cv2 filters
+pub fn filters() -> BTreeMap<String, Box<dyn filter::Filter>> {
+    let mut filters: BTreeMap<String, Box<dyn filter::Filter>> = BTreeMap::new();
+    filters.insert(
+        "cv2.rectangle".to_string(),
+        Box::new(crate::filter::cv2::Rectangle {}),
+    );
+    filters.insert(
+        "cv2.putText".to_string(),
+        Box::new(crate::filter::cv2::PutText {}),
+    );
+    filters.insert(
+        "cv2.arrowedLine".to_string(),
+        Box::new(crate::filter::cv2::ArrowedLine {}),
+    );
+    filters.insert(
+        "cv2.line".to_string(),
+        Box::new(crate::filter::cv2::Line {}),
+    );
+    filters.insert(
+        "cv2.circle".to_string(),
+        Box::new(crate::filter::cv2::Circle {}),
+    );
+    filters
+}
 
 #[derive(Clone, Debug)]
 enum Parameter {

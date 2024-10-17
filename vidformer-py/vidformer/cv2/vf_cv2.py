@@ -313,20 +313,6 @@ def line(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
     img._f = _filter_line(img._f, pt1, pt2, color, *args)
 
 
-"""
-void cv::circle 	( 	InputOutputArray  	img,
-		Point  	center,
-		int  	radius,
-		const Scalar &  	color,
-		int  	thickness = 1,
-		int  	lineType = LINE_8,
-		int  	shift = 0 
-	) 		
-Python:
-	cv.circle(	img, center, radius, color[, thickness[, lineType[, shift]]]	) -> 	img
-    """
-
-
 def circle(img, center, radius, color, thickness=None, lineType=None, shift=None):
     assert isinstance(img, _Frame)
     img._mut()

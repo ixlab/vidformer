@@ -9,10 +9,34 @@ use rusty_ffmpeg::ffi;
 use std::collections::BTreeMap;
 use std::ffi::CString;
 use std::ptr;
+use std::sync::Arc;
 
 mod drawutils;
 mod ipc;
 pub use ipc::IPC;
+
+/// vidformer built-in filters
+pub fn filters() -> BTreeMap<String, std::boxed::Box<dyn Filter>> {
+    let mut filters: BTreeMap<String, std::boxed::Box<dyn Filter>> = BTreeMap::new();
+    filters.insert(
+        "PlaceholderFrame".to_string(),
+        std::boxed::Box::new(PlaceholderFrame {}),
+    );
+    filters.insert("Annotate".to_string(), std::boxed::Box::new(Annotate {}));
+    filters.insert("Box".to_string(), std::boxed::Box::new(Box {}));
+    filters.insert(
+        "BoundingBox".to_string(),
+        std::boxed::Box::new(BoundingBox {}),
+    );
+    filters.insert("DrawBox".to_string(), std::boxed::Box::new(DrawBox {}));
+    filters.insert("Scale".to_string(), std::boxed::Box::new(Scale {}));
+    filters.insert("Pad".to_string(), std::boxed::Box::new(Pad {}));
+    filters.insert("HStack".to_string(), std::boxed::Box::new(HStack {}));
+    filters.insert("VStack".to_string(), std::boxed::Box::new(VStack {}));
+    filters.insert("DrawText".to_string(), std::boxed::Box::new(DrawText {}));
+
+    filters
+}
 
 fn avfilter_backed_uniframe(
     frame: &Arc<AVFrame>,
