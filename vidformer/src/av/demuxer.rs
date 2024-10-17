@@ -24,7 +24,20 @@ unsafe extern "C" fn vidformer_avio_read_packet(
     let buf: &mut [u8] = unsafe { slice::from_raw_parts_mut(buf, buf_size as usize) };
     let read = io_ctx.buf_reader.read(buf);
     match read {
-        Ok(read) => read as i32,
+        Ok(read) => {
+            if read == 0 {
+                debug_assert!(
+                    io_ctx
+                        .buf_reader
+                        .seek(std::io::SeekFrom::Current(0))
+                        .unwrap()
+                        == io_ctx.size
+                );
+                ffi::AVERROR_EOF
+            } else {
+                read as i32
+            }
+        }
         Err(e) => {
             error!("Error reading packet: {}", e);
             if io_ctx.err.is_none() {
