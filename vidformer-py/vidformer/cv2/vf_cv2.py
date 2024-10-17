@@ -234,3 +234,62 @@ def putText(
         args.append(bottomLeftOrigin)
 
     img._f = _filter_putText(img._f, text, org, fontFace, fontScale, color, *args)
+
+
+# Stubs for unimplemented functions
+
+
+def arrowedLine(*args, **kwargs):
+    raise NotImplementedError("arrowedLine is not yet implemented in the cv2 frontend")
+
+
+def circle(*args, **kwargs):
+    raise NotImplementedError("circle is not yet implemented in the cv2 frontend")
+
+
+def clipLine(*args, **kwargs):
+    raise NotImplementedError("clipLine is not yet implemented in the cv2 frontend")
+
+
+def drawContours(*args, **kwargs):
+    raise NotImplementedError("drawContours is not yet implemented in the cv2 frontend")
+
+
+def drawMarker(*args, **kwargs):
+    raise NotImplementedError("drawMarker is not yet implemented in the cv2 frontend")
+
+
+def ellipse(*args, **kwargs):
+    raise NotImplementedError("ellipse is not yet implemented in the cv2 frontend")
+
+
+def ellipse2Poly(*args, **kwargs):
+    raise NotImplementedError("ellipse2Poly is not yet implemented in the cv2 frontend")
+
+
+def fillConvexPoly(*args, **kwargs):
+    raise NotImplementedError(
+        "fillConvexPoly is not yet implemented in the cv2 frontend"
+    )
+
+
+def fillPoly(*args, **kwargs):
+    raise NotImplementedError("fillPoly is not yet implemented in the cv2 frontend")
+
+
+def getFontScaleFromHeight(*args, **kwargs):
+    raise NotImplementedError(
+        "getFontScaleFromHeight is not yet implemented in the cv2 frontend"
+    )
+
+
+def getTextSize(*args, **kwargs):
+    raise NotImplementedError("getTextSize is not yet implemented in the cv2 frontend")
+
+
+def line(*args, **kwargs):
+    raise NotImplementedError("line is not yet implemented in the cv2 frontend")
+
+
+def polylines(*args, **kwargs):
+    raise NotImplementedError("polylines is not yet implemented in the cv2 frontend")

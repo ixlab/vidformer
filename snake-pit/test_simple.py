@@ -12,7 +12,7 @@ def test_source_ts():
 
 
 def test_short_clip():
-    server = vidformer.YrdenServer(bin="../target/release/vidformer-cli")
+    server = vidformer.YrdenServer()
     tos = vidformer.Source(server, "tos_720p", "tos_720p.mp4", 0)
     domain = [Fraction(i, 24) for i in range(0, 24 * 30)]
 
@@ -30,7 +30,7 @@ def test_short_clip():
 
 
 def test_source_not_exists():
-    server = vidformer.YrdenServer(bin="../target/release/vidformer-cli")
+    server = vidformer.YrdenServer()
     with pytest.raises(Exception) as exception:
         tos = vidformer.Source(server, "fake", "fake.mp4", 0)
 
