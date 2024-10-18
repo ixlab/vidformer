@@ -5,7 +5,6 @@ Cargo.lock
 *.mp4
 *.mkv
 *.srt
-*.dve2src
 *.json
 *.csv
 *.ts

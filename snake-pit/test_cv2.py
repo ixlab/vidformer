@@ -380,3 +380,49 @@ def test_getTextSize():
                     assert ocv_cv2.getTextSize(
                         text, font, size, thickness
                     ) == vf_cv2.getTextSize(text, font, size, thickness)
+
+
+def addWeighted(cv2):
+    # blend two videos, one second apart
+
+    cap1 = cv2.VideoCapture(VID_PATH)
+    assert cap1.isOpened()
+
+    cap2 = cv2.VideoCapture(VID_PATH)
+    assert cap2.isOpened()
+
+    fps = cap1.get(cv2.CAP_PROP_FPS)
+    width = int(cap1.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap1.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    cap2.set(cv2.CAP_PROP_POS_MSEC, 1000)
+
+    out = cv2.VideoWriter(
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+    )
+
+    count = 0
+    while True:
+        ret1, frame1 = cap1.read()
+        ret2, frame2 = cap2.read()
+        if not ret1 or not ret2 or count > 100:
+            break
+
+        frame1 = cv2.addWeighted(frame1, 0.5, frame2, 0.5, 0)
+
+        out.write(frame1)
+        count += 1
+
+    cap1.release()
+    cap2.release()
+    out.release()
+
+    assert os.path.exists(TMP_PATH)
+    os.remove(TMP_PATH)
+
+
+def test_addWeighted_ocv():
+    addWeighted(ocv_cv2)
+
+
+def test_addWeighted_vf():
+    addWeighted(vf_cv2)

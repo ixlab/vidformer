@@ -4,6 +4,7 @@
 //! For example a filter could blur an input: `MyBlur(frame, amount=5)`.
 
 use crate::dve::AVFrame;
+use opencv::prelude::MatTraitConst;
 use rusty_ffmpeg::ffi;
 use serde::ser::SerializeMap;
 use serde::Deserialize;
@@ -12,6 +13,7 @@ use std::sync::Arc;
 
 pub mod builtin;
 pub mod cv2;
+mod filter_utils;
 
 /// A decoded video frame
 #[derive(Clone)]
