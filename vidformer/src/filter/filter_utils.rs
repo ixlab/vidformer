@@ -1,3 +1,5 @@
+use opencv::core::MatTrait;
+
 use super::*;
 use std::collections::BTreeMap;
 
@@ -204,12 +206,16 @@ pub(crate) fn mat_to_frame_rgb24(
 pub(crate) fn frame_to_mat_rgb24(img: &Frame, width: i32, height: i32) -> opencv::prelude::Mat {
     debug_assert!(img.format == ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
     let img: *mut ffi::AVFrame = img.inner.inner;
-    let mut data_copy = vec![0u8; (width * height * 3) as usize];
 
-    // copy img data into data_copy
+    let mut mat = unsafe {
+        opencv::core::Mat::new_rows_cols(height as i32, width as i32, opencv::core::CV_8UC3)
+    }
+    .unwrap();
+
+    // copy img data into mat
     unsafe {
         let mut src = (*img).data[0];
-        let mut dst = data_copy.as_mut_ptr();
+        let mut dst = mat.data_mut();
         for _ in 0..height {
             std::ptr::copy_nonoverlapping(src, dst, width as usize * 3);
             src = src.add((*img).linesize[0] as usize);
@@ -217,46 +223,28 @@ pub(crate) fn frame_to_mat_rgb24(img: &Frame, width: i32, height: i32) -> opencv
         }
     }
 
-    let mat = unsafe {
-        opencv::core::Mat::new_rows_cols_with_data_unsafe(
-            height as i32,
-            width as i32,
-            opencv::core::CV_8UC3,
-            data_copy.as_mut_ptr() as *mut std::ffi::c_void,
-            width as usize * 3,
-        )
-    }
-    .unwrap();
-
     mat
 }
 
 pub(crate) fn frame_to_mat_gray8(img: &Frame, width: i32, height: i32) -> opencv::prelude::Mat {
     debug_assert!(img.format == ffi::AVPixelFormat_AV_PIX_FMT_GRAY8);
     let img: *mut ffi::AVFrame = img.inner.inner;
-    let mut data_copy = vec![0u8; (width * height) as usize];
 
-    // copy img data into data_copy
+    let mut mat = unsafe {
+        opencv::core::Mat::new_rows_cols(height as i32, width as i32, opencv::core::CV_8UC1)
+    }
+    .unwrap();
+
+    // copy img data into mat
     unsafe {
         let mut src = (*img).data[0];
-        let mut dst = data_copy.as_mut_ptr();
+        let mut dst = mat.data_mut();
         for _ in 0..height {
             std::ptr::copy_nonoverlapping(src, dst, width as usize);
             src = src.add((*img).linesize[0] as usize);
             dst = dst.add(width as usize);
         }
     }
-
-    let mat = unsafe {
-        opencv::core::Mat::new_rows_cols_with_data_unsafe(
-            height as i32,
-            width as i32,
-            opencv::core::CV_8UC1,
-            data_copy.as_mut_ptr() as *mut std::ffi::c_void,
-            width as usize,
-        )
-    }
-    .unwrap();
 
     mat
 }

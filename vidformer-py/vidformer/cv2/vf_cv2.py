@@ -36,6 +36,7 @@ _filter_putText = vf.Filter("cv2.putText")
 _filter_arrowedLine = vf.Filter("cv2.arrowedLine")
 _filter_line = vf.Filter("cv2.line")
 _filter_circle = vf.Filter("cv2.circle")
+_filter_addWeighted = vf.Filter("cv2.addWeighted")
 
 
 def _ts_to_fps(timestamps):
@@ -359,6 +360,35 @@ def getTextSize(*args, **kwargs):
     if _opencv2 is None:
         raise NotImplementedError("getTextSize requires the cv2 module")
     return _opencv2.getTextSize(*args, **kwargs)
+
+
+def addWeighted(src1, alpha, src2, beta, gamma, dst=None, dtype=-1):
+    """
+    cv.addWeighted(	src1, alpha, src2, beta, gamma[, dst[, dtype]]	) -> 	dst
+    """
+    assert isinstance(src1, _Frame)
+    assert isinstance(src2, _Frame)
+    src1._mut()
+    src2._mut()
+
+    if dst is None:
+        dst = _Frame(src1._f)
+    else:
+        assert isinstance(dst, _Frame)
+    dst._mut()
+
+    assert isinstance(alpha, float) or isinstance(alpha, int)
+    assert isinstance(beta, float) or isinstance(beta, int)
+    assert isinstance(gamma, float) or isinstance(gamma, int)
+    alpha = float(alpha)
+    beta = float(beta)
+    gamma = float(gamma)
+
+    if dtype != -1:
+        raise Exception("addWeighted does not support the dtype argument")
+
+    dst._f = _filter_addWeighted(src1._f, alpha, src2._f, beta, gamma)
+    return dst
 
 
 # Stubs for unimplemented functions

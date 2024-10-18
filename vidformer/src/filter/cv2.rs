@@ -14,30 +14,13 @@ use std::collections::BTreeMap;
 /// vidformer cv2 filters
 pub fn filters() -> BTreeMap<String, Box<dyn filter::Filter>> {
     let mut filters: BTreeMap<String, Box<dyn filter::Filter>> = BTreeMap::new();
-    filters.insert(
-        "cv2.rectangle".to_string(),
-        Box::new(crate::filter::cv2::Rectangle {}),
-    );
-    filters.insert(
-        "cv2.putText".to_string(),
-        Box::new(crate::filter::cv2::PutText {}),
-    );
-    filters.insert(
-        "cv2.arrowedLine".to_string(),
-        Box::new(crate::filter::cv2::ArrowedLine {}),
-    );
-    filters.insert(
-        "cv2.line".to_string(),
-        Box::new(crate::filter::cv2::Line {}),
-    );
-    filters.insert(
-        "cv2.circle".to_string(),
-        Box::new(crate::filter::cv2::Circle {}),
-    );
-    filters.insert(
-        "cv2.setTo".to_string(),
-        Box::new(crate::filter::cv2::SetTo {}),
-    );
+    filters.insert("cv2.rectangle".to_string(), Box::new(Rectangle {}));
+    filters.insert("cv2.putText".to_string(), Box::new(PutText {}));
+    filters.insert("cv2.arrowedLine".to_string(), Box::new(ArrowedLine {}));
+    filters.insert("cv2.line".to_string(), Box::new(Line {}));
+    filters.insert("cv2.circle".to_string(), Box::new(Circle {}));
+    filters.insert("cv2.setTo".to_string(), Box::new(SetTo {}));
+    filters.insert("cv2.addWeighted".to_string(), Box::new(AddWeighted {}));
     filters
 }
 
@@ -972,5 +955,179 @@ impl Filter for SetTo {
         }
 
         Ok(opts.img.unwrap_frame_type())
+    }
+}
+
+pub struct AddWeighted {}
+
+struct AddWeightedArgs {
+    src1: filter_utils::FrameArg,
+    alpha: f64,
+    src2: filter_utils::FrameArg,
+    beta: f64,
+    gamma: f64,
+}
+
+impl AddWeighted {
+    fn args(
+        args: &[Val],
+        kwargs: &BTreeMap<std::string::String, Val>,
+    ) -> Result<AddWeightedArgs, String> {
+        let signature = filter_utils::FunctionSignature {
+            parameters: vec![
+                Parameter::Positional {
+                    name: "src1".into(),
+                },
+                Parameter::Positional {
+                    name: "alpha".into(),
+                },
+                Parameter::Positional {
+                    name: "src2".into(),
+                },
+                Parameter::Positional {
+                    name: "beta".into(),
+                },
+                Parameter::Positional {
+                    name: "gamma".into(),
+                },
+            ],
+        };
+
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
+
+        let src1 = match parsed_args.get("src1") {
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
+            x => {
+                dbg! {x};
+                return Err("Expected 'src1' to be a Frame".into());
+            }
+        };
+
+        let alpha = match parsed_args.get("alpha") {
+            Some(Val::Float(value)) => *value,
+            _ => return Err("Expected 'alpha' to be a float".into()),
+        };
+
+        let src2 = match parsed_args.get("src2") {
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
+            x => {
+                dbg! {x};
+                return Err("Expected 'src2' to be a Frame".into());
+            }
+        };
+
+        let beta = match parsed_args.get("beta") {
+            Some(Val::Float(value)) => *value,
+            _ => return Err("Expected 'beta' to be a float".into()),
+        };
+
+        let gamma = match parsed_args.get("gamma") {
+            Some(Val::Float(value)) => *value,
+            _ => return Err("Expected 'gamma' to be a float".into()),
+        };
+
+        Ok(AddWeightedArgs {
+            src1,
+            alpha,
+            src2,
+            beta,
+            gamma,
+        })
+    }
+}
+
+impl Filter for AddWeighted {
+    fn filter(
+        &self,
+        args: &[Val],
+        kwargs: &BTreeMap<std::string::String, Val>,
+    ) -> std::result::Result<Frame, crate::dve::Error> {
+        let opts: AddWeightedArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(crate::dve::Error::AVError(err)),
+        };
+
+        let src1 = opts.src1.unwrap_frame();
+        let src2 = opts.src2.unwrap_frame();
+
+        let (width, height) = (src1.width, src1.height);
+        debug_assert_eq!(src1.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+        debug_assert_eq!(src2.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+
+        let src1_mat = filter_utils::frame_to_mat_rgb24(&src1, width, height);
+        let src2_mat = filter_utils::frame_to_mat_rgb24(&src2, width, height);
+
+        let mut out_mat = opencv::core::Mat::new_nd_with_default(
+            &[height as i32, width as i32, 3],
+            opencv::core::CV_8UC3,
+            opencv::core::Scalar::all(0.0),
+        )
+        .unwrap();
+
+        opencv::core::add_weighted(
+            &src1_mat,
+            opts.alpha,
+            &src2_mat,
+            opts.beta,
+            opts.gamma,
+            &mut out_mat,
+            -1,
+        )
+        .unwrap();
+
+        assert_eq!(out_mat.rows(), height as i32);
+        assert_eq!(out_mat.cols(), width as i32);
+        assert_eq!(out_mat.channels(), 3);
+
+        let f = match filter_utils::mat_to_frame_rgb24(out_mat, width, height) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        Ok(Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[Val],
+        kwargs: &BTreeMap<std::string::String, Val>,
+    ) -> std::result::Result<FrameType, crate::dve::Error> {
+        let opts: AddWeightedArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(crate::dve::Error::AVError(err)),
+        };
+
+        // check src1 is RGB24
+        if opts.src1.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(crate::dve::Error::FilterInternalError(
+                "Expected src1 to be an RGB24 frame".into(),
+            ));
+        }
+
+        // check src2 is RGB24
+        if opts.src2.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(crate::dve::Error::FilterInternalError(
+                "Expected src2 to be an RGB24 frame".into(),
+            ));
+        }
+
+        // check src1 and src2 are the same size
+        if opts.src1.unwrap_frame_type().width != opts.src2.unwrap_frame_type().width
+            || opts.src1.unwrap_frame_type().height != opts.src2.unwrap_frame_type().height
+        {
+            return Err(crate::dve::Error::FilterInternalError(
+                "Expected src1 and src2 to be the same size".into(),
+            ));
+        }
+
+        Ok(opts.src1.unwrap_frame_type())
     }
 }
