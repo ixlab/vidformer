@@ -7,12 +7,12 @@ use super::Val;
 
 #[derive(Clone, Debug)]
 pub(crate) enum Parameter {
-    Positional { name: String },
-    PositionalOptional { name: String, default_value: Val },
-    VarArgs { name: String },
-    KeywordOnly { name: String },
-    KeywordOnlyOptional { name: String, default_value: Val },
-    KwArgs { name: String },
+    Positional { name: &'static str },
+    PositionalOptional { name: &'static str, default_value: Val },
+    VarArgs { name: &'static str },
+    KeywordOnly { name: &'static str },
+    KeywordOnlyOptional { name: &'static str, default_value: Val },
+    KwArgs { name: &'static str },
 }
 
 pub(crate) struct FunctionSignature {
@@ -23,8 +23,8 @@ pub(crate) fn parse_arguments(
     signature: &FunctionSignature,
     args: Vec<Val>,
     mut kwargs: std::collections::BTreeMap<String, Val>,
-) -> Result<std::collections::BTreeMap<String, Val>, String> {
-    let mut parsed_args = std::collections::BTreeMap::new();
+) -> Result<std::collections::BTreeMap<&'static str, Val>, String> {
+    let mut parsed_args: BTreeMap<&'static str, Val> = std::collections::BTreeMap::new();
     let mut arg_iter = args.into_iter();
     let mut varargs = Vec::new();
     let mut keyword_only: bool = false;
@@ -37,9 +37,9 @@ pub(crate) fn parse_arguments(
                     "Positional argument after keyword-only argument"
                 );
                 if let Some(val) = arg_iter.next() {
-                    parsed_args.insert(name.clone(), val);
-                } else if let Some(val) = kwargs.remove(name) {
-                    parsed_args.insert(name.clone(), val);
+                    parsed_args.insert(name, val);
+                } else if let Some(val) = kwargs.remove(*name) {
+                    parsed_args.insert(name, val);
                 } else {
                     return Err(format!("Missing required positional argument '{}'", name));
                 }
@@ -53,11 +53,11 @@ pub(crate) fn parse_arguments(
                     "PositionalOptional argument after keyword-only argument"
                 );
                 if let Some(val) = arg_iter.next() {
-                    parsed_args.insert(name.clone(), val);
-                } else if let Some(val) = kwargs.remove(name) {
-                    parsed_args.insert(name.clone(), val);
+                    parsed_args.insert(name, val);
+                } else if let Some(val) = kwargs.remove(*name) {
+                    parsed_args.insert(name, val);
                 } else {
-                    parsed_args.insert(name.clone(), default_value.clone());
+                    parsed_args.insert(name, default_value.clone());
                 }
             }
             Parameter::VarArgs { name } => {
@@ -68,12 +68,12 @@ pub(crate) fn parse_arguments(
                 while let Some(val) = arg_iter.next() {
                     varargs.push(val);
                 }
-                parsed_args.insert(name.clone(), Val::List(varargs.clone()));
+                parsed_args.insert(name, Val::List(varargs.clone()));
                 keyword_only = true; // Everything after *args is keyword-only
             }
             Parameter::KeywordOnly { name } => {
-                if let Some(val) = kwargs.remove(name) {
-                    parsed_args.insert(name.clone(), val);
+                if let Some(val) = kwargs.remove(*name) {
+                    parsed_args.insert(name, val);
                 } else {
                     return Err(format!("Missing required keyword-only argument '{}'", name));
                 }
@@ -82,10 +82,10 @@ pub(crate) fn parse_arguments(
                 name,
                 default_value,
             } => {
-                if let Some(val) = kwargs.remove(name) {
-                    parsed_args.insert(name.clone(), val);
+                if let Some(val) = kwargs.remove(*name) {
+                    parsed_args.insert(name, val);
                 } else {
-                    parsed_args.insert(name.clone(), default_value.clone());
+                    parsed_args.insert(name, default_value.clone());
                 }
             }
             Parameter::KwArgs { name: _ } => {
@@ -110,7 +110,7 @@ pub(crate) fn parse_arguments(
     Ok(parsed_args)
 }
 
-pub(crate) fn get_color(parsed_args: &BTreeMap<String, Val>) -> Result<[f64; 4], String> {
+pub(crate) fn get_color(parsed_args: &BTreeMap<&'static str, Val>) -> Result<[f64; 4], String> {
     let color = match parsed_args.get("color") {
         Some(Val::List(list)) => {
             if list.len() != 4 {
@@ -132,7 +132,7 @@ pub(crate) fn get_color(parsed_args: &BTreeMap<String, Val>) -> Result<[f64; 4],
 }
 
 pub(crate) fn get_point(
-    parsed_args: &BTreeMap<String, Val>,
+    parsed_args: &BTreeMap<&'static str, Val>,
     key: &str,
 ) -> Result<(i32, i32), String> {
     let pt = match parsed_args.get(key) {
