@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use tokio::io::AsyncReadExt;
 
 pub(crate) fn cmd_yrden(opt: &YrdenCmd) {
-    let host_prefix = format!("http://[::]:{}", opt.port);
+    let host_prefix = format!("http://localhost:{}", opt.port);
     let global = YrdenGlobal {
         host_prefix: host_prefix.clone(),
         port: opt.port,
@@ -96,7 +96,7 @@ async fn yrden_main(global: YrdenGlobal) {
     use std::net::SocketAddr;
     use tokio::net::TcpListener;
 
-    let addr: SocketAddr = format!("[::]:{}", global.port).parse().unwrap();
+    let addr: SocketAddr = format!("0.0.0.0:{}", global.port).parse().unwrap();
     let listener = TcpListener::bind(addr).await.unwrap();
 
     global.init_db();
