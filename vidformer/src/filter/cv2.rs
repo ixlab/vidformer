@@ -5,6 +5,7 @@ use crate::dve::AVFrame;
 use crate::filter;
 use crate::filter::Val;
 use crate::filter::*;
+use filter::filter_utils::*;
 use opencv::imgproc;
 use opencv::prelude::MatTrait;
 use rusty_ffmpeg::ffi;
@@ -43,7 +44,7 @@ pub fn filters() -> BTreeMap<String, Box<dyn filter::Filter>> {
 pub struct Rectangle {}
 
 struct RectangleArgs {
-    img: FrameArg,
+    img: filter_utils::FrameArg,
     pt1: (i32, i32),
     pt2: (i32, i32),
     color: [f64; 4],
@@ -57,7 +58,7 @@ impl Rectangle {
         args: &[filter::Val],
         kwargs: &BTreeMap<std::string::String, filter::Val>,
     ) -> Result<RectangleArgs, String> {
-        let signature = FunctionSignature {
+        let signature = filter_utils::FunctionSignature {
             parameters: vec![
                 Parameter::Positional { name: "img".into() },
                 Parameter::Positional { name: "pt1".into() },
@@ -82,11 +83,13 @@ impl Rectangle {
 
         let kwargs = kwargs.clone();
         let args = args.to_vec();
-        let parsed_args = parse_arguments(&signature, args, kwargs)?;
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
 
         let img = match parsed_args.get("img") {
-            Some(Val::Frame(frame)) => FrameArg::Frame(frame.clone()),
-            Some(Val::FrameType(frame_type)) => FrameArg::FrameType(frame_type.clone()),
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
             x => {
                 dbg! {x};
                 return Err("Expected 'img' to be a Frame".into());
@@ -94,13 +97,13 @@ impl Rectangle {
         };
 
         // pt1 is a list of two integers
-        let pt1 = get_point(&parsed_args, "pt1")?;
+        let pt1 = filter_utils::get_point(&parsed_args, "pt1")?;
 
         // pt2 is a list of two integers
-        let pt2 = get_point(&parsed_args, "pt2")?;
+        let pt2 = filter_utils::get_point(&parsed_args, "pt2")?;
 
         // color is a list of four floats
-        let color = get_color(&parsed_args)?;
+        let color = filter_utils::get_color(&parsed_args)?;
 
         // thickness is an integer
         let thickness = match parsed_args.get("thickness") {
@@ -147,7 +150,7 @@ impl filter::Filter for Rectangle {
         let (width, height) = (img.width, img.height);
         debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
 
-        let mut mat = frame_to_mat_rgb24(&img, width, height);
+        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
 
         let pt1 = opencv::core::Point::new(opts.pt1.0, opts.pt1.1);
         let pt2 = opencv::core::Point::new(opts.pt2.0, opts.pt2.1);
@@ -166,7 +169,7 @@ impl filter::Filter for Rectangle {
         )
         .unwrap();
 
-        let f = match mat_to_frame_rgb24(mat, width, height) {
+        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
             Ok(value) => value,
             Err(value) => return value,
         };
@@ -195,7 +198,7 @@ impl filter::Filter for Rectangle {
 pub struct PutText {}
 
 struct PutTextArgs {
-    img: FrameArg,
+    img: filter_utils::FrameArg,
     text: String,
     org: (i32, i32),
     font_face: i32,
@@ -211,7 +214,7 @@ impl PutText {
         args: &[filter::Val],
         kwargs: &BTreeMap<std::string::String, filter::Val>,
     ) -> Result<PutTextArgs, String> {
-        let signature = FunctionSignature {
+        let signature = filter_utils::FunctionSignature {
             parameters: vec![
                 Parameter::Positional { name: "img".into() },
                 Parameter::Positional {
@@ -244,11 +247,13 @@ impl PutText {
 
         let kwargs = kwargs.clone();
         let args: Vec<Val> = args.to_vec();
-        let parsed_args = parse_arguments(&signature, args, kwargs)?;
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
 
         let img = match parsed_args.get("img") {
-            Some(Val::Frame(frame)) => FrameArg::Frame(frame.clone()),
-            Some(Val::FrameType(frame_type)) => FrameArg::FrameType(frame_type.clone()),
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
             x => {
                 dbg! {x};
                 return Err("Expected 'img' to be a Frame".into());
@@ -262,7 +267,7 @@ impl PutText {
         };
 
         // org is a list of two integers
-        let org = get_point(&parsed_args, "org")?;
+        let org = filter_utils::get_point(&parsed_args, "org")?;
 
         // fontFace is an integer
         let font_face = match parsed_args.get("fontFace") {
@@ -277,7 +282,7 @@ impl PutText {
         };
 
         // color is a list of four floats
-        let color = get_color(&parsed_args)?;
+        let color = filter_utils::get_color(&parsed_args)?;
 
         // thickness is an integer
         let thickness = match parsed_args.get("thickness") {
@@ -326,7 +331,7 @@ impl filter::Filter for PutText {
         let (width, height) = (img.width, img.height);
         debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
 
-        let mut mat = frame_to_mat_rgb24(&img, width, height);
+        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
 
         let org = opencv::core::Point::new(opts.org.0, opts.org.1);
         let color =
@@ -345,7 +350,7 @@ impl filter::Filter for PutText {
         )
         .unwrap();
 
-        let f = match mat_to_frame_rgb24(mat, width, height) {
+        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
             Ok(value) => value,
             Err(value) => return value,
         };
@@ -642,7 +647,7 @@ impl filter::Filter for Line {
         let (width, height) = (img.width, img.height);
         debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
 
-        let mut mat = frame_to_mat_rgb24(&img, width, height);
+        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
 
         let pt1 = opencv::core::Point::new(opts.pt1.0, opts.pt1.1);
         let pt2 = opencv::core::Point::new(opts.pt2.0, opts.pt2.1);
@@ -660,7 +665,7 @@ impl filter::Filter for Line {
         )
         .unwrap();
 
-        let f = match mat_to_frame_rgb24(mat, width, height) {
+        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
             Ok(value) => value,
             Err(value) => return value,
         };
@@ -689,7 +694,7 @@ impl filter::Filter for Line {
 pub struct Circle {}
 
 struct CircleArgs {
-    img: FrameArg,
+    img: filter_utils::FrameArg,
     center: (i32, i32),
     radius: i32,
     color: [f64; 4],
@@ -703,7 +708,7 @@ impl Circle {
         args: &[filter::Val],
         kwargs: &BTreeMap<std::string::String, filter::Val>,
     ) -> Result<CircleArgs, String> {
-        let signature = FunctionSignature {
+        let signature = filter_utils::FunctionSignature {
             parameters: vec![
                 Parameter::Positional { name: "img".into() },
                 Parameter::Positional {
@@ -732,11 +737,13 @@ impl Circle {
 
         let kwargs = kwargs.clone();
         let args = args.to_vec();
-        let parsed_args = parse_arguments(&signature, args, kwargs)?;
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
 
         let img = match parsed_args.get("img") {
-            Some(Val::Frame(frame)) => FrameArg::Frame(frame.clone()),
-            Some(Val::FrameType(frame_type)) => FrameArg::FrameType(frame_type.clone()),
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
             x => {
                 dbg! {x};
                 return Err("Expected 'img' to be a Frame".into());
@@ -744,7 +751,7 @@ impl Circle {
         };
 
         // center is a list of two integers
-        let center = get_point(&parsed_args, "center")?;
+        let center = filter_utils::get_point(&parsed_args, "center")?;
 
         // radius is an integer
         let radius = match parsed_args.get("radius") {
@@ -753,7 +760,7 @@ impl Circle {
         };
 
         // color is a list of four floats
-        let color = get_color(&parsed_args)?;
+        let color = filter_utils::get_color(&parsed_args)?;
 
         // thickness is an integer
         let thickness = match parsed_args.get("thickness") {
@@ -800,7 +807,7 @@ impl filter::Filter for Circle {
         let (width, height) = (img.width, img.height);
         debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
 
-        let mut mat = frame_to_mat_rgb24(&img, width, height);
+        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
 
         let center = opencv::core::Point::new(opts.center.0, opts.center.1);
         let color =
@@ -817,7 +824,7 @@ impl filter::Filter for Circle {
         )
         .unwrap();
 
-        let f = match mat_to_frame_rgb24(mat, width, height) {
+        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
             Ok(value) => value,
             Err(value) => return value,
         };
@@ -846,9 +853,9 @@ impl filter::Filter for Circle {
 pub struct SetTo {}
 
 struct SetToArgs {
-    img: FrameArg,
+    img: filter_utils::FrameArg,
     color: [f64; 4],
-    mask: FrameArg,
+    mask: filter_utils::FrameArg,
 }
 
 impl SetTo {
@@ -856,7 +863,7 @@ impl SetTo {
         args: &[Val],
         kwargs: &BTreeMap<std::string::String, Val>,
     ) -> Result<SetToArgs, String> {
-        let signature = FunctionSignature {
+        let signature = filter_utils::FunctionSignature {
             parameters: vec![
                 Parameter::Positional { name: "img".into() },
                 Parameter::Positional {
@@ -870,22 +877,26 @@ impl SetTo {
 
         let kwargs = kwargs.clone();
         let args = args.to_vec();
-        let parsed_args = parse_arguments(&signature, args, kwargs)?;
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
 
         let img = match parsed_args.get("img") {
-            Some(Val::Frame(frame)) => FrameArg::Frame(frame.clone()),
-            Some(Val::FrameType(frame_type)) => FrameArg::FrameType(frame_type.clone()),
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
             x => {
                 dbg! {x};
                 return Err("Expected 'img' to be a Frame".into());
             }
         };
 
-        let color = get_color(&parsed_args)?;
+        let color = filter_utils::get_color(&parsed_args)?;
 
         let mask = match parsed_args.get("mask") {
-            Some(Val::Frame(frame)) => FrameArg::Frame(frame.clone()),
-            Some(Val::FrameType(frame_type)) => FrameArg::FrameType(frame_type.clone()),
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
             x => {
                 dbg! {x};
                 return Err("Expected 'mask' to be a Frame".into());
@@ -910,8 +921,8 @@ impl Filter for SetTo {
         let img = opts.img.unwrap_frame();
         let mask = opts.mask.unwrap_frame();
 
-        let mut img_mat = frame_to_mat_rgb24(&img, img.width, img.height);
-        let mask_mat = frame_to_mat_gray8(&mask, mask.width, mask.height);
+        let mut img_mat = filter_utils::frame_to_mat_rgb24(&img, img.width, img.height);
+        let mask_mat = filter_utils::frame_to_mat_gray8(&mask, mask.width, mask.height);
 
         let color =
             opencv::core::Scalar::new(opts.color[0], opts.color[1], opts.color[2], opts.color[3]);
@@ -919,7 +930,7 @@ impl Filter for SetTo {
         // set all pixels in img_mat to color where mask_mat is not zero
         img_mat.set_to(&color, &mask_mat).unwrap();
 
-        let f = match mat_to_frame_rgb24(img_mat, img.width, img.height) {
+        let f = match filter_utils::mat_to_frame_rgb24(img_mat, img.width, img.height) {
             Ok(value) => value,
             Err(value) => return value,
         };
