@@ -46,9 +46,7 @@ impl Rectangle {
                 Parameter::Positional { name: "img" },
                 Parameter::Positional { name: "pt1" },
                 Parameter::Positional { name: "pt2" },
-                Parameter::Positional {
-                    name: "color",
-                },
+                Parameter::Positional { name: "color" },
                 Parameter::PositionalOptional {
                     name: "thickness",
                     default_value: Val::Int(1),
@@ -200,19 +198,11 @@ impl PutText {
         let signature = filter_utils::FunctionSignature {
             parameters: vec![
                 Parameter::Positional { name: "img" },
-                Parameter::Positional {
-                    name: "text",
-                },
+                Parameter::Positional { name: "text" },
                 Parameter::Positional { name: "org" },
-                Parameter::Positional {
-                    name: "fontFace",
-                },
-                Parameter::Positional {
-                    name: "fontScale",
-                },
-                Parameter::Positional {
-                    name: "color",
-                },
+                Parameter::Positional { name: "fontFace" },
+                Parameter::Positional { name: "fontScale" },
+                Parameter::Positional { name: "color" },
                 Parameter::PositionalOptional {
                     name: "thickness",
                     default_value: Val::Int(1),
@@ -382,9 +372,7 @@ impl ArrowedLine {
                 Parameter::Positional { name: "img" },
                 Parameter::Positional { name: "pt1" },
                 Parameter::Positional { name: "pt2" },
-                Parameter::Positional {
-                    name: "color",
-                },
+                Parameter::Positional { name: "color" },
                 Parameter::PositionalOptional {
                     name: "thickness",
                     default_value: Val::Int(1),
@@ -545,9 +533,7 @@ impl Line {
                 Parameter::Positional { name: "img" },
                 Parameter::Positional { name: "pt1" },
                 Parameter::Positional { name: "pt2" },
-                Parameter::Positional {
-                    name: "color",
-                },
+                Parameter::Positional { name: "color" },
                 Parameter::PositionalOptional {
                     name: "thickness",
                     default_value: Val::Int(1),
@@ -694,15 +680,9 @@ impl Circle {
         let signature = filter_utils::FunctionSignature {
             parameters: vec![
                 Parameter::Positional { name: "img" },
-                Parameter::Positional {
-                    name: "center",
-                },
-                Parameter::Positional {
-                    name: "radius",
-                },
-                Parameter::Positional {
-                    name: "color",
-                },
+                Parameter::Positional { name: "center" },
+                Parameter::Positional { name: "radius" },
+                Parameter::Positional { name: "color" },
                 Parameter::PositionalOptional {
                     name: "thickness",
                     default_value: Val::Int(1),
@@ -849,12 +829,8 @@ impl SetTo {
         let signature = filter_utils::FunctionSignature {
             parameters: vec![
                 Parameter::Positional { name: "img" },
-                Parameter::Positional {
-                    name: "color",
-                },
-                Parameter::Positional {
-                    name: "mask",
-                },
+                Parameter::Positional { name: "color" },
+                Parameter::Positional { name: "mask" },
             ],
         };
 
@@ -975,21 +951,11 @@ impl AddWeighted {
     ) -> Result<AddWeightedArgs, String> {
         let signature = filter_utils::FunctionSignature {
             parameters: vec![
-                Parameter::Positional {
-                    name: "src1",
-                },
-                Parameter::Positional {
-                    name: "alpha",
-                },
-                Parameter::Positional {
-                    name: "src2",
-                },
-                Parameter::Positional {
-                    name: "beta",
-                },
-                Parameter::Positional {
-                    name: "gamma",
-                },
+                Parameter::Positional { name: "src1" },
+                Parameter::Positional { name: "alpha" },
+                Parameter::Positional { name: "src2" },
+                Parameter::Positional { name: "beta" },
+                Parameter::Positional { name: "gamma" },
             ],
         };
 

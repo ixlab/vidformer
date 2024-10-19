@@ -7,12 +7,26 @@ use super::Val;
 
 #[derive(Clone, Debug)]
 pub(crate) enum Parameter {
-    Positional { name: &'static str },
-    PositionalOptional { name: &'static str, default_value: Val },
-    VarArgs { name: &'static str },
-    KeywordOnly { name: &'static str },
-    KeywordOnlyOptional { name: &'static str, default_value: Val },
-    KwArgs { name: &'static str },
+    Positional {
+        name: &'static str,
+    },
+    PositionalOptional {
+        name: &'static str,
+        default_value: Val,
+    },
+    VarArgs {
+        name: &'static str,
+    },
+    KeywordOnly {
+        name: &'static str,
+    },
+    KeywordOnlyOptional {
+        name: &'static str,
+        default_value: Val,
+    },
+    KwArgs {
+        name: &'static str,
+    },
 }
 
 pub(crate) struct FunctionSignature {
@@ -212,15 +226,10 @@ pub(crate) fn frame_to_mat_rgb24(img: &Frame, width: i32, height: i32) -> opencv
     }
     .unwrap();
 
-    // copy img data into mat
     unsafe {
-        let mut src = (*img).data[0];
-        let mut dst = mat.data_mut();
-        for _ in 0..height {
-            std::ptr::copy_nonoverlapping(src, dst, width as usize * 3);
-            src = src.add((*img).linesize[0] as usize);
-            dst = dst.add(width as usize * 3);
-        }
+        let src = (*img).data[0];
+        let dst = mat.data_mut();
+        std::ptr::copy_nonoverlapping(src, dst, width as usize * height as usize * 3);
     }
 
     mat
@@ -235,16 +244,76 @@ pub(crate) fn frame_to_mat_gray8(img: &Frame, width: i32, height: i32) -> opencv
     }
     .unwrap();
 
-    // copy img data into mat
     unsafe {
-        let mut src = (*img).data[0];
-        let mut dst = mat.data_mut();
-        for _ in 0..height {
-            std::ptr::copy_nonoverlapping(src, dst, width as usize);
-            src = src.add((*img).linesize[0] as usize);
-            dst = dst.add(width as usize);
-        }
+        let src = (*img).data[0];
+        let dst = mat.data_mut();
+        std::ptr::copy_nonoverlapping(src, dst, width as usize * height as usize);
     }
 
     mat
+}
+
+#[cfg(test)]
+mod tests {
+    use opencv::core::Scalar;
+    use opencv::prelude::Mat;
+    use opencv::prelude::MatTraitConst;
+    use rusty_ffmpeg::ffi;
+
+    #[test]
+    fn test_packed_layout_rgb24() {
+        // we do some sharing of buffers between libav and opencv so we need to make sure that
+        // the layout of the data is the same
+
+        let num_planes =
+            unsafe { ffi::av_pix_fmt_count_planes(ffi::AVPixelFormat_AV_PIX_FMT_RGB24) };
+        assert_eq!(num_planes, 1);
+
+        let width = 1920;
+        let height = 1080;
+        let size = (width as usize) * (height as usize) * 3;
+
+        let frame_encoded_size_all_planes = unsafe {
+            ffi::av_image_get_buffer_size(ffi::AVPixelFormat_AV_PIX_FMT_RGB24, width, height, 1)
+        };
+
+        assert_eq!(size, frame_encoded_size_all_planes as usize);
+
+        // make sure mat data buffer is the same size as the frame buffer
+        let color = Scalar::new(255.0, 0.0, 0.0, 0.0);
+        let mat =
+            Mat::new_rows_cols_with_default(height, width, opencv::core::CV_8UC3, color).unwrap();
+
+        assert_eq!(
+            size,
+            mat.total() as usize * mat.elem_size().unwrap() as usize
+        );
+    }
+
+    #[test]
+    fn test_packed_layout_gray8() {
+        let num_planes =
+            unsafe { ffi::av_pix_fmt_count_planes(ffi::AVPixelFormat_AV_PIX_FMT_GRAY8) };
+        assert_eq!(num_planes, 1);
+
+        let width = 1920;
+        let height = 1080;
+        let size = (width as usize) * (height as usize);
+
+        let frame_encoded_size_all_planes = unsafe {
+            ffi::av_image_get_buffer_size(ffi::AVPixelFormat_AV_PIX_FMT_GRAY8, width, height, 1)
+        };
+
+        assert_eq!(size, frame_encoded_size_all_planes as usize);
+
+        // make sure mat data buffer is the same size as the frame buffer
+        let color = Scalar::new(255.0, 0.0, 0.0, 0.0);
+        let mat =
+            Mat::new_rows_cols_with_default(height, width, opencv::core::CV_8UC1, color).unwrap();
+
+        assert_eq!(
+            size,
+            mat.total() as usize * mat.elem_size().unwrap() as usize
+        );
+    }
 }
