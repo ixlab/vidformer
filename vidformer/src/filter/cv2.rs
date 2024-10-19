@@ -1032,7 +1032,7 @@ impl Filter for AddWeighted {
         let src2_mat = filter_utils::frame_to_mat_rgb24(&src2, width, height);
 
         let mut out_mat = opencv::core::Mat::new_nd_with_default(
-            &[height as i32, width as i32, 3],
+            &[height, width, 3],
             opencv::core::CV_8UC3,
             opencv::core::Scalar::all(0.0),
         )
@@ -1049,8 +1049,8 @@ impl Filter for AddWeighted {
         )
         .unwrap();
 
-        assert_eq!(out_mat.rows(), height as i32);
-        assert_eq!(out_mat.cols(), width as i32);
+        assert_eq!(out_mat.rows(), { height });
+        assert_eq!(out_mat.cols(), { width });
         assert_eq!(out_mat.channels(), 3);
 
         let f = match filter_utils::mat_to_frame_rgb24(out_mat, width, height) {

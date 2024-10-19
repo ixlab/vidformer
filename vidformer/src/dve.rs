@@ -1325,7 +1325,7 @@ pub fn create_spec_hls(
     context: &Context,
     _config: &Config,
 ) -> (String, String, String, Vec<(Rational64, Rational64)>) {
-    let namespace = format!("{}", crate::util::rand_uuid());
+    let namespace = crate::util::rand_uuid().to_string();
 
     let _playlist_path = format!("{namespace}/playlist.m3u8");
     let playlist_text = format!(

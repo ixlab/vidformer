@@ -140,11 +140,11 @@ mod test {
             &0.into(),
             &service,
             profile.file_size,
-            &io_runtime.handle(),
+            io_runtime.handle(),
         )
         .unwrap();
 
-        while let Some(_) = framesource.next_frame().unwrap() {
+        while framesource.next_frame().unwrap().is_some() {
             decoded_frames += 1;
         }
 

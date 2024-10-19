@@ -866,8 +866,8 @@ async fn yrden_http_req(
             };
 
             let dve_range_config = vidformer::Range {
-                start: start,
-                end: end,
+                start,
+                end,
                 ts_format: vidformer::RangeTsFormat::StreamLocal,
             };
 

@@ -79,7 +79,7 @@ pub(crate) fn parse_arguments(
                     !keyword_only,
                     "VarArgs argument after keyword-only argument"
                 );
-                while let Some(val) = arg_iter.next() {
+                for val in arg_iter.by_ref() {
                     varargs.push(val);
                 }
                 parsed_args.insert(name, Val::List(varargs.clone()));
@@ -221,10 +221,8 @@ pub(crate) fn frame_to_mat_rgb24(img: &Frame, width: i32, height: i32) -> opencv
     debug_assert!(img.format == ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
     let img: *mut ffi::AVFrame = img.inner.inner;
 
-    let mut mat = unsafe {
-        opencv::core::Mat::new_rows_cols(height as i32, width as i32, opencv::core::CV_8UC3)
-    }
-    .unwrap();
+    let mut mat =
+        unsafe { opencv::core::Mat::new_rows_cols(height, width, opencv::core::CV_8UC3) }.unwrap();
 
     unsafe {
         let src = (*img).data[0];
@@ -239,10 +237,8 @@ pub(crate) fn frame_to_mat_gray8(img: &Frame, width: i32, height: i32) -> opencv
     debug_assert!(img.format == ffi::AVPixelFormat_AV_PIX_FMT_GRAY8);
     let img: *mut ffi::AVFrame = img.inner.inner;
 
-    let mut mat = unsafe {
-        opencv::core::Mat::new_rows_cols(height as i32, width as i32, opencv::core::CV_8UC1)
-    }
-    .unwrap();
+    let mut mat =
+        unsafe { opencv::core::Mat::new_rows_cols(height, width, opencv::core::CV_8UC1) }.unwrap();
 
     unsafe {
         let src = (*img).data[0];
@@ -284,10 +280,7 @@ mod tests {
         let mat =
             Mat::new_rows_cols_with_default(height, width, opencv::core::CV_8UC3, color).unwrap();
 
-        assert_eq!(
-            size,
-            mat.total() as usize * mat.elem_size().unwrap() as usize
-        );
+        assert_eq!(size, mat.total() * mat.elem_size().unwrap());
     }
 
     #[test]
@@ -311,9 +304,6 @@ mod tests {
         let mat =
             Mat::new_rows_cols_with_default(height, width, opencv::core::CV_8UC1, color).unwrap();
 
-        assert_eq!(
-            size,
-            mat.total() as usize * mat.elem_size().unwrap() as usize
-        );
+        assert_eq!(size, mat.total() * mat.elem_size().unwrap());
     }
 }
