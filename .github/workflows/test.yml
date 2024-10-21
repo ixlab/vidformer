@@ -31,7 +31,7 @@ jobs:
     - name: Install vidformer-py
       run: pip3 install ./vidformer-py
     - name: snake-pit pytest
-      run: ln -s ../tos_720p.mp4 snake-pit/tos_720p.mp4 && pushd snake-pit && VIDFORMER_BIN='../target/release/vidformer-cli' pytest . && popd
+      run: ln -s ../tos_720p.mp4 snake-pit/tos_720p.mp4 && pushd snake-pit && VIDFORMER_BIN='../target/release/vidformer-cli' pytest . --verbose && popd
       timeout-minutes: 10
     - name: Valgrind Tests
       run: bash ./scripts/valgrind_test.sh
