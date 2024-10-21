@@ -43,22 +43,20 @@ impl Rectangle {
     ) -> Result<RectangleArgs, String> {
         let signature = filter_utils::FunctionSignature {
             parameters: vec![
-                Parameter::Positional { name: "img".into() },
-                Parameter::Positional { name: "pt1".into() },
-                Parameter::Positional { name: "pt2".into() },
-                Parameter::Positional {
-                    name: "color".into(),
-                },
+                Parameter::Positional { name: "img" },
+                Parameter::Positional { name: "pt1" },
+                Parameter::Positional { name: "pt2" },
+                Parameter::Positional { name: "color" },
                 Parameter::PositionalOptional {
-                    name: "thickness".into(),
+                    name: "thickness",
                     default_value: Val::Int(1),
                 },
                 Parameter::PositionalOptional {
-                    name: "lineType".into(),
+                    name: "lineType",
                     default_value: Val::Int(8),
                 },
                 Parameter::PositionalOptional {
-                    name: "shift".into(),
+                    name: "shift",
                     default_value: Val::Int(0),
                 },
             ],
@@ -199,30 +197,22 @@ impl PutText {
     ) -> Result<PutTextArgs, String> {
         let signature = filter_utils::FunctionSignature {
             parameters: vec![
-                Parameter::Positional { name: "img".into() },
-                Parameter::Positional {
-                    name: "text".into(),
-                },
-                Parameter::Positional { name: "org".into() },
-                Parameter::Positional {
-                    name: "fontFace".into(),
-                },
-                Parameter::Positional {
-                    name: "fontScale".into(),
-                },
-                Parameter::Positional {
-                    name: "color".into(),
-                },
+                Parameter::Positional { name: "img" },
+                Parameter::Positional { name: "text" },
+                Parameter::Positional { name: "org" },
+                Parameter::Positional { name: "fontFace" },
+                Parameter::Positional { name: "fontScale" },
+                Parameter::Positional { name: "color" },
                 Parameter::PositionalOptional {
-                    name: "thickness".into(),
+                    name: "thickness",
                     default_value: Val::Int(1),
                 },
                 Parameter::PositionalOptional {
-                    name: "lineType".into(),
+                    name: "lineType",
                     default_value: Val::Int(8),
                 },
                 Parameter::PositionalOptional {
-                    name: "bottomLeftOrigin".into(),
+                    name: "bottomLeftOrigin",
                     default_value: Val::Bool(false),
                 },
             ],
@@ -379,26 +369,24 @@ impl ArrowedLine {
     ) -> Result<ArrowedLineArgs, String> {
         let signature = FunctionSignature {
             parameters: vec![
-                Parameter::Positional { name: "img".into() },
-                Parameter::Positional { name: "pt1".into() },
-                Parameter::Positional { name: "pt2".into() },
-                Parameter::Positional {
-                    name: "color".into(),
-                },
+                Parameter::Positional { name: "img" },
+                Parameter::Positional { name: "pt1" },
+                Parameter::Positional { name: "pt2" },
+                Parameter::Positional { name: "color" },
                 Parameter::PositionalOptional {
-                    name: "thickness".into(),
+                    name: "thickness",
                     default_value: Val::Int(1),
                 },
                 Parameter::PositionalOptional {
-                    name: "lineType".into(),
+                    name: "lineType",
                     default_value: Val::Int(8),
                 },
                 Parameter::PositionalOptional {
-                    name: "shift".into(),
+                    name: "shift",
                     default_value: Val::Int(0),
                 },
                 Parameter::PositionalOptional {
-                    name: "tipLength".into(),
+                    name: "tipLength",
                     default_value: Val::Float(0.1),
                 },
             ],
@@ -542,22 +530,20 @@ impl Line {
     ) -> Result<LineArgs, String> {
         let signature = FunctionSignature {
             parameters: vec![
-                Parameter::Positional { name: "img".into() },
-                Parameter::Positional { name: "pt1".into() },
-                Parameter::Positional { name: "pt2".into() },
-                Parameter::Positional {
-                    name: "color".into(),
-                },
+                Parameter::Positional { name: "img" },
+                Parameter::Positional { name: "pt1" },
+                Parameter::Positional { name: "pt2" },
+                Parameter::Positional { name: "color" },
                 Parameter::PositionalOptional {
-                    name: "thickness".into(),
+                    name: "thickness",
                     default_value: Val::Int(1),
                 },
                 Parameter::PositionalOptional {
-                    name: "lineType".into(),
+                    name: "lineType",
                     default_value: Val::Int(8),
                 },
                 Parameter::PositionalOptional {
-                    name: "shift".into(),
+                    name: "shift",
                     default_value: Val::Int(0),
                 },
             ],
@@ -693,26 +679,20 @@ impl Circle {
     ) -> Result<CircleArgs, String> {
         let signature = filter_utils::FunctionSignature {
             parameters: vec![
-                Parameter::Positional { name: "img".into() },
-                Parameter::Positional {
-                    name: "center".into(),
-                },
-                Parameter::Positional {
-                    name: "radius".into(),
-                },
-                Parameter::Positional {
-                    name: "color".into(),
-                },
+                Parameter::Positional { name: "img" },
+                Parameter::Positional { name: "center" },
+                Parameter::Positional { name: "radius" },
+                Parameter::Positional { name: "color" },
                 Parameter::PositionalOptional {
-                    name: "thickness".into(),
+                    name: "thickness",
                     default_value: Val::Int(1),
                 },
                 Parameter::PositionalOptional {
-                    name: "lineType".into(),
+                    name: "lineType",
                     default_value: Val::Int(8),
                 },
                 Parameter::PositionalOptional {
-                    name: "shift".into(),
+                    name: "shift",
                     default_value: Val::Int(0),
                 },
             ],
@@ -848,13 +828,9 @@ impl SetTo {
     ) -> Result<SetToArgs, String> {
         let signature = filter_utils::FunctionSignature {
             parameters: vec![
-                Parameter::Positional { name: "img".into() },
-                Parameter::Positional {
-                    name: "color".into(),
-                },
-                Parameter::Positional {
-                    name: "mask".into(),
-                },
+                Parameter::Positional { name: "img" },
+                Parameter::Positional { name: "color" },
+                Parameter::Positional { name: "mask" },
             ],
         };
 
@@ -975,21 +951,11 @@ impl AddWeighted {
     ) -> Result<AddWeightedArgs, String> {
         let signature = filter_utils::FunctionSignature {
             parameters: vec![
-                Parameter::Positional {
-                    name: "src1".into(),
-                },
-                Parameter::Positional {
-                    name: "alpha".into(),
-                },
-                Parameter::Positional {
-                    name: "src2".into(),
-                },
-                Parameter::Positional {
-                    name: "beta".into(),
-                },
-                Parameter::Positional {
-                    name: "gamma".into(),
-                },
+                Parameter::Positional { name: "src1" },
+                Parameter::Positional { name: "alpha" },
+                Parameter::Positional { name: "src2" },
+                Parameter::Positional { name: "beta" },
+                Parameter::Positional { name: "gamma" },
             ],
         };
 
@@ -1066,7 +1032,7 @@ impl Filter for AddWeighted {
         let src2_mat = filter_utils::frame_to_mat_rgb24(&src2, width, height);
 
         let mut out_mat = opencv::core::Mat::new_nd_with_default(
-            &[height as i32, width as i32, 3],
+            &[height, width, 3],
             opencv::core::CV_8UC3,
             opencv::core::Scalar::all(0.0),
         )
@@ -1083,8 +1049,8 @@ impl Filter for AddWeighted {
         )
         .unwrap();
 
-        assert_eq!(out_mat.rows(), height as i32);
-        assert_eq!(out_mat.cols(), width as i32);
+        assert_eq!(out_mat.rows(), { height });
+        assert_eq!(out_mat.cols(), { width });
         assert_eq!(out_mat.channels(), 3);
 
         let f = match filter_utils::mat_to_frame_rgb24(out_mat, width, height) {

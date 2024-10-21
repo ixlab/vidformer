@@ -490,8 +490,8 @@ fn test_tos_transcode_1dec_1pool() {
 
     assert_eq!(stats.max_decoder_count, 1);
     assert_eq!(stats.decoders_created, 1); // this is just a basic streaming edit. if our algorithm works it should just decode the one needed GOP
-    assert_eq!(stats.frames_written, 2 * 24 as usize);
-    assert!(stats.frames_decoded >= 2 * 24 as usize);
+    assert_eq!(stats.frames_written, 2 * 24_usize);
+    assert!(stats.frames_decoded >= 2 * 24_usize);
 
     assert!(std::path::Path::new(output_path).exists());
 }

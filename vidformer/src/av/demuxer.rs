@@ -355,7 +355,7 @@ mod test {
             .expect("failed to allocated memory for AVPacket");
 
         let mut demuxed_packets = 0;
-        while let Some(_) = demuxer.read_packet(packet) {
+        while demuxer.read_packet(packet).is_some() {
             demuxed_packets += 1;
         }
         demuxer.close();

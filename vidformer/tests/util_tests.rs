@@ -1,7 +1,7 @@
 #[test]
 fn test_list_codecs() {
     let codecs = vidformer::codecs();
-    assert!(codecs.len() > 0);
+    assert!(!codecs.is_empty());
 
     let found_h264 = codecs.iter().find(|c| c.name == "h264");
     let found_h264 = found_h264.unwrap();

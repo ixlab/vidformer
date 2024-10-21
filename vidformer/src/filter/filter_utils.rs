@@ -7,12 +7,26 @@ use super::Val;
 
 #[derive(Clone, Debug)]
 pub(crate) enum Parameter {
-    Positional { name: String },
-    PositionalOptional { name: String, default_value: Val },
-    VarArgs { name: String },
-    KeywordOnly { name: String },
-    KeywordOnlyOptional { name: String, default_value: Val },
-    KwArgs { name: String },
+    Positional {
+        name: &'static str,
+    },
+    PositionalOptional {
+        name: &'static str,
+        default_value: Val,
+    },
+    VarArgs {
+        name: &'static str,
+    },
+    KeywordOnly {
+        name: &'static str,
+    },
+    KeywordOnlyOptional {
+        name: &'static str,
+        default_value: Val,
+    },
+    KwArgs {
+        name: &'static str,
+    },
 }
 
 pub(crate) struct FunctionSignature {
@@ -23,8 +37,8 @@ pub(crate) fn parse_arguments(
     signature: &FunctionSignature,
     args: Vec<Val>,
     mut kwargs: std::collections::BTreeMap<String, Val>,
-) -> Result<std::collections::BTreeMap<String, Val>, String> {
-    let mut parsed_args = std::collections::BTreeMap::new();
+) -> Result<std::collections::BTreeMap<&'static str, Val>, String> {
+    let mut parsed_args: BTreeMap<&'static str, Val> = std::collections::BTreeMap::new();
     let mut arg_iter = args.into_iter();
     let mut varargs = Vec::new();
     let mut keyword_only: bool = false;
@@ -37,9 +51,9 @@ pub(crate) fn parse_arguments(
                     "Positional argument after keyword-only argument"
                 );
                 if let Some(val) = arg_iter.next() {
-                    parsed_args.insert(name.clone(), val);
-                } else if let Some(val) = kwargs.remove(name) {
-                    parsed_args.insert(name.clone(), val);
+                    parsed_args.insert(name, val);
+                } else if let Some(val) = kwargs.remove(*name) {
+                    parsed_args.insert(name, val);
                 } else {
                     return Err(format!("Missing required positional argument '{}'", name));
                 }
@@ -53,11 +67,11 @@ pub(crate) fn parse_arguments(
                     "PositionalOptional argument after keyword-only argument"
                 );
                 if let Some(val) = arg_iter.next() {
-                    parsed_args.insert(name.clone(), val);
-                } else if let Some(val) = kwargs.remove(name) {
-                    parsed_args.insert(name.clone(), val);
+                    parsed_args.insert(name, val);
+                } else if let Some(val) = kwargs.remove(*name) {
+                    parsed_args.insert(name, val);
                 } else {
-                    parsed_args.insert(name.clone(), default_value.clone());
+                    parsed_args.insert(name, default_value.clone());
                 }
             }
             Parameter::VarArgs { name } => {
@@ -65,15 +79,15 @@ pub(crate) fn parse_arguments(
                     !keyword_only,
                     "VarArgs argument after keyword-only argument"
                 );
-                while let Some(val) = arg_iter.next() {
+                for val in arg_iter.by_ref() {
                     varargs.push(val);
                 }
-                parsed_args.insert(name.clone(), Val::List(varargs.clone()));
+                parsed_args.insert(name, Val::List(varargs.clone()));
                 keyword_only = true; // Everything after *args is keyword-only
             }
             Parameter::KeywordOnly { name } => {
-                if let Some(val) = kwargs.remove(name) {
-                    parsed_args.insert(name.clone(), val);
+                if let Some(val) = kwargs.remove(*name) {
+                    parsed_args.insert(name, val);
                 } else {
                     return Err(format!("Missing required keyword-only argument '{}'", name));
                 }
@@ -82,10 +96,10 @@ pub(crate) fn parse_arguments(
                 name,
                 default_value,
             } => {
-                if let Some(val) = kwargs.remove(name) {
-                    parsed_args.insert(name.clone(), val);
+                if let Some(val) = kwargs.remove(*name) {
+                    parsed_args.insert(name, val);
                 } else {
-                    parsed_args.insert(name.clone(), default_value.clone());
+                    parsed_args.insert(name, default_value.clone());
                 }
             }
             Parameter::KwArgs { name: _ } => {
@@ -110,7 +124,7 @@ pub(crate) fn parse_arguments(
     Ok(parsed_args)
 }
 
-pub(crate) fn get_color(parsed_args: &BTreeMap<String, Val>) -> Result<[f64; 4], String> {
+pub(crate) fn get_color(parsed_args: &BTreeMap<&'static str, Val>) -> Result<[f64; 4], String> {
     let color = match parsed_args.get("color") {
         Some(Val::List(list)) => {
             if list.len() != 4 {
@@ -132,7 +146,7 @@ pub(crate) fn get_color(parsed_args: &BTreeMap<String, Val>) -> Result<[f64; 4],
 }
 
 pub(crate) fn get_point(
-    parsed_args: &BTreeMap<String, Val>,
+    parsed_args: &BTreeMap<&'static str, Val>,
     key: &str,
 ) -> Result<(i32, i32), String> {
     let pt = match parsed_args.get(key) {
@@ -207,20 +221,13 @@ pub(crate) fn frame_to_mat_rgb24(img: &Frame, width: i32, height: i32) -> opencv
     debug_assert!(img.format == ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
     let img: *mut ffi::AVFrame = img.inner.inner;
 
-    let mut mat = unsafe {
-        opencv::core::Mat::new_rows_cols(height as i32, width as i32, opencv::core::CV_8UC3)
-    }
-    .unwrap();
+    let mut mat =
+        unsafe { opencv::core::Mat::new_rows_cols(height, width, opencv::core::CV_8UC3) }.unwrap();
 
-    // copy img data into mat
     unsafe {
-        let mut src = (*img).data[0];
-        let mut dst = mat.data_mut();
-        for _ in 0..height {
-            std::ptr::copy_nonoverlapping(src, dst, width as usize * 3);
-            src = src.add((*img).linesize[0] as usize);
-            dst = dst.add(width as usize * 3);
-        }
+        let src = (*img).data[0];
+        let dst = mat.data_mut();
+        std::ptr::copy_nonoverlapping(src, dst, width as usize * height as usize * 3);
     }
 
     mat
@@ -230,21 +237,73 @@ pub(crate) fn frame_to_mat_gray8(img: &Frame, width: i32, height: i32) -> opencv
     debug_assert!(img.format == ffi::AVPixelFormat_AV_PIX_FMT_GRAY8);
     let img: *mut ffi::AVFrame = img.inner.inner;
 
-    let mut mat = unsafe {
-        opencv::core::Mat::new_rows_cols(height as i32, width as i32, opencv::core::CV_8UC1)
-    }
-    .unwrap();
+    let mut mat =
+        unsafe { opencv::core::Mat::new_rows_cols(height, width, opencv::core::CV_8UC1) }.unwrap();
 
-    // copy img data into mat
     unsafe {
-        let mut src = (*img).data[0];
-        let mut dst = mat.data_mut();
-        for _ in 0..height {
-            std::ptr::copy_nonoverlapping(src, dst, width as usize);
-            src = src.add((*img).linesize[0] as usize);
-            dst = dst.add(width as usize);
-        }
+        let src = (*img).data[0];
+        let dst = mat.data_mut();
+        std::ptr::copy_nonoverlapping(src, dst, width as usize * height as usize);
     }
 
     mat
+}
+
+#[cfg(test)]
+mod tests {
+    use opencv::core::Scalar;
+    use opencv::prelude::Mat;
+    use opencv::prelude::MatTraitConst;
+    use rusty_ffmpeg::ffi;
+
+    #[test]
+    fn test_packed_layout_rgb24() {
+        // we do some sharing of buffers between libav and opencv so we need to make sure that
+        // the layout of the data is the same
+
+        let num_planes =
+            unsafe { ffi::av_pix_fmt_count_planes(ffi::AVPixelFormat_AV_PIX_FMT_RGB24) };
+        assert_eq!(num_planes, 1);
+
+        let width = 1920;
+        let height = 1080;
+        let size = (width as usize) * (height as usize) * 3;
+
+        let frame_encoded_size_all_planes = unsafe {
+            ffi::av_image_get_buffer_size(ffi::AVPixelFormat_AV_PIX_FMT_RGB24, width, height, 1)
+        };
+
+        assert_eq!(size, frame_encoded_size_all_planes as usize);
+
+        // make sure mat data buffer is the same size as the frame buffer
+        let color = Scalar::new(255.0, 0.0, 0.0, 0.0);
+        let mat =
+            Mat::new_rows_cols_with_default(height, width, opencv::core::CV_8UC3, color).unwrap();
+
+        assert_eq!(size, mat.total() * mat.elem_size().unwrap());
+    }
+
+    #[test]
+    fn test_packed_layout_gray8() {
+        let num_planes =
+            unsafe { ffi::av_pix_fmt_count_planes(ffi::AVPixelFormat_AV_PIX_FMT_GRAY8) };
+        assert_eq!(num_planes, 1);
+
+        let width = 1920;
+        let height = 1080;
+        let size = (width as usize) * (height as usize);
+
+        let frame_encoded_size_all_planes = unsafe {
+            ffi::av_image_get_buffer_size(ffi::AVPixelFormat_AV_PIX_FMT_GRAY8, width, height, 1)
+        };
+
+        assert_eq!(size, frame_encoded_size_all_planes as usize);
+
+        // make sure mat data buffer is the same size as the frame buffer
+        let color = Scalar::new(255.0, 0.0, 0.0, 0.0);
+        let mat =
+            Mat::new_rows_cols_with_default(height, width, opencv::core::CV_8UC1, color).unwrap();
+
+        assert_eq!(size, mat.total() * mat.elem_size().unwrap());
+    }
 }
