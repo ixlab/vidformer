@@ -109,26 +109,43 @@ impl SourceVideoStreamMeta {
         while demuxer.read_packet(packet).is_some() {
             debug_assert!(packet.flags as u32 & ffi::AV_PKT_FLAG_CORRUPT == 0);
             trace!(
-                "AVPacket [pts {}, dts {}, duration {}, key={}]",
+                "AVPacket [pts {}, dts {}, duration {}, stream {}, key={}]",
                 packet.pts,
                 packet.dts,
                 packet.duration,
+                packet.stream_index,
                 packet.flags as u32 & ffi::AV_PKT_FLAG_KEY != 0
             );
 
             // make sure the first frame is a keyframe
             if pts_array.is_empty() {
-                assert!(packet.flags as u32 & ffi::AV_PKT_FLAG_KEY != 0);
+                if packet.flags as u32 & ffi::AV_PKT_FLAG_KEY == 0 {
+                    return Err(crate::dve::Error::AVError(format!(
+                        "First frame is not a keyframe"
+                    )));
+                }
             }
 
             // make sure a keyframe is always the new max pts
             if packet.flags as u32 & ffi::AV_PKT_FLAG_KEY != 0 && !pts_array.is_empty() {
-                assert!(packet.pts > pts_array[pts_array.len() - 1]);
+                if packet.pts <= pts_array[pts_array.len() - 1] {
+                    return Err(crate::dve::Error::AVError(format!(
+                        "Keyframe pts {} is not past the most recent frame {}",
+                        packet.pts,
+                        pts_array[pts_array.len() - 1]
+                    )));
+                }
             }
 
             // make sure a non-keyframe is always past the most recent keyframe
             if packet.flags as u32 & ffi::AV_PKT_FLAG_KEY == 0 && !key_array.is_empty() {
-                assert!(packet.pts > key_array[key_array.len() - 1]);
+                if packet.pts <= key_array[key_array.len() - 1] {
+                    return Err(crate::dve::Error::AVError(format!(
+                        "Non-keyframe pts {} is not past the most recent keyframe {}",
+                        packet.pts,
+                        key_array[key_array.len() - 1]
+                    )));
+                }
             }
 
             match pts_array.binary_search(&packet.pts) {

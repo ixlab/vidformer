@@ -96,7 +96,7 @@ async fn yrden_main(global: YrdenGlobal) {
     use std::net::SocketAddr;
     use tokio::net::TcpListener;
 
-    let addr: SocketAddr = format!("0.0.0.0:{}", global.port).parse().unwrap();
+    let addr: SocketAddr = format!("[::]:{}", global.port).parse().unwrap();
     let listener = TcpListener::bind(addr).await.unwrap();
 
     global.init_db();
