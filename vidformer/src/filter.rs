@@ -182,6 +182,7 @@ impl<'de> Deserialize<'de> for Frame {
                     let plane_size = unsafe { (*av_frame).linesize[plane as usize] * height };
                     unsafe {
                         std::ptr::copy_nonoverlapping(
+                            // TODO: check linesize[0]
                             data.as_ptr().add(data_offset),
                             (*av_frame).data[plane as usize],
                             plane_size as usize,

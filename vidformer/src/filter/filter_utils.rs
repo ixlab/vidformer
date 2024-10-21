@@ -196,6 +196,11 @@ pub(crate) fn mat_to_frame_rgb24(
             "Failed to allocate frame".into(),
         )));
     }
+
+    debug_assert_eq!(mat.elem_size().unwrap(), 3);
+    debug_assert_eq!(mat.channels(), 3);
+    debug_assert_eq!(mat.size().unwrap().height, height);
+    debug_assert_eq!(mat.size().unwrap().width, width);
     unsafe {
         (*f).width = width;
         (*f).height = height;
@@ -205,13 +210,25 @@ pub(crate) fn mat_to_frame_rgb24(
             panic!("ERROR could not allocate frame data");
         }
     }
-    unsafe {
-        let mut src = mat.data();
-        let mut dst = (*f).data[0];
-        for _ in 0..height {
-            std::ptr::copy_nonoverlapping(src, dst, width as usize * 3);
-            src = src.add((*f).linesize[0] as usize);
-            dst = dst.add(width as usize * 3);
+
+    if unsafe { (*f).linesize[0] } == width * 3 {
+        // no padding, just copy the data
+        unsafe {
+            let src = mat.data();
+            let dst = (*f).data[0];
+            std::ptr::copy_nonoverlapping(src, dst, width as usize * height as usize * 3);
+        }
+    } else {
+        // there is padding, copy line by line
+        debug_assert!(unsafe { (*f).linesize[0] } > width * 3);
+        unsafe {
+            let mut src = mat.data();
+            let mut dst = (*f).data[0];
+            for _ in 0..height {
+                std::ptr::copy_nonoverlapping(src, dst, width as usize * 3);
+                src = src.add((*f).linesize[0] as usize);
+                dst = dst.add(width as usize * 3);
+            }
         }
     }
     Ok(f)
@@ -219,15 +236,45 @@ pub(crate) fn mat_to_frame_rgb24(
 
 pub(crate) fn frame_to_mat_rgb24(img: &Frame, width: i32, height: i32) -> opencv::prelude::Mat {
     debug_assert!(img.format == ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
-    let img: *mut ffi::AVFrame = img.inner.inner;
+    debug_assert_eq!(img.height, height);
+    debug_assert_eq!(img.width, width);
+    debug_assert_eq!(
+        unsafe { (*(img.inner.inner)).format },
+        ffi::AVPixelFormat_AV_PIX_FMT_RGB24
+    );
+    debug_assert_eq!(unsafe { (*(img.inner.inner)).width }, width);
+    debug_assert_eq!(unsafe { (*(img.inner.inner)).height }, height);
+
+    let img: ffi::AVFrame = unsafe { *img.inner.inner };
 
     let mut mat =
         unsafe { opencv::core::Mat::new_rows_cols(height, width, opencv::core::CV_8UC3) }.unwrap();
 
-    unsafe {
-        let src = (*img).data[0];
-        let dst = mat.data_mut();
-        std::ptr::copy_nonoverlapping(src, dst, width as usize * height as usize * 3);
+    debug_assert!(mat.elem_size().unwrap() == 3);
+    debug_assert!(mat.channels() == 3);
+    debug_assert!(mat.size().unwrap().height == height);
+    debug_assert!(mat.size().unwrap().width == width);
+    debug_assert!(mat.is_continuous());
+
+    if img.linesize[0] == width * 3 {
+        // no padding, just copy the data
+        unsafe {
+            let src = img.data[0];
+            let dst = mat.data_mut();
+            std::ptr::copy_nonoverlapping(src, dst, width as usize * height as usize * 3);
+        }
+    } else {
+        // there is padding, copy line by line
+        debug_assert!(img.linesize[0] > width * 3);
+        unsafe {
+            let mut src = img.data[0];
+            let mut dst = mat.data_mut();
+            for _ in 0..height {
+                std::ptr::copy_nonoverlapping(src, dst, width as usize * 3);
+                src = src.add(img.linesize[0] as usize);
+                dst = dst.add(width as usize * 3);
+            }
+        }
     }
 
     mat
@@ -235,15 +282,45 @@ pub(crate) fn frame_to_mat_rgb24(img: &Frame, width: i32, height: i32) -> opencv
 
 pub(crate) fn frame_to_mat_gray8(img: &Frame, width: i32, height: i32) -> opencv::prelude::Mat {
     debug_assert!(img.format == ffi::AVPixelFormat_AV_PIX_FMT_GRAY8);
-    let img: *mut ffi::AVFrame = img.inner.inner;
+    debug_assert_eq!(img.height, height);
+    debug_assert_eq!(img.width, width);
+    debug_assert_eq!(
+        unsafe { (*(img.inner.inner)).format },
+        ffi::AVPixelFormat_AV_PIX_FMT_GRAY8
+    );
+    debug_assert_eq!(unsafe { (*(img.inner.inner)).width }, width);
+    debug_assert_eq!(unsafe { (*(img.inner.inner)).height }, height);
+
+    let img: ffi::AVFrame = unsafe { *img.inner.inner };
 
     let mut mat =
         unsafe { opencv::core::Mat::new_rows_cols(height, width, opencv::core::CV_8UC1) }.unwrap();
 
-    unsafe {
-        let src = (*img).data[0];
-        let dst = mat.data_mut();
-        std::ptr::copy_nonoverlapping(src, dst, width as usize * height as usize);
+    debug_assert!(mat.elem_size().unwrap() == 1);
+    debug_assert!(mat.channels() == 1);
+    debug_assert!(mat.size().unwrap().height == height);
+    debug_assert!(mat.size().unwrap().width == width);
+    debug_assert!(mat.is_continuous());
+
+    if img.linesize[0] == width {
+        // no padding, just copy the data
+        unsafe {
+            let src = img.data[0];
+            let dst = mat.data_mut();
+            std::ptr::copy_nonoverlapping(src, dst, width as usize * height as usize);
+        }
+    } else {
+        // there is padding, copy line by line
+        debug_assert!(img.linesize[0] > width);
+        unsafe {
+            let mut src = img.data[0];
+            let mut dst = mat.data_mut();
+            for _ in 0..height {
+                std::ptr::copy_nonoverlapping(src, dst, width as usize);
+                src = src.add(img.linesize[0] as usize);
+                dst = dst.add(width as usize);
+            }
+        }
     }
 
     mat
@@ -281,6 +358,7 @@ mod tests {
             Mat::new_rows_cols_with_default(height, width, opencv::core::CV_8UC3, color).unwrap();
 
         assert_eq!(size, mat.total() * mat.elem_size().unwrap());
+        assert!(mat.is_continuous());
     }
 
     #[test]
@@ -305,5 +383,6 @@ mod tests {
             Mat::new_rows_cols_with_default(height, width, opencv::core::CV_8UC1, color).unwrap();
 
         assert_eq!(size, mat.total() * mat.elem_size().unwrap());
+        assert!(mat.is_continuous());
     }
 }
