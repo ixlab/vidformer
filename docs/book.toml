@@ -4,3 +4,6 @@ language = "en"
 multilingual = false
 src = "src"
 title = "vidformer - Video Data Transformation"
+
+[output.html]
+git-repository-url = "https://github.com/ixlab/vidformer"
