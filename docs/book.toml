@@ -3,4 +3,4 @@ authors = ["Dominik Winecki"]
 language = "en"
 multilingual = false
 src = "src"
-title = "vidformer - A data-systems focused library for declarative video synthesis"
+title = "vidformer - Video Data Transformation"
