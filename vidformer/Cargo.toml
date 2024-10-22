@@ -1,7 +1,7 @@
 [package]
 name = "vidformer"
 version = "0.6.0"
-description = "A data-systems focused library for declarative video synthesis."
+description = "Video Data Transformation Library."
 authors = ["Dominik Winecki <dominikwinecki@gmail.com>"]
 edition = "2021"
 readme = "README.md"

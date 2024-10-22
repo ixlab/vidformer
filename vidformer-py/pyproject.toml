@@ -18,7 +18,8 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://ixlab.github.io/vidformer/"
-Issues = "https://ixlab.github.io/vidformer/issues"
+Documentation = "https://ixlab.github.io/vidformer/vidformer-py/"
+Issues = "https://github.com/ixlab/vidformer/issues"
 
 
 [build-system]
