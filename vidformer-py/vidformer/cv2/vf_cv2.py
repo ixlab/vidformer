@@ -5,6 +5,8 @@ try:
 except:
     _opencv2 = None
 
+import numpy as np
+
 import uuid
 from fractions import Fraction
 from bisect import bisect_right
@@ -78,6 +80,23 @@ class Frame:
     def _mut(self):
         self._modified = True
         self._f = _filter_scale(self._f, pix_fmt="rgb24")
+        self._fmt["pix_fmt"] = "rgb24"
+
+    def numpy(self):
+        """
+        Return the frame as a numpy array.
+        """
+
+        self._mut()
+        spec = vf.Spec([Fraction(0, 1)], lambda t, i: self._f, self._fmt)
+        loader = spec.load(_server())
+
+        frame_raster_rgb24 = loader[0]
+        assert type(frame_raster_rgb24) == bytes
+        assert len(frame_raster_rgb24) == self.shape[0] * self.shape[1] * 3
+        raw_data_array = np.frombuffer(frame_raster_rgb24, dtype=np.uint8)
+        frame = raw_data_array.reshape(self.shape)
+        return frame
 
 
 class VideoCapture:

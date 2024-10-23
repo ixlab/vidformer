@@ -38,6 +38,9 @@ def rw(cv2):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+    assert width == 1280
+    assert height == 720
+
     out = cv2.VideoWriter(
         TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
     )
@@ -68,6 +71,36 @@ def test_rw_ocv():
 
 def test_rw_vf():
     rw(vf_cv2)
+
+
+def test_numpy():
+    import vidformer.cv2 as vf_cv2
+    import numpy as np
+
+    img = vf_cv2.imread("apollo.jpg")
+    assert isinstance(img, vf_cv2.Frame)
+    assert img.shape[0] == 3936
+    assert img.shape[1] == 3912
+    assert img.shape[2] == 3
+
+    img_np = img.numpy()
+    assert isinstance(img_np, np.ndarray)
+    assert img_np.shape[0] == 3936
+    assert img_np.shape[1] == 3912
+    assert img_np.shape[2] == 3
+
+    # the 1000th frame of tos_720p.mp4
+    cap = vf_cv2.VideoCapture(VID_PATH)
+    assert cap.isOpened()
+
+    cap.set(vf_cv2.CAP_PROP_POS_FRAMES, 1000)
+    ret, frame = cap.read()
+
+    frame_np = frame.numpy()
+    assert isinstance(frame_np, np.ndarray)
+    assert frame_np.shape[0] == 720
+    assert frame_np.shape[1] == 1280
+    assert frame_np.shape[2] == 3
 
 
 def rectangle(cv2):
