@@ -65,7 +65,7 @@ def set_cv2_server(server):
     _global_cv2_server = server
 
 
-class _Frame:
+class Frame:
     def __init__(self, f, fmt):
         self._f = f
         self._fmt = fmt
@@ -117,7 +117,7 @@ class VideoCapture:
             return False, None
         frame = self._source.iloc[self._next_frame_idx]
         self._next_frame_idx += 1
-        frame = _Frame(frame, self._source.fmt())
+        frame = Frame(frame, self._source.fmt())
         return True, frame
 
     def release(self):
@@ -136,8 +136,8 @@ class VideoWriter:
         self._pix_fmt = "yuv420p"
 
     def write(self, frame):
-        if not isinstance(frame, _Frame):
-            raise Exception("frame must be a _Frame object")
+        if not isinstance(frame, Frame):
+            raise Exception("frame must be a vidformer.cv2.Frame object")
         if frame._modified:
             f_obj = _filter_scale(frame._f, pix_fmt=self._pix_fmt)
             self._frames.append(f_obj)
@@ -172,7 +172,7 @@ def imread(path, *args):
     assert path.lower().endswith((".jpg", ".jpeg", ".png"))
     server = _server()
     source = vf.Source(server, str(uuid.uuid4()), path, 0)
-    frame = _Frame(source.iloc[0], source.fmt())
+    frame = Frame(source.iloc[0], source.fmt())
     return frame
 
 
@@ -180,8 +180,8 @@ def imwrite(path, img, *args):
     if len(args) > 0:
         raise NotImplementedError("imwrite does not support additional arguments")
 
-    if not isinstance(img, _Frame):
-        raise Exception("img must be a _Frame object")
+    if not isinstance(img, Frame):
+        raise Exception("img must be a vidformer.cv2.Frame object")
 
     fmt = img._fmt.copy()
     width = fmt["width"]
@@ -219,7 +219,7 @@ def rectangle(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
     cv.rectangle(	img, pt1, pt2, color[, thickness[, lineType[, shift]]]	)
     """
 
-    assert isinstance(img, _Frame)
+    assert isinstance(img, Frame)
     img._mut()
 
     assert len(pt1) == 2
@@ -263,7 +263,7 @@ def putText(
     cv.putText(	img, text, org, fontFace, fontScale, color[, thickness[, lineType[, bottomLeftOrigin]]]	)
     """
 
-    assert isinstance(img, _Frame)
+    assert isinstance(img, Frame)
     img._mut()
 
     assert isinstance(text, str)
@@ -302,7 +302,7 @@ def arrowedLine(
     """
     cv.arrowedLine(	img, pt1, pt2, color[, thickness[, line_type[, shift[, tipLength]]]]	)
     """
-    assert isinstance(img, _Frame)
+    assert isinstance(img, Frame)
     img._mut()
 
     assert len(pt1) == 2
@@ -336,7 +336,7 @@ def arrowedLine(
 
 
 def line(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
-    assert isinstance(img, _Frame)
+    assert isinstance(img, Frame)
     img._mut()
 
     assert len(pt1) == 2
@@ -366,7 +366,7 @@ def line(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
 
 
 def circle(img, center, radius, color, thickness=None, lineType=None, shift=None):
-    assert isinstance(img, _Frame)
+    assert isinstance(img, Frame)
     img._mut()
 
     assert len(center) == 2
@@ -417,15 +417,15 @@ def addWeighted(src1, alpha, src2, beta, gamma, dst=None, dtype=-1):
     """
     cv.addWeighted(	src1, alpha, src2, beta, gamma[, dst[, dtype]]	) -> 	dst
     """
-    assert isinstance(src1, _Frame)
-    assert isinstance(src2, _Frame)
+    assert isinstance(src1, Frame)
+    assert isinstance(src2, Frame)
     src1._mut()
     src2._mut()
 
     if dst is None:
-        dst = _Frame(src1._f, src1._fmt.copy())
+        dst = Frame(src1._f, src1._fmt.copy())
     else:
-        assert isinstance(dst, _Frame)
+        assert isinstance(dst, Frame)
     dst._mut()
 
     assert isinstance(alpha, float) or isinstance(alpha, int)
