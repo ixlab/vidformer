@@ -57,7 +57,7 @@ You can find details on this in our [Getting Started Guide](https://ixlab.github
 ## 📘 Documentation
 
 * [🌐 Website](https://ixlab.github.io/vidformer/)
-* [🚦 Getting Started](https://ixlab.github.io/vidformer/getting-started.html)
+* [🚀 Getting Started](https://ixlab.github.io/vidformer/getting-started.html)
 * [🐍 vidformer-py](https://ixlab.github.io/vidformer/vidformer-py/)
 * [🛠️ vidformer core](https://ixlab.github.io/vidformer/vidformer/)
 

@@ -1,3 +1,12 @@
+"""
+vidformer-py is a Python 🐍 interface for [vidformer](https://github.com/ixlab/vidformer).
+
+**Quick links:**
+* [📦 PyPI](https://pypi.org/project/vidformer/)
+* [📘 Documentation](https://ixlab.github.io/vidformer/vidformer-py/)
+* [🧑‍💻 Source Code](https://github.com/ixlab/vidformer/tree/main/vidformer-py/)
+"""
+
 import subprocess
 from fractions import Fraction
 import random
@@ -43,6 +52,12 @@ def _check_hls_link_exists(url, max_attempts=150, delay=0.1):
 
 
 class Spec:
+    """
+    A video transformation specification.
+
+    See https://ixlab.github.io/vidformer/concepts.html for more information.
+    """
+
     def __init__(self, domain: list[Fraction], render, fmt: dict):
         self._domain = domain
         self._render = render
@@ -351,12 +366,18 @@ class Loader:
 
 
 class YrdenServer:
-    """A connection to a Yrden server"""
+    """
+    A connection to a Yrden server.
+
+    A yrden server is the main API for local use of vidformer.
+    """
 
     def __init__(self, domain=None, port=None, bin=None):
-        """Connect to a Yrden server
+        """
+        Connect to a Yrden server
 
-        Can either connect to an existing server, if domain and port are provided, or start a new server using the provided binary
+        Can either connect to an existing server, if domain and port are provided, or start a new server using the provided binary.
+        If no domain or binary is provided, the `VIDFORMER_BIN` environment variable is used.
         """
 
         self._domain = domain
@@ -508,6 +529,8 @@ class SourceILoc:
 
 
 class Source:
+    """A video source."""
+
     def __init__(
         self, server: YrdenServer, name: str, path: str, stream: int, service=None
     ):
@@ -610,6 +633,8 @@ def _json_arg(arg, skip_data_anot=False):
 
 
 class Filter:
+    """A video filter."""
+
     def __init__(self, name: str, tl_func=None, **kwargs):
         self._name = name
 
@@ -854,6 +879,10 @@ class UDF:
 
 
 class UDFFrameType:
+    """
+    Frame type for use in UDFs.
+    """
+
     def __init__(self, width: int, height: int, pix_fmt: str):
         assert type(width) == int
         assert type(height) == int
@@ -886,6 +915,8 @@ class UDFFrameType:
 
 
 class UDFFrame:
+    """A symbolic reference to a frame for use in UDFs."""
+
     def __init__(self, data: np.ndarray, f_type: UDFFrameType):
         assert type(data) == np.ndarray
         assert type(f_type) == UDFFrameType

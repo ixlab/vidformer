@@ -1,3 +1,11 @@
+//! [vidformer](https://github.com/ixlab/vidformer) is a core video synthesis/transformation library.
+//! It handles the movement, control flow, and processing of video and conventional (non-video) data.
+//!
+//! **Quick links:**
+//! * [📦 Crates.io](https://crates.io/crates/vidformer)
+//! * [📘 Documentation](https://ixlab.github.io/vidformer/vidformer/)
+//! * [🧑‍💻 Source Code](https://github.com/ixlab/vidformer/tree/main/vidformer/)
+
 pub mod array;
 pub mod filter;
 pub mod service;

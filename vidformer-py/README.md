@@ -3,8 +3,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/vidformer.svg)](https://pypi.org/project/vidformer/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/ixlab/vidformer/blob/main/LICENSE)
 
-
-vidformer-py is our Python 🐍 interface for [vidformer](https://github.com/ixlab/vidformer).
+vidformer-py is a Python 🐍 interface for [vidformer](https://github.com/ixlab/vidformer).
 Our [getting started guide](https://ixlab.github.io/vidformer/getting-started.html) explains how to use it.
 
 **Quick links:**

@@ -6,7 +6,7 @@ set -e
 
 bash ./scripts/deps_ffmpeg.sh
 bash ./scripts/deps_python.sh
-pip3 install jupyter black
+pip3 install jupyter black pdoc
 pip3 install -e ./vidformer-py
 
 # Download test video if it doesn't exist
