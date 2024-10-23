@@ -66,8 +66,10 @@ def set_cv2_server(server):
 
 
 class _Frame:
-    def __init__(self, f):
+    def __init__(self, f, fmt):
         self._f = f
+        self._fmt = fmt
+        self.shape = (fmt["height"], fmt["width"], 3)
 
         # denotes that the frame has not yet been modified
         # when a frame is modified, it is converted to rgb24 first
@@ -115,7 +117,7 @@ class VideoCapture:
             return False, None
         frame = self._source.iloc[self._next_frame_idx]
         self._next_frame_idx += 1
-        frame = _Frame(frame)
+        frame = _Frame(frame, self._source.fmt())
         return True, frame
 
     def release(self):
@@ -161,6 +163,55 @@ class VideoWriter:
 class VideoWriter_fourcc:
     def __init__(self, *args):
         self._args = args
+
+
+def imread(path, *args):
+    if len(args) > 0:
+        raise NotImplementedError("imread does not support additional arguments")
+
+    assert path.lower().endswith((".jpg", ".jpeg", ".png"))
+    server = _server()
+    source = vf.Source(server, str(uuid.uuid4()), path, 0)
+    frame = _Frame(source.iloc[0], source.fmt())
+    return frame
+
+
+def imwrite(path, img, *args):
+    if len(args) > 0:
+        raise NotImplementedError("imwrite does not support additional arguments")
+
+    if not isinstance(img, _Frame):
+        raise Exception("img must be a _Frame object")
+
+    fmt = img._fmt.copy()
+    width = fmt["width"]
+    height = fmt["height"]
+    f = img._f
+
+    domain = [Fraction(0, 1)]
+
+    if path.lower().endswith(".png"):
+        img._mut()  # Make sure it's in rgb24
+        spec = vf.Spec(
+            domain,
+            lambda t, i: img._f,
+            {"width": width, "height": height, "pix_fmt": "rgb24"},
+        )
+        spec.save(_server(), path, encoder="png")
+    elif path.lower().endswith((".jpg", ".jpeg")):
+        if img._modified:
+            # it's rgb24, we need to convert to something jpeg can handle
+            f = _filter_scale(img._f, pix_fmt="yuv420p")
+            fmt["pix_fmt"] = "yuv420p"
+        else:
+            if fmt["pix_fmt"] not in ["yuvj420p", "yuvj422p", "yuvj444p"]:
+                f = _filter_scale(img._f, pix_fmt="yuvj420p")
+                fmt["pix_fmt"] = "yuvj420p"
+
+        spec = vf.Spec(domain, lambda t, i: f, fmt)
+        spec.save(_server(), path, encoder="mjpeg")
+    else:
+        raise Exception("Unsupported image format")
 
 
 def rectangle(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
@@ -372,7 +423,7 @@ def addWeighted(src1, alpha, src2, beta, gamma, dst=None, dtype=-1):
     src2._mut()
 
     if dst is None:
-        dst = _Frame(src1._f)
+        dst = _Frame(src1._f, src1._fmt.copy())
     else:
         assert isinstance(dst, _Frame)
     dst._mut()

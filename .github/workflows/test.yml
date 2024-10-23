@@ -20,7 +20,7 @@ jobs:
     - name: Deps
       run: bash ./scripts/deps_ci.sh
     - name: Download Test Video
-      run: curl -O https://f.dominik.win/data/dve2/tos_720p.mp4
+      run: curl -O https://f.dominik.win/data/dve2/tos_720p.mp4 && curl -O https://f.dominik.win/data/dve2/apollo.jpg
     - name: Build Debug
       run: cargo build
     - name: Build Release
@@ -31,7 +31,7 @@ jobs:
     - name: Install vidformer-py
       run: pip3 install ./vidformer-py
     - name: snake-pit pytest
-      run: ln -s ../tos_720p.mp4 snake-pit/tos_720p.mp4 && pushd snake-pit && VIDFORMER_BIN='../target/debug/vidformer-cli' pytest . --verbose && popd
+      run: ln -s ../tos_720p.mp4 snake-pit/tos_720p.mp4 && cp apollo.jpg snake-pit/apollo.jpg && pushd snake-pit && VIDFORMER_BIN='../target/debug/vidformer-cli' pytest . --verbose && popd
       timeout-minutes: 10
     - name: Valgrind Tests
       run: bash ./scripts/valgrind_test.sh

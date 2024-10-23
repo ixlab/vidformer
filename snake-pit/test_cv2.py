@@ -47,6 +47,11 @@ def rw(cv2):
         ret, frame = cap.read()
         if not ret or count > 100:
             break
+
+        assert frame.shape[0] == height
+        assert frame.shape[1] == width
+        assert frame.shape[2] == 3
+
         out.write(frame)
         count += 1
 
@@ -426,3 +431,79 @@ def test_addWeighted_ocv():
 
 def test_addWeighted_vf():
     addWeighted(vf_cv2)
+
+
+def test_imread():
+    import vidformer.cv2 as vf_cv2
+
+    img = vf_cv2.imread("apollo.jpg")
+
+    assert img._fmt["width"] == 3912
+    assert img._fmt["height"] == 3936
+    assert img._fmt["pix_fmt"] == "yuvj444p"
+
+
+def imread(cv2):
+    img = cv2.imread("apollo.jpg")
+
+    assert img.shape[0] == 3936
+    assert img.shape[1] == 3912
+    assert img.shape[2] == 3
+
+
+def test_imread_ocv():
+    imread(ocv_cv2)
+
+
+def test_imread_vf():
+    imread(vf_cv2)
+
+
+def imwrite(cv2):
+    # from apollo.jpg
+    img = cv2.imread("apollo.jpg")
+
+    # jpg
+    cv2.imwrite("apollo2.jpg", img)
+    assert os.path.exists("apollo2.jpg")
+    os.remove("apollo2.jpg")
+
+    # jpeg
+    cv2.imwrite("apollo2.jpeg", img)
+    assert os.path.exists("apollo2.jpeg")
+    os.remove("apollo2.jpeg")
+
+    # png
+    cv2.imwrite("apollo2.png", img)
+    assert os.path.exists("apollo2.png")
+    os.remove("apollo2.png")
+
+    # from 1000th frame of tos_720p.mp4
+    cap = cv2.VideoCapture(VID_PATH)
+    assert cap.isOpened()
+
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 1000)
+    ret, frame = cap.read()
+    assert ret
+
+    # jpg
+    cv2.imwrite("tos_720p_1000.jpg", frame)
+    assert os.path.exists("tos_720p_1000.jpg")
+    os.remove("tos_720p_1000.jpg")
+
+    # jpeg
+    cv2.imwrite("tos_720p_1000.jpeg", frame)
+    assert os.path.exists("tos_720p_1000.jpeg")
+    os.remove("tos_720p_1000.jpeg")
+
+    # png
+    cv2.imwrite("tos_720p_1000.png", frame)
+    assert os.path.exists("tos_720p_1000.png")
+
+
+def test_imwrite_ocv():
+    imwrite(ocv_cv2)
+
+
+def test_imwrite_vf():
+    imwrite(vf_cv2)

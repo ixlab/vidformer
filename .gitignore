@@ -3,6 +3,9 @@
 /data
 Cargo.lock
 *.mp4
+*.mov
+*.jpg
+*.jpeg
 *.mkv
 *.srt
 *.json
