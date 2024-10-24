@@ -64,13 +64,28 @@ class Spec:
         self._fmt = fmt
 
     def __repr__(self):
-        lines = []
-        for i, t in enumerate(self._domain):
-            frame_expr = self._render(t, i)
-            lines.append(
-                f"{t.numerator}/{t.denominator} => {frame_expr}",
-            )
-        return "\n".join(lines)
+        if len(self._domain) <= 20:
+            lines = []
+            for i, t in enumerate(self._domain):
+                frame_expr = self._render(t, i)
+                lines.append(
+                    f"{t.numerator}/{t.denominator} => {frame_expr}",
+                )
+            return "\n".join(lines)
+        else:
+            lines = []
+            for i, t in enumerate(self._domain[:10]):
+                frame_expr = self._render(t, i)
+                lines.append(
+                    f"{t.numerator}/{t.denominator} => {frame_expr}",
+                )
+            lines.append("...")
+            for i, t in enumerate(self._domain[-10:]):
+                frame_expr = self._render(t, i)
+                lines.append(
+                    f"{t.numerator}/{t.denominator} => {frame_expr}",
+                )
+            return "\n".join(lines)
 
     def _sources(self):
         s = set()

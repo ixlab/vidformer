@@ -1,4 +1,5 @@
 import os
+import re
 
 import cv2 as ocv_cv2
 import vidformer.cv2 as vf_cv2
@@ -28,6 +29,28 @@ def test_constants():
     assert ocv_cv2.LINE_4 == vf_cv2.LINE_4
     assert ocv_cv2.LINE_8 == vf_cv2.LINE_8
     assert ocv_cv2.LINE_AA == vf_cv2.LINE_AA
+
+
+def test_cap_all_frames():
+    """Make sure VideoCapture can read all frames of a video correctly."""
+    import vidformer.cv2 as cv2
+
+    cap = cv2.VideoCapture(VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        assert frame.shape[0] == height
+        assert frame.shape[1] == width
+        assert frame.shape[2] == 3
+
+    cap.release()
 
 
 def rw(cv2):
@@ -101,6 +124,44 @@ def test_numpy():
     assert frame_np.shape[0] == 720
     assert frame_np.shape[1] == 1280
     assert frame_np.shape[2] == 3
+
+
+def test_vidplay():
+    import vidformer as vf
+    import vidformer.cv2 as cv2
+
+    cap = cv2.VideoCapture(VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    assert width == 1280
+    assert height == 720
+
+    out = cv2.VideoWriter(None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+
+    count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret or count > 100:
+            break
+
+        out.write(frame)
+        count += 1
+
+    cap.release()
+    out.release()
+
+    # test vidplay on a Spec
+    spec = out.spec()
+    link = cv2.vidplay(spec, method="link")
+    assert re.match(r"http://localhost:\d+/\w+-\w+-\w+-\w+-\w+/stream.m3u8", link)
+
+    # test vidplay on a VideoWriter
+    link = cv2.vidplay(out, method="link")
+    assert re.match(r"http://localhost:\d+/\w+-\w+-\w+-\w+-\w+/stream.m3u8", link)
 
 
 def rectangle(cv2):

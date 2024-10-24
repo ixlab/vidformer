@@ -146,6 +146,8 @@ class VideoCapture:
 class VideoWriter:
     def __init__(self, path, fourcc, fps, size):
         assert isinstance(fourcc, VideoWriter_fourcc)
+        if path is not None and not isinstance(path, str):
+            raise Exception("path must be a string or None")
         self._path = path
         self._fourcc = fourcc
         self._fps = fps
@@ -164,11 +166,14 @@ class VideoWriter:
             self._frames.append(frame._f)
 
     def release(self):
-        spec = self.vf_spec()
+        if self._path is None:
+            return
+
+        spec = self.spec()
         server = _server()
         spec.save(server, self._path)
 
-    def vf_spec(self):
+    def spec(self) -> vf.Spec:
         fmt = {
             "width": self._size[0],
             "height": self._size[1],
@@ -231,6 +236,24 @@ def imwrite(path, img, *args):
         spec.save(_server(), path, encoder="mjpeg")
     else:
         raise Exception("Unsupported image format")
+
+
+def vidplay(video, *args, **kwargs):
+    """
+    Play a vidformer video specification.
+
+    Args:
+        video: one of [vidformer.Spec, vidformer.Source, vidformer.cv2.VideoWriter]
+    """
+
+    if isinstance(video, vf.Spec):
+        return video.play(_server(), *args, **kwargs)
+    elif isinstance(video, vf.Source):
+        return video.play(_server(), *args, **kwargs)
+    elif isinstance(video, VideoWriter):
+        return video.spec().play(_server(), *args, **kwargs)
+    else:
+        raise Exception("Unsupported video type to vidplay")
 
 
 def rectangle(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
