@@ -1,3 +1,15 @@
+"""
+vidformer.cv2 is the cv2 frontend for [vidformer](https://github.com/ixlab/vidformer).
+
+> ⚠️ This module is a work in progress. See the [implemented functions list](https://ixlab.github.io/vidformer/opencv-filters.html).
+
+**Quick links:**
+* [📦 PyPI](https://pypi.org/project/vidformer/)
+* [📘 Documentation - vidformer-py](https://ixlab.github.io/vidformer/vidformer-py/)
+* [📘 Documentation - vidformer.cv2](https://ixlab.github.io/vidformer/vidformer-py-cv2/)
+* [🧑‍💻 Source Code](https://github.com/ixlab/vidformer/tree/main/vidformer-py/)
+"""
+
 from .. import vf
 
 try:
@@ -60,7 +72,7 @@ def _server():
     return _global_cv2_server
 
 
-def set_cv2_server(server):
+def set_cv2_server(server: vf.YrdenServer):
     """Set the server to use for the cv2 frontend."""
     global _global_cv2_server
     assert isinstance(server, vf.YrdenServer)

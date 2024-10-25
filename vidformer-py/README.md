@@ -8,7 +8,8 @@ Our [getting started guide](https://ixlab.github.io/vidformer/getting-started.ht
 
 **Quick links:**
 * [📦 PyPI](https://pypi.org/project/vidformer/)
-* [📘 Documentation](https://ixlab.github.io/vidformer/vidformer-py/)
+* [📘 Documentation - vidformer-py](https://ixlab.github.io/vidformer/vidformer-py/)
+* [📘 Documentation - vidformer.cv2](https://ixlab.github.io/vidformer/vidformer-py-cv2/)
 * [🧑‍💻 Source Code](https://github.com/ixlab/vidformer/tree/main/vidformer-py/)
 
 **Publish:**

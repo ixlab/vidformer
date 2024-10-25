@@ -75,12 +75,12 @@ Vidformer is a highly modular suite of tools that work together; these are detai
 However, vidformer is highly complementary to each of these.
 If you're working on any of the later four, vidformer may be for you.
 
-**License:** Vidformer is open source under [Apache-2.0](./LICENSE).
-Contributions welcome.
-
 **File Layout**:
 - [*./vidformer*](./vidformer/): The core transformation library
 - [*./vidformer-py*](./vidformer-py/): A Python video editing client
 - [*./vidformer-cli*](./vidformer-cli/): A command-line interface for vidformer servers
 - [*./snake-pit*](./snake-pit/): The main vidformer test suite
 - [*./docs*](./docs/): The [vidformer website](https://ixlab.github.io/vidformer/)
+
+**License:** Vidformer is open source under [Apache-2.0](./LICENSE).
+Contributions welcome.
