@@ -28,6 +28,7 @@ CAP_PROP_POS_FRAMES = 1
 CAP_PROP_FRAME_WIDTH = 3
 CAP_PROP_FRAME_HEIGHT = 4
 CAP_PROP_FPS = 5
+CAP_PROP_FRAME_COUNT = 7
 
 FONT_HERSHEY_SIMPLEX = 0
 FONT_HERSHEY_PLAIN = 1
@@ -128,6 +129,10 @@ class VideoCapture:
             return self._source.fmt()["width"]
         elif prop == CAP_PROP_FRAME_HEIGHT:
             return self._source.fmt()["height"]
+        elif prop == CAP_PROP_FRAME_COUNT:
+            return len(self._source.ts())
+        elif prop == CAP_PROP_POS_FRAMES:
+            return self._next_frame_idx
 
         raise Exception(f"Unknown property {prop}")
 

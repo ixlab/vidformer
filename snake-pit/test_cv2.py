@@ -14,6 +14,7 @@ def test_constants():
     assert ocv_cv2.CAP_PROP_FRAME_WIDTH == vf_cv2.CAP_PROP_FRAME_WIDTH
     assert ocv_cv2.CAP_PROP_FRAME_HEIGHT == vf_cv2.CAP_PROP_FRAME_HEIGHT
     assert ocv_cv2.CAP_PROP_FPS == vf_cv2.CAP_PROP_FPS
+    assert ocv_cv2.CAP_PROP_FRAME_COUNT == vf_cv2.CAP_PROP_FRAME_COUNT
 
     assert ocv_cv2.FONT_HERSHEY_SIMPLEX == vf_cv2.FONT_HERSHEY_SIMPLEX
     assert ocv_cv2.FONT_HERSHEY_PLAIN == vf_cv2.FONT_HERSHEY_PLAIN

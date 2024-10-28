@@ -540,7 +540,7 @@ class SourceILoc:
 
     def __getitem__(self, idx):
         if type(idx) != int:
-            raise Exception("Source iloc index must be an integer")
+            raise Exception(f"Source iloc index must be an integer, got a {type(idx)}")
         return SourceExpr(self._source, idx, True)
 
 
