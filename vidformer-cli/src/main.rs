@@ -71,6 +71,9 @@ struct YrdenCmd {
     port: u16,
 
     #[clap(long)]
+    hls_prefix: Option<String>,
+
+    #[clap(long)]
     print_url: bool,
 
     #[clap(long, default_value = "/tmp/yrden.db")]

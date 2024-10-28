@@ -388,7 +388,7 @@ class YrdenServer:
     A yrden server is the main API for local use of vidformer.
     """
 
-    def __init__(self, domain=None, port=None, bin=None):
+    def __init__(self, domain=None, port=None, bin=None, hls_prefix=None):
         """
         Connect to a Yrden server
 
@@ -413,6 +413,12 @@ class YrdenServer:
                 # We need to print the URL in the notebook
                 # This is a trick to get VS Code to forward the port
                 cmd += ["--print-url"]
+
+            if hls_prefix is not None:
+                if not type(hls_prefix) == str:
+                    raise Exception("hls_prefix must be a string")
+                cmd += ["--hls-prefix", hls_prefix]
+
             self._proc = subprocess.Popen(cmd)
 
         version = _check_hls_link_exists(f"http://{self._domain}:{self._port}/")

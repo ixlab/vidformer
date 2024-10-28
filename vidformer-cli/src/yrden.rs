@@ -14,6 +14,7 @@ pub(crate) fn cmd_yrden(opt: &YrdenCmd) {
     let host_prefix = format!("http://localhost:{}", opt.port);
     let global = YrdenGlobal {
         host_prefix: host_prefix.clone(),
+        hls_prefix: opt.hls_prefix.clone().unwrap_or(host_prefix.clone()),
         port: opt.port,
         print_url: opt.print_url,
         namespaces: BTreeMap::new(),
@@ -26,6 +27,7 @@ pub(crate) fn cmd_yrden(opt: &YrdenCmd) {
 
 struct YrdenGlobal {
     host_prefix: String,
+    hls_prefix: String,
     port: u16,
     print_url: bool,
     namespaces: BTreeMap<String, std::sync::Arc<YrdenNamespace>>,
@@ -448,14 +450,14 @@ async fn yrden_http_req(
                     .unwrap());
             }
 
-            let host_prefix = {
+            let hls_prefix = {
                 let global: std::sync::MutexGuard<'_, YrdenGlobal> = global.lock().unwrap();
-                global.host_prefix.clone()
+                global.hls_prefix.clone()
             };
 
             let (namespace_id, playlist, stream, ranges) = vidformer::create_spec_hls(
                 spec.as_ref().as_ref(),
-                &host_prefix,
+                &hls_prefix,
                 &context,
                 &dve_config,
             );
@@ -476,9 +478,9 @@ async fn yrden_http_req(
             }
             let response = YrdenResponse {
                 namespace: namespace_id.clone(),
-                playlist_url: format!("{}/{}/playlist.m3u8", host_prefix, namespace_id),
-                stream_url: format!("{}/{}/stream.m3u8", host_prefix, namespace_id),
-                player_url: format!("{}/{}/player.html", host_prefix, namespace_id),
+                playlist_url: format!("{}/{}/playlist.m3u8", hls_prefix, namespace_id),
+                stream_url: format!("{}/{}/stream.m3u8", hls_prefix, namespace_id),
+                player_url: format!("{}/{}/player.html", hls_prefix, namespace_id),
             };
             let response = serde_json::to_string(&response).unwrap();
 
