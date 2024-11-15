@@ -91,6 +91,10 @@ class Frame:
         self._modified = False
 
     def _mut(self):
+        if self._modified:
+            assert self._fmt["pix_fmt"] == "rgb24"
+            return
+
         self._modified = True
         self._f = _filter_scale(self._f, pix_fmt="rgb24")
         self._fmt["pix_fmt"] = "rgb24"
