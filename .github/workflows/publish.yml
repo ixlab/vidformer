@@ -48,7 +48,7 @@ jobs:
 
   publish-docker:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 120 # arm builds can take a while
 
     steps:
     - uses: actions/checkout@v3
