@@ -48,7 +48,7 @@ jobs:
 
   publish-docker:
     runs-on: ubuntu-latest
-    timeout-minutes: 120 # arm builds can take a while
+    timeout-minutes: 180 # arm builds can take a while
 
     steps:
     - uses: actions/checkout@v3
@@ -76,7 +76,7 @@ jobs:
           dominikwinecki/vidformer:latest
           dominikwinecki/vidformer:${{ github.event.release.tag_name }}
 
-  publish-binary:
+  publish-binary-ubuntu-22.04:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
 
@@ -91,3 +91,19 @@ jobs:
       with:
         files: |
           vidformer-cli-ubuntu22.04-amd64
+
+  publish-binary-ubuntu-24.04:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Deps
+      run: bash ./scripts/deps_ci.sh
+    - name: Build release
+      run: cargo build --release && cp ./target/release/vidformer-cli ./vidformer-cli-ubuntu24.04-amd64
+    - name: Upload release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          vidformer-cli-ubuntu24.04-amd64
