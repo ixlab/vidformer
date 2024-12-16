@@ -142,18 +142,18 @@ impl Pool {
             needed_gen: usize,
             frame_ts: &'b IFrameRef,
         }
-        impl<'b> Ord for FrameEvictionCandidate<'b> {
+        impl Ord for FrameEvictionCandidate<'_> {
             fn cmp(&self, other: &Self) -> std::cmp::Ordering {
                 self.needed_gen.cmp(&other.needed_gen)
             }
         }
-        impl<'b> PartialOrd for FrameEvictionCandidate<'b> {
+        impl PartialOrd for FrameEvictionCandidate<'_> {
             fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
                 Some(self.cmp(other))
             }
         }
-        impl<'b> Eq for FrameEvictionCandidate<'b> {}
-        impl<'b> PartialEq for FrameEvictionCandidate<'b> {
+        impl Eq for FrameEvictionCandidate<'_> {}
+        impl PartialEq for FrameEvictionCandidate<'_> {
             fn eq(&self, other: &Self) -> bool {
                 self.needed_gen == other.needed_gen
             }

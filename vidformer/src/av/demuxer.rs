@@ -28,8 +28,7 @@ unsafe extern "C" fn vidformer_avio_read_packet(
             if read == 0 {
                 debug_assert!(
                     io_ctx
-                        .buf_reader
-                        .seek(std::io::SeekFrom::Current(0))
+                        .buf_reader.stream_position()
                         .unwrap()
                         == io_ctx.size
                 );
