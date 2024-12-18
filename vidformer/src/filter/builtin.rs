@@ -838,9 +838,6 @@ impl super::Filter for InlineMat {
         args: &[Val],
         kwargs: &BTreeMap<String, Val>,
     ) -> Result<FrameType, Error> {
-        // get width, height, and pix_fmt from kwargs
-        // don't panic, return Err(Error::MissingFilterArg) instead
-
         let width = match kwargs.get("width") {
             Some(Val::Int(i)) => *i,
             _ => return Err(Error::MissingFilterArg),

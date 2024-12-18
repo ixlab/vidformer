@@ -76,7 +76,7 @@ jobs:
           dominikwinecki/vidformer:latest
           dominikwinecki/vidformer:${{ github.event.release.tag_name }}
 
-  publish-binary-ubuntu-22.04:
+  publish-binary-ubuntu-22-04:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
 
@@ -92,7 +92,7 @@ jobs:
         files: |
           vidformer-cli-ubuntu22.04-amd64
 
-  publish-binary-ubuntu-24.04:
+  publish-binary-ubuntu-24-04:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
