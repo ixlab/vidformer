@@ -26,12 +26,7 @@ unsafe extern "C" fn vidformer_avio_read_packet(
     match read {
         Ok(read) => {
             if read == 0 {
-                debug_assert!(
-                    io_ctx
-                        .buf_reader.stream_position()
-                        .unwrap()
-                        == io_ctx.size
-                );
+                debug_assert!(io_ctx.buf_reader.stream_position().unwrap() == io_ctx.size);
                 ffi::AVERROR_EOF
             } else {
                 read as i32

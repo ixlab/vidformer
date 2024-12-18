@@ -596,9 +596,22 @@ async fn yrden_http_req(
 
             for (name, filter) in request.filters {
                 if let std::collections::btree_map::Entry::Vacant(e) = filters.entry(name) {
-                    assert!(filter.filter == "IPC");
-                    let filter = crate::filter::builtin::IPC::via_map(&filter.args).unwrap();
-                    e.insert(Box::new(filter));
+                    match filter.filter.as_str() {
+                        "IPC" => {
+                            let filter =
+                                crate::filter::builtin::IPC::via_map(&filter.args).unwrap();
+                            e.insert(Box::new(filter));
+                        }
+                        _ => {
+                            return Ok(hyper::Response::builder()
+                                .status(hyper::StatusCode::BAD_REQUEST)
+                                .header("Access-Control-Allow-Origin", "*")
+                                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                                    format!("Unknown filter: {}", filter.filter),
+                                )))
+                                .unwrap());
+                        }
+                    }
                 }
             }
 

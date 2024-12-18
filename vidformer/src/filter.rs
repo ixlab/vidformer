@@ -255,6 +255,7 @@ pub enum Val {
     Bool(bool),
     Int(i64),
     String(String),
+    Bytes(Vec<u8>),
     Float(f64),
     List(Vec<Val>),
 }
@@ -282,6 +283,7 @@ impl Val {
             crate::sir::DataExpr::Bool(b) => Val::Bool(*b),
             crate::sir::DataExpr::Int(i) => Val::Int(*i),
             crate::sir::DataExpr::String(s) => Val::String(s.to_string()),
+            crate::sir::DataExpr::Bytes(b) => Val::Bytes(b.clone()),
             crate::sir::DataExpr::Float(f) => Val::Float(*f),
             crate::sir::DataExpr::ArrayRef(name, crate::sir::IndexConst::ILoc(idx)) => {
                 let array = &context.arrays[name];

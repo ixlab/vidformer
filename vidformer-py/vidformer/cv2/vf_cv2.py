@@ -45,6 +45,8 @@ LINE_4 = 4
 LINE_8 = 8
 LINE_AA = 16
 
+_inline_mat = vf.Filter("_inline_mat")
+
 _filter_scale = vf.Filter("Scale")
 _filter_rectangle = vf.Filter("cv2.rectangle")
 _filter_putText = vf.Filter("cv2.putText")
@@ -96,8 +98,9 @@ class Frame:
             return
 
         self._modified = True
-        self._f = _filter_scale(self._f, pix_fmt="rgb24")
-        self._fmt["pix_fmt"] = "rgb24"
+        if self._fmt["pix_fmt"] != "rgb24":
+            self._f = _filter_scale(self._f, pix_fmt="rgb24")
+            self._fmt["pix_fmt"] = "rgb24"
 
     def numpy(self):
         """
@@ -113,7 +116,39 @@ class Frame:
         assert len(frame_raster_rgb24) == self.shape[0] * self.shape[1] * 3
         raw_data_array = np.frombuffer(frame_raster_rgb24, dtype=np.uint8)
         frame = raw_data_array.reshape(self.shape)
+        frame = frame[:, :, ::-1]  # convert RGB to BGR
         return frame
+
+
+def _inline_frame(arr):
+    assert arr.dtype == np.uint8
+    assert arr.ndim == 3
+    assert arr.shape[2] == 3
+
+    # convert BGR to RGB
+    arr = arr[:, :, ::-1]
+
+    width = arr.shape[1]
+    height = arr.shape[0]
+    pix_fmt = "rgb24"
+
+    f = _inline_mat(arr.tobytes(), width=width, height=height, pix_fmt=pix_fmt)
+    fmt = {"width": width, "height": height, "pix_fmt": pix_fmt}
+    return Frame(f, fmt)
+
+
+def _framify(obj, field_name=None):
+    if isinstance(obj, Frame):
+        return obj
+    elif isinstance(obj, np.ndarray):
+        return _inline_frame(obj)
+    else:
+        if field_name is not None:
+            raise Exception(
+                f"Unsupported type for field {field_name}, expected Frame or np.ndarray"
+            )
+        else:
+            raise Exception("Unsupported type, expected Frame or np.ndarray")
 
 
 class VideoCapture:
@@ -178,9 +213,9 @@ class VideoWriter:
         self._pix_fmt = "yuv420p"
 
     def write(self, frame):
-        if not isinstance(frame, Frame):
-            raise Exception("frame must be a vidformer.cv2.Frame object")
-        if frame._modified:
+        frame = _framify(frame, "frame")
+
+        if frame._fmt["pix_fmt"] != self._pix_fmt:
             f_obj = _filter_scale(frame._f, pix_fmt=self._pix_fmt)
             self._frames.append(f_obj)
         else:
@@ -225,8 +260,7 @@ def imwrite(path, img, *args):
     if len(args) > 0:
         raise NotImplementedError("imwrite does not support additional arguments")
 
-    if not isinstance(img, Frame):
-        raise Exception("img must be a vidformer.cv2.Frame object")
+    img = _framify(img)
 
     fmt = img._fmt.copy()
     width = fmt["width"]
@@ -282,7 +316,7 @@ def rectangle(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
     cv.rectangle(	img, pt1, pt2, color[, thickness[, lineType[, shift]]]	)
     """
 
-    assert isinstance(img, Frame)
+    img = _framify(img)
     img._mut()
 
     assert len(pt1) == 2
@@ -326,7 +360,7 @@ def putText(
     cv.putText(	img, text, org, fontFace, fontScale, color[, thickness[, lineType[, bottomLeftOrigin]]]	)
     """
 
-    assert isinstance(img, Frame)
+    img = _framify(img)
     img._mut()
 
     assert isinstance(text, str)
@@ -365,7 +399,7 @@ def arrowedLine(
     """
     cv.arrowedLine(	img, pt1, pt2, color[, thickness[, line_type[, shift[, tipLength]]]]	)
     """
-    assert isinstance(img, Frame)
+    img = _framify(img)
     img._mut()
 
     assert len(pt1) == 2
@@ -399,7 +433,7 @@ def arrowedLine(
 
 
 def line(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
-    assert isinstance(img, Frame)
+    img = _framify(img)
     img._mut()
 
     assert len(pt1) == 2
@@ -429,7 +463,7 @@ def line(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
 
 
 def circle(img, center, radius, color, thickness=None, lineType=None, shift=None):
-    assert isinstance(img, Frame)
+    img = _framify(img)
     img._mut()
 
     assert len(center) == 2
@@ -480,15 +514,15 @@ def addWeighted(src1, alpha, src2, beta, gamma, dst=None, dtype=-1):
     """
     cv.addWeighted(	src1, alpha, src2, beta, gamma[, dst[, dtype]]	) -> 	dst
     """
-    assert isinstance(src1, Frame)
-    assert isinstance(src2, Frame)
+    src1 = _framify(src1, "src1")
+    src2 = _framify(src2, "src2")
     src1._mut()
     src2._mut()
 
     if dst is None:
         dst = Frame(src1._f, src1._fmt.copy())
     else:
-        assert isinstance(dst, Frame)
+        assert isinstance(dst, Frame), "dst must be a Frame"
     dst._mut()
 
     assert isinstance(alpha, float) or isinstance(alpha, int)

@@ -30,6 +30,10 @@ pub fn filters() -> BTreeMap<String, std::boxed::Box<dyn Filter>> {
     );
     filters.insert("DrawBox".to_string(), std::boxed::Box::new(DrawBox {}));
     filters.insert("Scale".to_string(), std::boxed::Box::new(Scale {}));
+    filters.insert(
+        "_inline_mat".to_string(),
+        std::boxed::Box::new(InlineMat {}),
+    );
     filters.insert("Pad".to_string(), std::boxed::Box::new(Pad {}));
     filters.insert("HStack".to_string(), std::boxed::Box::new(HStack {}));
     filters.insert("VStack".to_string(), std::boxed::Box::new(VStack {}));
@@ -765,6 +769,129 @@ impl super::Filter for Scale {
             }
             _ => Err(Error::MissingFilterArg),
         }
+    }
+}
+
+pub struct InlineMat;
+impl super::Filter for InlineMat {
+    fn filter(
+        &self,
+        args: &[Val],
+        kwargs: &BTreeMap<String, Val>,
+    ) -> Result<Frame, crate::dve::Error> {
+        let width = match kwargs.get("width").unwrap() {
+            Val::Int(i) => *i,
+            _ => panic!("Expected int"),
+        };
+
+        let height = match kwargs.get("height").unwrap() {
+            Val::Int(i) => *i,
+            _ => panic!("Expected int"),
+        };
+
+        let data = match &args[0] {
+            Val::Bytes(b) => b,
+            _ => panic!("Expected bytes"),
+        };
+
+        let f = unsafe { ffi::av_frame_alloc() };
+        if f.is_null() {
+            panic!("ERROR could not allocate frame");
+        }
+
+        unsafe {
+            (*f).width = width as i32;
+            (*f).height = height as i32;
+            (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_RGB24;
+
+            if ffi::av_frame_get_buffer(f, 0) < 0 {
+                panic!("ERROR could not allocate frame data");
+            }
+        }
+
+        // check if ffmpeg wants padding
+        let linesize = unsafe { (*f).linesize[0] as usize };
+        let data_len = data.len();
+        let data_linesize = width as usize * 3;
+
+        if linesize != data_linesize {
+            for i in 0..height as usize {
+                let src = &data[i * data_linesize..(i + 1) * data_linesize];
+                let dst = unsafe { (*f).data[0].add(i * linesize) };
+                unsafe {
+                    std::ptr::copy_nonoverlapping(src.as_ptr(), dst, data_linesize);
+                }
+            }
+        } else {
+            let src = data.as_ptr();
+            let dst = unsafe { (*f).data[0] };
+            unsafe {
+                std::ptr::copy_nonoverlapping(src, dst, data_len);
+            }
+        }
+
+        Ok(Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[Val],
+        kwargs: &BTreeMap<String, Val>,
+    ) -> Result<FrameType, Error> {
+        // get width, height, and pix_fmt from kwargs
+        // don't panic, return Err(Error::MissingFilterArg) instead
+
+        let width = match kwargs.get("width") {
+            Some(Val::Int(i)) => *i,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        let height = match kwargs.get("height") {
+            Some(Val::Int(i)) => *i,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        let pix_fmt = match kwargs.get("pix_fmt") {
+            Some(Val::String(s)) => s,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        if pix_fmt != "rgb24" {
+            return Err(Error::InvalidFilterArgValue(
+                pix_fmt.clone(),
+                "Invalid pixel format".to_string(),
+            ));
+        }
+
+        if args.is_empty() {
+            return Err(Error::MissingFilterArg);
+        }
+
+        if args.len() > 1 {
+            return Err(Error::InvalidFilterArgValue(
+                format!("{:?}", args.len()),
+                "Invalid number of arguments".to_string(),
+            ));
+        }
+
+        let data: &Vec<u8> = match args[0] {
+            Val::Bytes(ref b) => b,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        // check if data length matches width, height, and pix_fmt
+        if data.len() != width as usize * height as usize * 3 {
+            return Err(Error::InvalidFilterArgValue(
+                format!("{:?}", data.len()),
+                "Invalid data length".to_string(),
+            ));
+        }
+
+        Ok(FrameType {
+            width: width as usize,
+            height: height as usize,
+            format: ffi::AVPixelFormat_AV_PIX_FMT_RGB24,
+        })
     }
 }
 

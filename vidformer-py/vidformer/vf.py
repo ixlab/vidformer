@@ -638,6 +638,11 @@ def _json_arg(arg, skip_data_anot=False):
         if skip_data_anot:
             return {"String": arg}
         return {"Data": {"String": arg}}
+    elif type(arg) == bytes:
+        arg = list(arg)
+        if skip_data_anot:
+            return {"Bytes": arg}
+        return {"Data": {"Bytes": arg}}
     elif type(arg) == float:
         if skip_data_anot:
             return {"Float": arg}
@@ -837,7 +842,7 @@ class UDF:
             assert type(obj[type_key]) == bool
             return obj[type_key]
         else:
-            assert False
+            assert False, f"Unknown type: {type_key}"
 
     def _deser_filter(self, obj):
         assert type(obj) == dict
@@ -873,7 +878,7 @@ class UDF:
             assert type(obj[type_key]) == bool
             return obj[type_key]
         else:
-            assert False
+            assert False, f"Unknown type: {type_key}"
 
     def _host(self, socket_path: str):
         if os.path.exists(socket_path):

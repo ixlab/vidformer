@@ -3,6 +3,7 @@ import re
 
 import cv2 as ocv_cv2
 import vidformer.cv2 as vf_cv2
+import numpy as np
 
 VID_PATH = "../tos_720p.mp4"
 TMP_PATH = "tmp.mp4"
@@ -95,6 +96,31 @@ def test_rw_ocv():
 
 def test_rw_vf():
     rw(vf_cv2)
+
+
+def videowriter_numpy(cv2):
+    # make up random numpy frames, write them to a video
+    width, height = 300, 200
+
+    out = cv2.VideoWriter(
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), 30, (width, height)
+    )
+
+    for i in range(3):
+        frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+        out.write(frame)
+    out.release()
+
+    assert os.path.exists(TMP_PATH)
+    os.remove(TMP_PATH)
+
+
+def test_videowriter_numpy_ocv():
+    videowriter_numpy(ocv_cv2)
+
+
+def test_videowriter_numpy_vf():
+    videowriter_numpy(vf_cv2)
 
 
 def test_numpy():
@@ -203,6 +229,21 @@ def test_rectangle_vf():
     rectangle(vf_cv2)
 
 
+def test_rectangle_numpy():
+    width, height = 300, 200
+
+    frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+    vf_cv2.rectangle(frame, (100, 100), (200, 200), (0, 255, 0, 255), 3)
+
+    assert frame.shape[0] == height
+    assert frame.shape[1] == width
+    assert frame.shape[2] == 3
+
+    vf_cv2.imwrite("rectangle.png", frame)
+    assert os.path.exists("rectangle.png")
+    os.remove("rectangle.png")
+
+
 def putText(cv2):
     cap = cv2.VideoCapture(VID_PATH)
     assert cap.isOpened()
@@ -249,6 +290,29 @@ def test_text_vf():
     putText(vf_cv2)
 
 
+def test_text_numpy():
+    width, height = 300, 200
+
+    frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+    vf_cv2.putText(
+        frame,
+        "Hello, World!",
+        (100, 100),
+        vf_cv2.FONT_HERSHEY_SIMPLEX,
+        1,
+        (255, 0, 0),
+        1,
+    )
+
+    assert frame.shape[0] == height
+    assert frame.shape[1] == width
+    assert frame.shape[2] == 3
+
+    vf_cv2.imwrite("text.png", frame)
+    assert os.path.exists("text.png")
+    os.remove("text.png")
+
+
 def arrowedLine(cv2):
     cap = cv2.VideoCapture(VID_PATH)
     assert cap.isOpened()
@@ -291,6 +355,27 @@ def test_arrowedLine_ocv():
 
 def test_arrowedLine_vf():
     arrowedLine(vf_cv2)
+
+
+def test_arrowedLine_numpy():
+    width, height = 300, 200
+
+    frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+    vf_cv2.arrowedLine(
+        frame,
+        (100, 100),
+        (200, 200),
+        (0, 255, 0, 255),
+        3,
+    )
+
+    assert frame.shape[0] == height
+    assert frame.shape[1] == width
+    assert frame.shape[2] == 3
+
+    vf_cv2.imwrite("arrowedLine.png", frame)
+    assert os.path.exists("arrowedLine.png")
+    os.remove("arrowedLine.png")
 
 
 def line(cv2):
@@ -337,6 +422,27 @@ def test_line_vf():
     line(vf_cv2)
 
 
+def test_line_numpy():
+    width, height = 300, 200
+
+    frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+    vf_cv2.line(
+        frame,
+        (100, 100),
+        (200, 200),
+        (0, 255, 0, 255),
+        3,
+    )
+
+    assert frame.shape[0] == height
+    assert frame.shape[1] == width
+    assert frame.shape[2] == 3
+
+    vf_cv2.imwrite("line.png", frame)
+    assert os.path.exists("line.png")
+    os.remove("line.png")
+
+
 def circle(cv2):
     cap = cv2.VideoCapture(VID_PATH)
     assert cap.isOpened()
@@ -379,6 +485,27 @@ def test_circle_ocv():
 
 def test_circle_vf():
     circle(vf_cv2)
+
+
+def test_circle_numpy():
+    width, height = 300, 200
+
+    frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+    vf_cv2.circle(
+        frame,
+        (150, 150),
+        50,
+        (0, 255, 0, 255),
+        3,
+    )
+
+    assert frame.shape[0] == height
+    assert frame.shape[1] == width
+    assert frame.shape[2] == 3
+
+    vf_cv2.imwrite("circle.png", frame)
+    assert os.path.exists("circle.png")
+    os.remove("circle.png")
 
 
 def seek(cv2):
@@ -528,6 +655,23 @@ def test_addWeighted_vf():
     addWeighted(vf_cv2)
 
 
+def test_addWeighted_numpy():
+    width, height = 300, 200
+
+    frame1 = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+    frame2 = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+
+    frame = vf_cv2.addWeighted(frame1, 0.5, frame2, 0.5, 0)
+
+    assert frame.shape[0] == height
+    assert frame.shape[1] == width
+    assert frame.shape[2] == 3
+
+    vf_cv2.imwrite("addWeighted.png", frame)
+    assert os.path.exists("addWeighted.png")
+    os.remove("addWeighted.png")
+
+
 def test_imread():
     import vidformer.cv2 as vf_cv2
 
@@ -602,3 +746,47 @@ def test_imwrite_ocv():
 
 def test_imwrite_vf():
     imwrite(vf_cv2)
+
+
+def imwrite_numpy(cv2):
+    width, height = 300, 200
+
+    red_image = np.zeros((height, width, 3), dtype=np.uint8)
+    red_image[:, :] = (0, 0, 255)
+
+    output_filename = "red_image.png"
+    cv2.imwrite(output_filename, red_image)
+
+    assert os.path.exists(output_filename)
+
+    red_image2 = cv2.imread(output_filename)
+    if isinstance(red_image2, vf_cv2.Frame):
+        red_image2 = red_image2.numpy()
+
+    assert red_image2.dtype == np.uint8
+    assert red_image2.shape[0] == height
+    assert red_image2.shape[1] == width
+    assert red_image2.shape[2] == 3
+    os.remove(output_filename)
+
+
+def test_imwrite_numpy_ocv():
+    imwrite_numpy(ocv_cv2)
+
+
+def test_imwrite_numpy_vf():
+    imwrite_numpy(vf_cv2)
+
+
+def test_imread_numpy_match_content():
+    # use cv2 to write "apollo.png", because jpeg decoding can be lossy
+    img = ocv_cv2.imread("apollo.jpg")
+    ocv_cv2.imwrite("apollo.png", img)
+
+    img1 = ocv_cv2.imread("apollo.png")
+    img2 = vf_cv2.imread("apollo.png").numpy()
+
+    assert img1.dtype == img2.dtype
+    assert img1.shape == img2.shape
+    assert np.all(img1 == img2)
+    os.remove("apollo.png")
