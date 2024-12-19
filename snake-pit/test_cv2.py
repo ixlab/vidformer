@@ -739,6 +739,7 @@ def imwrite(cv2):
     # png
     cv2.imwrite("tos_720p_1000.png", frame)
     assert os.path.exists("tos_720p_1000.png")
+    os.remove("tos_720p_1000.png")
 
 
 def test_imwrite_ocv():
@@ -817,7 +818,9 @@ def test_frameify():
 
 def test_frame_array_slicing_appolo():
     frame_orig = ocv_cv2.imread("apollo.jpg")[:1000, :1000]
-    frame = vf_cv2.frameify(frame_orig)
+    ocv_cv2.imwrite("apollo.png", frame_orig)
+    assert os.path.exists("apollo.png")
+    frame = vf_cv2.imread("apollo.png")
 
     assert frame.shape == frame_orig.shape
 
@@ -826,6 +829,25 @@ def test_frame_array_slicing_appolo():
 
     assert frame.shape == frame_orig.shape
     assert np.all(frame.numpy() == frame_orig)
+    os.remove("apollo.png")
+
+
+def test_write_slice_apollo():
+    frame_orig = ocv_cv2.imread("apollo.jpg")[:1000, :1000]
+    ocv_cv2.imwrite("apollo.png", frame_orig)
+    assert os.path.exists("apollo.png")
+    frame = vf_cv2.imread("apollo.png")
+
+    assert frame.shape == frame_orig.shape
+
+    write_array = np.random.randint(0, 255, (100, 150, 3), dtype=np.uint8)
+
+    frame[500:600, 500:650] = write_array
+    frame_orig[500:600, 500:650] = write_array
+
+    assert frame.shape == frame_orig.shape
+    assert np.all(frame.numpy() == frame_orig)
+    os.remove("apollo.png")
 
 
 class Slicer:
@@ -846,10 +868,14 @@ class Slicer:
         Slicer()[-100:, :],
         Slicer()[:-100, :],
         Slicer()[-100:-50, :],
+        Slicer()[:, :-150],
+        Slicer()[:, -150:],
+        Slicer()[:-100, :-150],
+        Slicer()[-100:, -150:],
     ],
 )
 def test_frame_array_slicing(s):
-    frame_orig = ocv_cv2.imread("apollo.jpg")[1000:2000, 1000:2012]
+    frame_orig = ocv_cv2.imread("apollo.jpg")[1000:1500, 1000:1512]
 
     vf_frame = vf_cv2.frameify(frame_orig)
     assert isinstance(vf_frame, vf_cv2.Frame)
@@ -864,3 +890,39 @@ def test_frame_array_slicing(s):
     frame_vf = frame_vf.numpy()
     assert frame_ocv.shape == frame_vf.shape
     assert np.all(frame_ocv == frame_vf)
+
+
+@pytest.mark.parametrize(
+    "s",
+    [
+        Slicer()[:, :],
+        Slicer()[:100, :],
+        Slicer()[:100, 150:],
+        Slicer()[100:, :],
+        Slicer()[100:200, 150:250],
+        Slicer()[100:200, :250],
+        Slicer()[:200, 150:250],
+        Slicer()[-100:, :],
+        Slicer()[:-100, :],
+        Slicer()[-100:-50, :],
+        Slicer()[:, :-150],
+        Slicer()[:, -150:],
+        Slicer()[:-100, :-150],
+        Slicer()[-100:, -150:],
+    ],
+)
+def test_frame_array_slice_write(s):
+    frame_orig = ocv_cv2.imread("apollo.jpg")[1000:1500, 1000:1512]
+    random_array = np.random.randint(0, 255, frame_orig.shape, dtype=np.uint8)
+
+    vf_frame = vf_cv2.frameify(frame_orig)
+    assert isinstance(vf_frame, vf_cv2.Frame)
+
+    write_array = random_array[s]
+
+    vf_frame[s] = write_array
+    frame_orig[s] = write_array
+
+    assert isinstance(vf_frame, vf_cv2.Frame)
+    assert vf_frame.shape == frame_orig.shape
+    assert np.all(vf_frame.numpy() == frame_orig)

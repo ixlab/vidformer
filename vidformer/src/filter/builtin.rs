@@ -35,6 +35,10 @@ pub fn filters() -> BTreeMap<String, std::boxed::Box<dyn Filter>> {
         std::boxed::Box::new(InlineMat {}),
     );
     filters.insert("_slice_mat".to_string(), std::boxed::Box::new(SliceMat {}));
+    filters.insert(
+        "_slice_write_mat".to_string(),
+        std::boxed::Box::new(SliceWriteMat {}),
+    );
     filters.insert("Pad".to_string(), std::boxed::Box::new(Pad {}));
     filters.insert("HStack".to_string(), std::boxed::Box::new(HStack {}));
     filters.insert("VStack".to_string(), std::boxed::Box::new(VStack {}));
@@ -927,20 +931,6 @@ impl super::Filter for SliceMat {
             }
         }
 
-        // // copy data using memory per-line (wrong, doesn't even use x values)
-        // for y in miny..maxy {
-        //     let src = unsafe {
-        //         (*frame.inner.inner).data[0].add(y as usize * (*frame.inner.inner).linesize[0] as usize)
-        //     };
-        //     let dst = unsafe {
-        //         (*f).data[0].add((y - miny) as usize * (*f).linesize[0] as usize)
-        //     };
-        //     unsafe {
-        //         std::ptr::copy_nonoverlapping(src, dst, ((*f).width * 3) as usize);
-        //     }
-        // }
-
-        // copy data using memory copy (correct)
         for y in miny..maxy {
             let src = unsafe {
                 (*frame.inner.inner).data[0]
@@ -1029,6 +1019,171 @@ impl super::Filter for SliceMat {
             width: (maxx - minx) as usize,
             height: (maxy - miny) as usize,
             format: frame.format,
+        })
+    }
+}
+
+// _slice_write_mat(f1, f2, miny, maxy, minx, maxx)
+// equiv to python f1[miny:maxy, minx:maxx] = f2
+pub struct SliceWriteMat {}
+impl super::Filter for SliceWriteMat {
+    fn filter(
+        &self,
+        args: &[Val],
+        _kwargs: &BTreeMap<String, Val>,
+    ) -> Result<Frame, crate::dve::Error> {
+        let f1 = match &args[0] {
+            Val::Frame(f) => f,
+            _ => panic!("Expected frame"),
+        };
+
+        let f2 = match &args[1] {
+            Val::Frame(f) => f,
+            _ => panic!("Expected frame"),
+        };
+
+        let miny = args[2].as_int().unwrap() as usize;
+        let maxy = args[3].as_int().unwrap() as usize;
+        let minx = args[4].as_int().unwrap() as usize;
+        let maxx = args[5].as_int().unwrap() as usize;
+
+        let f = unsafe { ffi::av_frame_alloc() };
+        if f.is_null() {
+            panic!("ERROR could not allocate frame");
+        }
+
+        unsafe {
+            (*f).width = f1.width;
+            (*f).height = f1.height;
+            (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_RGB24;
+
+            if ffi::av_frame_get_buffer(f, 0) < 0 {
+                panic!("ERROR could not allocate frame data");
+            }
+        }
+
+        for y in 0..f1.height as usize {
+            let src = unsafe {
+                (*f1.inner.inner).data[0].add(y as usize * (*f1.inner.inner).linesize[0] as usize)
+            };
+            let dst = unsafe { (*f).data[0].add(y as usize * (*f).linesize[0] as usize) };
+            unsafe {
+                std::ptr::copy_nonoverlapping(src, dst, f1.width as usize * 3);
+            }
+
+            if y >= miny as usize && y < maxy as usize {
+                let src = unsafe {
+                    (*f2.inner.inner).data[0]
+                        .add((y - miny as usize) * (*f2.inner.inner).linesize[0] as usize)
+                };
+                let dst = unsafe { (*f).data[0].add(y as usize * (*f).linesize[0] as usize) };
+                unsafe {
+                    std::ptr::copy_nonoverlapping(
+                        src,
+                        dst.add(minx as usize * 3),
+                        (maxx - minx) as usize * 3,
+                    );
+                }
+            }
+        }
+
+        Ok(Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[Val],
+        kwargs: &BTreeMap<String, Val>,
+    ) -> Result<FrameType, Error> {
+        if args.len() < 6 {
+            return Err(Error::MissingFilterArg);
+        } else if args.len() > 6 {
+            return Err(Error::InvalidFilterArgValue(
+                format!("{:?}", args.len()),
+                "Invalid number of arguments".to_string(),
+            ));
+        }
+
+        if kwargs.len() > 0 {
+            return Err(Error::InvalidFilterArgValue(
+                format!("{:?}", kwargs.len()),
+                "Invalid number of keyword arguments".to_string(),
+            ));
+        }
+
+        let f1 = match args[0] {
+            Val::FrameType(ref f) => f,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        let f2 = match args[1] {
+            Val::FrameType(ref f) => f,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        if f1.format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(Error::InvalidFilterArgValue(
+                format!("{:?}", f1.format),
+                "Invalid pixel format".to_string(),
+            ));
+        }
+
+        if f2.format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(Error::InvalidFilterArgValue(
+                format!("{:?}", f2.format),
+                "Invalid pixel format".to_string(),
+            ));
+        }
+
+        let miny = match args[2] {
+            Val::Int(i) => i,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        let maxy = match args[3] {
+            Val::Int(i) => i,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        let minx = match args[4] {
+            Val::Int(i) => i,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        let maxx = match args[5] {
+            Val::Int(i) => i,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        if miny < 0
+            || miny > f1.height as i64
+            || maxy < 0
+            || maxy > f1.height as i64
+            || minx < 0
+            || minx > f1.width as i64
+            || maxx < 0
+            || maxx > f1.width as i64
+            || miny >= maxy
+            || minx >= maxx
+        {
+            return Err(Error::InvalidFilterArgValue(
+                format!("{:?}", args),
+                "Invalid slice bounds".to_string(),
+            ));
+        }
+
+        // check if f2 dimensions match slice dimensions
+        if f2.width != (maxx - minx) as usize || f2.height != (maxy - miny) as usize {
+            return Err(Error::InvalidFilterArgValue(
+                format!("{:?}", args),
+                "Frame f2 does not match slice size".to_string(),
+            ));
+        }
+
+        Ok(FrameType {
+            width: f1.width,
+            height: f1.height,
+            format: f1.format,
         })
     }
 }

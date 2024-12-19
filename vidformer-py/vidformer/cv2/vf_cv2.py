@@ -47,6 +47,8 @@ LINE_AA = 16
 
 _inline_mat = vf.Filter("_inline_mat")
 _slice_mat = vf.Filter("_slice_mat")
+_slice_write_mat = vf.Filter("_slice_write_mat")
+
 
 _filter_scale = vf.Filter("Scale")
 _filter_rectangle = vf.Filter("cv2.rectangle")
@@ -160,6 +162,51 @@ class Frame:
         fmt["width"] = maxx - minx
         fmt["height"] = maxy - miny
         return Frame(f, fmt)
+
+    def __setitem__(self, key, value):
+        value = frameify(value, "value")
+
+        if not isinstance(key, tuple):
+            raise NotImplementedError("Only 2D slicing is supported")
+
+        if len(key) != 2:
+            raise NotImplementedError("Only 2D slicing is supported")
+
+        if not all(isinstance(x, slice) for x in key):
+            raise NotImplementedError("Only 2D slicing is supported")
+
+        miny = key[0].start if key[0].start is not None else 0
+        maxy = key[0].stop if key[0].stop is not None else self.shape[0]
+        minx = key[1].start if key[1].start is not None else 0
+        maxx = key[1].stop if key[1].stop is not None else self.shape[1]
+
+        # handle negative indices
+        if miny < 0:
+            miny = self.shape[0] + miny
+        if maxy < 0:
+            maxy = self.shape[0] + maxy
+        if minx < 0:
+            minx = self.shape[1] + minx
+        if maxx < 0:
+            maxx = self.shape[1] + maxx
+
+        if (
+            maxy <= miny
+            or maxx <= minx
+            or miny < 0
+            or minx < 0
+            or maxy > self.shape[0]
+            or maxx > self.shape[1]
+        ):
+            raise NotImplementedError("Invalid slice")
+
+        if value.shape[0] != maxy - miny or value.shape[1] != maxx - minx:
+            raise NotImplementedError("Shape mismatch")
+
+        self._mut()
+        value._mut()
+
+        self._f = _slice_write_mat(self._f, value._f, miny, maxy, minx, maxx)
 
 
 def _inline_frame(arr):
