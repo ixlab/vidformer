@@ -1,5 +1,6 @@
 import os
 import re
+import pytest
 
 import cv2 as ocv_cv2
 import vidformer.cv2 as vf_cv2
@@ -790,3 +791,76 @@ def test_imread_numpy_match_content():
     assert img1.shape == img2.shape
     assert np.all(img1 == img2)
     os.remove("apollo.png")
+
+
+def test_frameify():
+    # write a video with all white frames
+    width, height = 300, 200
+    out = vf_cv2.VideoWriter(
+        TMP_PATH, vf_cv2.VideoWriter_fourcc(*"mp4v"), 30, (width, height)
+    )
+
+    for i in range(3):
+        frame = np.full((height, width, 3), 255, dtype=np.uint8)
+        frame_shape = frame.shape
+
+        frame = vf_cv2.frameify(frame)
+        assert isinstance(frame, vf_cv2.Frame)
+        assert frame.shape == frame_shape
+
+        out.write(frame)
+
+    out.release()
+    assert os.path.exists(TMP_PATH)
+    os.remove(TMP_PATH)
+
+
+def test_frame_array_slicing_appolo():
+    frame_orig = ocv_cv2.imread("apollo.jpg")[:1000, :1000]
+    frame = vf_cv2.frameify(frame_orig)
+
+    assert frame.shape == frame_orig.shape
+
+    frame = frame[500:600, 500:650]
+    frame_orig = frame_orig[500:600, 500:650]
+
+    assert frame.shape == frame_orig.shape
+    assert np.all(frame.numpy() == frame_orig)
+
+
+class Slicer:
+    def __getitem__(self, key):
+        return key
+
+
+@pytest.mark.parametrize(
+    "s",
+    [
+        Slicer()[:, :],
+        Slicer()[:100, :],
+        Slicer()[:100, 150:],
+        Slicer()[100:, :],
+        Slicer()[100:200, 150:250],
+        Slicer()[100:200, :250],
+        Slicer()[:200, 150:250],
+        Slicer()[-100:, :],
+        Slicer()[:-100, :],
+        Slicer()[-100:-50, :],
+    ],
+)
+def test_frame_array_slicing(s):
+    frame_orig = ocv_cv2.imread("apollo.jpg")[1000:2000, 1000:2012]
+
+    vf_frame = vf_cv2.frameify(frame_orig)
+    assert isinstance(vf_frame, vf_cv2.Frame)
+
+    frame_ocv = frame_orig[s]
+    assert isinstance(frame_ocv, np.ndarray)
+
+    frame_vf = vf_frame[s]
+    assert isinstance(vf_frame, vf_cv2.Frame)
+
+    assert frame_ocv.shape == frame_vf.shape
+    frame_vf = frame_vf.numpy()
+    assert frame_ocv.shape == frame_vf.shape
+    assert np.all(frame_ocv == frame_vf)

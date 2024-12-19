@@ -46,6 +46,7 @@ LINE_8 = 8
 LINE_AA = 16
 
 _inline_mat = vf.Filter("_inline_mat")
+_slice_mat = vf.Filter("_slice_mat")
 
 _filter_scale = vf.Filter("Scale")
 _filter_rectangle = vf.Filter("cv2.rectangle")
@@ -119,6 +120,47 @@ class Frame:
         frame = frame[:, :, ::-1]  # convert RGB to BGR
         return frame
 
+    def __getitem__(self, key):
+        if not isinstance(key, tuple):
+            raise NotImplementedError("Only 2D slicing is supported")
+
+        if len(key) != 2:
+            raise NotImplementedError("Only 2D slicing is supported")
+
+        if not all(isinstance(x, slice) for x in key):
+            raise NotImplementedError("Only 2D slicing is supported")
+
+        miny = key[0].start if key[0].start is not None else 0
+        maxy = key[0].stop if key[0].stop is not None else self.shape[0]
+        minx = key[1].start if key[1].start is not None else 0
+        maxx = key[1].stop if key[1].stop is not None else self.shape[1]
+
+        # handle negative indices
+        if miny < 0:
+            miny = self.shape[0] + miny
+        if maxy < 0:
+            maxy = self.shape[0] + maxy
+        if minx < 0:
+            minx = self.shape[1] + minx
+        if maxx < 0:
+            maxx = self.shape[1] + maxx
+
+        if (
+            maxy <= miny
+            or maxx <= minx
+            or miny < 0
+            or minx < 0
+            or maxy > self.shape[0]
+            or maxx > self.shape[1]
+        ):
+            raise NotImplementedError("Invalid slice")
+
+        f = _slice_mat(self._f, miny, maxy, minx, maxx)
+        fmt = self._fmt.copy()
+        fmt["width"] = maxx - minx
+        fmt["height"] = maxy - miny
+        return Frame(f, fmt)
+
 
 def _inline_frame(arr):
     assert arr.dtype == np.uint8
@@ -135,20 +177,6 @@ def _inline_frame(arr):
     f = _inline_mat(arr.tobytes(), width=width, height=height, pix_fmt=pix_fmt)
     fmt = {"width": width, "height": height, "pix_fmt": pix_fmt}
     return Frame(f, fmt)
-
-
-def _framify(obj, field_name=None):
-    if isinstance(obj, Frame):
-        return obj
-    elif isinstance(obj, np.ndarray):
-        return _inline_frame(obj)
-    else:
-        if field_name is not None:
-            raise Exception(
-                f"Unsupported type for field {field_name}, expected Frame or np.ndarray"
-            )
-        else:
-            raise Exception("Unsupported type, expected Frame or np.ndarray")
 
 
 class VideoCapture:
@@ -213,7 +241,7 @@ class VideoWriter:
         self._pix_fmt = "yuv420p"
 
     def write(self, frame):
-        frame = _framify(frame, "frame")
+        frame = frameify(frame, "frame")
 
         if frame._fmt["pix_fmt"] != self._pix_fmt:
             f_obj = _filter_scale(frame._f, pix_fmt=self._pix_fmt)
@@ -245,6 +273,24 @@ class VideoWriter_fourcc:
         self._args = args
 
 
+def frameify(obj, field_name=None):
+    """
+    Turn an object (e.g., ndarray) into a Frame.
+    """
+
+    if isinstance(obj, Frame):
+        return obj
+    elif isinstance(obj, np.ndarray):
+        return _inline_frame(obj)
+    else:
+        if field_name is not None:
+            raise Exception(
+                f"Unsupported type for field {field_name}, expected Frame or np.ndarray"
+            )
+        else:
+            raise Exception("Unsupported type, expected Frame or np.ndarray")
+
+
 def imread(path, *args):
     if len(args) > 0:
         raise NotImplementedError("imread does not support additional arguments")
@@ -260,7 +306,7 @@ def imwrite(path, img, *args):
     if len(args) > 0:
         raise NotImplementedError("imwrite does not support additional arguments")
 
-    img = _framify(img)
+    img = frameify(img)
 
     fmt = img._fmt.copy()
     width = fmt["width"]
@@ -316,7 +362,7 @@ def rectangle(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
     cv.rectangle(	img, pt1, pt2, color[, thickness[, lineType[, shift]]]	)
     """
 
-    img = _framify(img)
+    img = frameify(img)
     img._mut()
 
     assert len(pt1) == 2
@@ -360,7 +406,7 @@ def putText(
     cv.putText(	img, text, org, fontFace, fontScale, color[, thickness[, lineType[, bottomLeftOrigin]]]	)
     """
 
-    img = _framify(img)
+    img = frameify(img)
     img._mut()
 
     assert isinstance(text, str)
@@ -399,7 +445,7 @@ def arrowedLine(
     """
     cv.arrowedLine(	img, pt1, pt2, color[, thickness[, line_type[, shift[, tipLength]]]]	)
     """
-    img = _framify(img)
+    img = frameify(img)
     img._mut()
 
     assert len(pt1) == 2
@@ -433,7 +479,7 @@ def arrowedLine(
 
 
 def line(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
-    img = _framify(img)
+    img = frameify(img)
     img._mut()
 
     assert len(pt1) == 2
@@ -463,7 +509,7 @@ def line(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
 
 
 def circle(img, center, radius, color, thickness=None, lineType=None, shift=None):
-    img = _framify(img)
+    img = frameify(img)
     img._mut()
 
     assert len(center) == 2
@@ -514,8 +560,8 @@ def addWeighted(src1, alpha, src2, beta, gamma, dst=None, dtype=-1):
     """
     cv.addWeighted(	src1, alpha, src2, beta, gamma[, dst[, dtype]]	) -> 	dst
     """
-    src1 = _framify(src1, "src1")
-    src2 = _framify(src2, "src2")
+    src1 = frameify(src1, "src1")
+    src2 = frameify(src2, "src2")
     src1._mut()
     src2._mut()
 
