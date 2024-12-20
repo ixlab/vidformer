@@ -903,7 +903,7 @@ impl super::Filter for SliceMat {
     fn filter(
         &self,
         args: &[Val],
-        kwargs: &BTreeMap<String, Val>,
+        _kwargs: &BTreeMap<String, Val>,
     ) -> Result<Frame, crate::dve::Error> {
         let frame = match &args[0] {
             Val::Frame(f) => f,
@@ -959,7 +959,7 @@ impl super::Filter for SliceMat {
             ));
         }
 
-        if kwargs.len() > 0 {
+        if !kwargs.is_empty() {
             return Err(Error::InvalidFilterArgValue(
                 format!("{:?}", kwargs.len()),
                 "Invalid number of keyword arguments".to_string(),
@@ -1064,24 +1064,24 @@ impl super::Filter for SliceWriteMat {
 
         for y in 0..f1.height as usize {
             let src = unsafe {
-                (*f1.inner.inner).data[0].add(y as usize * (*f1.inner.inner).linesize[0] as usize)
+                (*f1.inner.inner).data[0].add(y * (*f1.inner.inner).linesize[0] as usize)
             };
-            let dst = unsafe { (*f).data[0].add(y as usize * (*f).linesize[0] as usize) };
+            let dst = unsafe { (*f).data[0].add(y * (*f).linesize[0] as usize) };
             unsafe {
                 std::ptr::copy_nonoverlapping(src, dst, f1.width as usize * 3);
             }
 
-            if y >= miny as usize && y < maxy as usize {
+            if y >= miny && y < maxy {
                 let src = unsafe {
                     (*f2.inner.inner).data[0]
-                        .add((y - miny as usize) * (*f2.inner.inner).linesize[0] as usize)
+                        .add((y - miny) * (*f2.inner.inner).linesize[0] as usize)
                 };
-                let dst = unsafe { (*f).data[0].add(y as usize * (*f).linesize[0] as usize) };
+                let dst = unsafe { (*f).data[0].add(y * (*f).linesize[0] as usize) };
                 unsafe {
                     std::ptr::copy_nonoverlapping(
                         src,
-                        dst.add(minx as usize * 3),
-                        (maxx - minx) as usize * 3,
+                        dst.add(minx * 3),
+                        (maxx - minx) * 3,
                     );
                 }
             }
@@ -1104,7 +1104,7 @@ impl super::Filter for SliceWriteMat {
             ));
         }
 
-        if kwargs.len() > 0 {
+        if !kwargs.is_empty() {
             return Err(Error::InvalidFilterArgValue(
                 format!("{:?}", kwargs.len()),
                 "Invalid number of keyword arguments".to_string(),
