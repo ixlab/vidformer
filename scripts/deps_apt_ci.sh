@@ -35,4 +35,5 @@ sudo apt-get -y install \
   libclang-dev \
   valgrind \
   clang \
-  libopencv-dev
+  libopencv-dev \
+  docker-compose

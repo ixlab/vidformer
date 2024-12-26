@@ -16,6 +16,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Cache ffmpeg
+      uses: actions/cache@v3
+      with:
+        path: |
+          ./ffmpeg
+        key: ${{ runner.os }}-${{ hashFiles('**/deps_*.sh') }}
     - name: Deps
       run: bash ./scripts/deps_ci.sh
     - name: Build vidformer docs

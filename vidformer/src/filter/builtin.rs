@@ -1078,11 +1078,7 @@ impl super::Filter for SliceWriteMat {
                 };
                 let dst = unsafe { (*f).data[0].add(y * (*f).linesize[0] as usize) };
                 unsafe {
-                    std::ptr::copy_nonoverlapping(
-                        src,
-                        dst.add(minx * 3),
-                        (maxx - minx) * 3,
-                    );
+                    std::ptr::copy_nonoverlapping(src, dst.add(minx * 3), (maxx - minx) * 3);
                 }
             }
         }

@@ -73,38 +73,37 @@ pub(crate) fn parse_arguments(
                 } else {
                     parsed_args.insert(name, default_value.clone());
                 }
-            }
-            // Parameter::VarArgs { name } => {
-            //     assert!(
-            //         !keyword_only,
-            //         "VarArgs argument after keyword-only argument"
-            //     );
-            //     for val in arg_iter.by_ref() {
-            //         varargs.push(val);
-            //     }
-            //     parsed_args.insert(name, Val::List(varargs.clone()));
-            //     keyword_only = true; // Everything after *args is keyword-only
-            // }
-            // Parameter::KeywordOnly { name } => {
-            //     if let Some(val) = kwargs.remove(*name) {
-            //         parsed_args.insert(name, val);
-            //     } else {
-            //         return Err(format!("Missing required keyword-only argument '{}'", name));
-            //     }
-            // }
-            // Parameter::KeywordOnlyOptional {
-            //     name,
-            //     default_value,
-            // } => {
-            //     if let Some(val) = kwargs.remove(*name) {
-            //         parsed_args.insert(name, val);
-            //     } else {
-            //         parsed_args.insert(name, default_value.clone());
-            //     }
-            // }
-            // Parameter::KwArgs { name: _ } => {
-            //     todo!()
-            // }
+            } // Parameter::VarArgs { name } => {
+              //     assert!(
+              //         !keyword_only,
+              //         "VarArgs argument after keyword-only argument"
+              //     );
+              //     for val in arg_iter.by_ref() {
+              //         varargs.push(val);
+              //     }
+              //     parsed_args.insert(name, Val::List(varargs.clone()));
+              //     keyword_only = true; // Everything after *args is keyword-only
+              // }
+              // Parameter::KeywordOnly { name } => {
+              //     if let Some(val) = kwargs.remove(*name) {
+              //         parsed_args.insert(name, val);
+              //     } else {
+              //         return Err(format!("Missing required keyword-only argument '{}'", name));
+              //     }
+              // }
+              // Parameter::KeywordOnlyOptional {
+              //     name,
+              //     default_value,
+              // } => {
+              //     if let Some(val) = kwargs.remove(*name) {
+              //         parsed_args.insert(name, val);
+              //     } else {
+              //         parsed_args.insert(name, default_value.clone());
+              //     }
+              // }
+              // Parameter::KwArgs { name: _ } => {
+              //     todo!()
+              // }
         }
     }
 

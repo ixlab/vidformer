@@ -21,8 +21,9 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 COPY ./Cargo.toml ./
 COPY ./vidformer ./vidformer
 COPY ./vidformer-cli ./vidformer-cli
+COPY ./vidformer-igni ./vidformer-igni
 ENV FFMPEG_PKG_CONFIG_PATH="/src/ffmpeg/build/lib/pkgconfig" FFMPEG_INCLUDE_DIR="/src/ffmpeg/build/include"
-RUN cargo build --release
+RUN cargo build --release -p vidformer-cli
 
 FROM debian:bookworm
 
