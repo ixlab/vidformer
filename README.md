@@ -78,7 +78,8 @@ If you're working on any of the later four, vidformer may be for you.
 **File Layout**:
 - [*./vidformer*](./vidformer/): The core transformation library
 - [*./vidformer-py*](./vidformer-py/): A Python video editing client
-- [*./vidformer-cli*](./vidformer-cli/): A command-line interface for vidformer servers
+- [*./vidformer-cli*](./vidformer-cli/): A command-line interface + the yrden server
+- [*./vidformer-igni](./vidformer-igni/): The second generation vidformer server
 - [*./snake-pit*](./snake-pit/): The main vidformer test suite
 - [*./docs*](./docs/): The [vidformer website](https://ixlab.github.io/vidformer/)
 
