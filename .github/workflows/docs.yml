@@ -21,7 +21,7 @@ jobs:
       with:
         path: |
           ./ffmpeg
-        key: ${{ runner.os }}-${{ hashFiles('**/deps_*.sh') }}
+        key: ${{ runner.os }}-ffmpeg-${{ hashFiles('**/deps_*.sh') }}
     - name: Deps
       run: bash ./scripts/deps_ci.sh
     - name: Build vidformer docs
