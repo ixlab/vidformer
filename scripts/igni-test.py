@@ -42,10 +42,8 @@ wait_for_it("http://localhost:8080/", 10)
 print("Igni server started")
 
 # Run the tests
-print("Running Igni tests")
-igni_test_script = os.path.join(igni_dir, "script.py")
-sp.run(["python3", igni_test_script], check=True, capture_output=False, cwd=igni_dir)
-print("Igni tests passed")
+viper_den_script = os.path.join(current_dir, "viper-den.sh")
+sp.run([viper_den_script], check=True)
 
 # Cleanup
 print("Cleaning up")

@@ -1013,7 +1013,7 @@ async fn push_part(
     }
 
     // insert the part into spec_part_staged
-    sqlx::query("INSERT INTO spec_part_staged (spec_id, pos, terminal) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING")
+    sqlx::query("INSERT INTO spec_part_staged (spec_id, pos, terminal) VALUES ($1, $2, $3)")
         .bind(spec_id)
         .bind(req.pos as i32)
         .bind(req.terminal)
