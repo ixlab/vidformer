@@ -15,8 +15,6 @@ igni_docker_compose = os.path.join(igni_dir, "docker-compose.yaml")
 sp.run(["docker-compose", "-f", igni_docker_compose, "down"], check=True)
 sp.run(["docker-compose", "-f", igni_docker_compose, "up", "-d"], check=True)
 
-time.sleep(10)  # TODO: Replace with a wait-for-it script
-
 # Igni
 print("Starting Igni...")
 vidformer_igni_bin = os.path.join(project_dir, "target", "debug", "vidformer-igni")

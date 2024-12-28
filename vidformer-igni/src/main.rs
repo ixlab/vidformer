@@ -119,11 +119,31 @@ fn main() {
     }
 }
 
+async fn db_connect() -> Result<sqlx::Pool<sqlx::Postgres>, IgniError> {
+    let timeout = std::time::Duration::from_secs(10);
+    let start_time = std::time::Instant::now();
+    loop {
+        match PgPoolOptions::new()
+            .max_connections(1)
+            .connect("postgres://igni:igni@localhost/igni")
+            .await
+        {
+            Ok(pool) => return Ok(pool),
+            Err(e) => {
+                if start_time.elapsed() > timeout {
+                    return Err(IgniError::General(format!(
+                        "Failed to connect to database: {}",
+                        e
+                    )));
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+        }
+    }
+}
+
 async fn async_main(args: Args) -> Result<(), IgniError> {
-    let pool: sqlx::Pool<sqlx::Postgres> = PgPoolOptions::new()
-        .max_connections(1)
-        .connect("postgres://igni:igni@localhost/igni")
-        .await?;
+    let pool: sqlx::Pool<sqlx::Postgres> = db_connect().await?;
 
     match args.cmd {
         ArgCmd::Ping => {
