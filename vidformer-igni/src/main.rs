@@ -128,7 +128,10 @@ async fn db_connect() -> Result<sqlx::Pool<sqlx::Postgres>, IgniError> {
             .connect("postgres://igni:igni@localhost/igni")
             .await
         {
-            Ok(pool) => return Ok(pool),
+            Ok(pool) => {
+                ops::ping(&pool).await?;
+                return Ok(pool);
+            }
             Err(e) => {
                 if start_time.elapsed() > timeout {
                     return Err(IgniError::General(format!(
@@ -163,13 +166,8 @@ async fn async_main(args: Args) -> Result<(), IgniError> {
     Ok(())
 }
 
-async fn cmd_ping(pool: sqlx::Pool<sqlx::Postgres>) -> Result<(), sqlx::Error> {
-    let row: (i64,) = sqlx::query_as("SELECT $1")
-        .bind(1_i64)
-        .fetch_one(&pool)
-        .await?;
-
-    assert_eq!(row.0, 1);
+async fn cmd_ping(pool: sqlx::Pool<sqlx::Postgres>) -> Result<(), IgniError> {
+    ops::ping(&pool).await?;
     println!("pong!");
     Ok(())
 }

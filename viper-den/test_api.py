@@ -40,25 +40,30 @@ def test_create_source():
 def test_get_source():
     source_id = _create_tos_source()
 
+    source = _get_source(source_id)
+    assert source["id"] == source_id
+    assert source["name"] == "../tos_720p.mp4"
+    assert source["stream_idx"] == 0
+    assert source["storage_service"] == "fs"
+    assert source["storage_config"]["root"] == "."
+    assert source["width"] == 1280
+    assert source["height"] == 720
+    assert source["pix_fmt"] == "yuv420p"
+    assert len(source["ts"]) == 17616
+    for ts in source["ts"]:
+        assert len(ts) == 3
+        assert isinstance(ts[0], int)
+        assert isinstance(ts[1], int)
+        assert isinstance(ts[2], bool)
+
+
+def _get_source(source_id):
     response = requests.get(ENDPOINT + "v2/source/" + source_id)
     if response.status_code != 200:
         print(response.text)
         response.raise_for_status()
     resp = response.json()
-    assert resp["id"] == source_id
-    assert resp["name"] == "../tos_720p.mp4"
-    assert resp["stream_idx"] == 0
-    assert resp["storage_service"] == "fs"
-    assert resp["storage_config"]["root"] == "."
-    assert resp["width"] == 1280
-    assert resp["height"] == 720
-    assert resp["pix_fmt"] == "yuv420p"
-    assert len(resp["ts"]) == 17616
-    for ts in resp["ts"]:
-        assert len(ts) == 3
-        assert isinstance(ts[0], int)
-        assert isinstance(ts[1], int)
-        assert isinstance(ts[2], bool)
+    return resp
 
 
 def _create_example_spec():
@@ -76,19 +81,147 @@ def test_create_spec():
 def test_get_spec():
     spec_id = _create_example_spec()
 
+    spec = _get_spec(spec_id)
+    assert spec["id"] == spec_id
+    assert spec["width"] == 1280
+    assert spec["height"] == 720
+    assert spec["pix_fmt"] == "yuv420p"
+    assert spec["vod_segment_length"] == [2, 1]
+    assert spec["ready_hook"] == None
+    assert spec["steer_hook"] == None
+    assert spec["playlist"] == ENDPOINT + "vod/" + spec_id + "/playlist.m3u8"
+    assert spec["applied_parts"] == 0
+    assert spec["terminated"] == False
+    assert spec["closed"] == False
+
+
+def _get_spec(spec_id):
     response = requests.get(ENDPOINT + "v2/spec/" + spec_id)
     if response.status_code != 200:
         print(response.text)
         response.raise_for_status()
     resp = response.json()
-    assert resp["id"] == spec_id
-    assert resp["width"] == 1280
-    assert resp["height"] == 720
-    assert resp["pix_fmt"] == "yuv420p"
-    assert resp["vod_segment_length"] == [2, 1]
-    assert resp["ready_hook"] == None
-    assert resp["steer_hook"] == None
-    assert resp["playlist"] == ENDPOINT + "vod/" + spec_id + "/playlist.m3u8"
-    assert resp["applied_parts"] == 0
-    assert resp["terminated"] == False
-    assert resp["closed"] == False
+    return resp
+
+
+def _sample_frame_expr(source_id):
+    frame_expr = {
+        "Filter": {
+            "name": "Scale",
+            "args": [
+                {
+                    "Frame": {
+                        "Filter": {
+                            "name": "cv2.rectangle",
+                            "args": [
+                                {
+                                    "Frame": {
+                                        "Filter": {
+                                            "name": "Scale",
+                                            "args": [
+                                                {
+                                                    "Frame": {
+                                                        "Source": {
+                                                            "video": source_id,
+                                                            "index": {"ILoc": 0},
+                                                        }
+                                                    }
+                                                }
+                                            ],
+                                            "kwargs": {
+                                                "pix_fmt": {"Data": {"String": "rgb24"}}
+                                            },
+                                        }
+                                    }
+                                },
+                                {"Data": {"List": [{"Int": 100}, {"Int": 100}]}},
+                                {"Data": {"List": [{"Int": 200}, {"Int": 200}]}},
+                                {
+                                    "Data": {
+                                        "List": [
+                                            {"Float": 0.0},
+                                            {"Float": 255.0},
+                                            {"Float": 0.0},
+                                            {"Float": 255.0},
+                                        ]
+                                    }
+                                },
+                                {"Data": {"Int": 3}},
+                            ],
+                            "kwargs": {},
+                        }
+                    }
+                }
+            ],
+            "kwargs": {"pix_fmt": {"Data": {"String": "yuv420p"}}},
+        }
+    }
+    return frame_expr
+
+
+def _push_frames(spec_id, source_id, ts, pos, terminal):
+    frame_expr = _sample_frame_expr(source_id)
+    frames = []
+    for t in ts:
+        frames.append([t, frame_expr])
+    req = {"pos": pos, "terminal": terminal, "frames": frames}
+    response = requests.post(ENDPOINT + "v2/spec/" + spec_id + "/part", json=req)
+    response.raise_for_status()
+    resp = response.json()
+    assert len(resp) == 1
+    assert resp["status"] == "ok"
+
+
+def test_push_part():
+    source_id = _create_tos_source()
+    spec_id = _create_example_spec()
+    ts = [[0, 30]]
+    _push_frames(spec_id, source_id, ts, 0, False)
+
+    spec = _get_spec(spec_id)
+    assert spec["applied_parts"] == 1
+    assert spec["terminated"] == False
+
+
+def test_push_two_parts_backwards():
+    source_id = _create_tos_source()
+    spec_id = _create_example_spec()
+
+    ts = [[3, 30], [4, 30], [5, 30]]
+    _push_frames(spec_id, source_id, ts, 1, False)
+    spec = _get_spec(spec_id)
+    assert spec["applied_parts"] == 0
+    assert spec["terminated"] == False
+
+    ts = [[0, 30], [1, 30], [2, 30]]
+    _push_frames(spec_id, source_id, ts, 0, False)
+    spec = _get_spec(spec_id)
+    assert spec["applied_parts"] == 2
+    assert spec["terminated"] == False
+
+
+def test_terminate():
+    source_id = _create_tos_source()
+    spec_id = _create_example_spec()
+    ts = [[0, 30], [1, 30], [2, 30]]
+    _push_frames(spec_id, source_id, ts, 0, True)
+    spec = _get_spec(spec_id)
+    assert spec["applied_parts"] == 1
+    assert spec["terminated"] == True
+
+
+def test_terminate_delayed():
+    source_id = _create_tos_source()
+    spec_id = _create_example_spec()
+
+    ts = [[3, 30], [4, 30], [5, 30]]
+    _push_frames(spec_id, source_id, ts, 1, True)
+    spec = _get_spec(spec_id)
+    assert spec["applied_parts"] == 0
+    assert spec["terminated"] == False
+
+    ts = [[0, 30], [1, 30], [2, 30]]
+    _push_frames(spec_id, source_id, ts, 0, False)
+    spec = _get_spec(spec_id)
+    assert spec["applied_parts"] == 2
+    assert spec["terminated"] == True

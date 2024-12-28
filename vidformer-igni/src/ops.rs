@@ -2,6 +2,15 @@ use std::collections::HashMap;
 
 use super::IgniError;
 
+pub(crate) async fn ping(pool: &sqlx::Pool<sqlx::Postgres>) -> Result<(), IgniError> {
+    let row: (i64,) = sqlx::query_as("SELECT $1")
+        .bind(1_i64)
+        .fetch_one(pool)
+        .await?;
+    assert_eq!(row.0, 1);
+    Ok(())
+}
+
 pub(crate) fn parse_storage_config(
     storage: &str,
 ) -> Result<(serde_json::Value, HashMap<String, String>), IgniError> {

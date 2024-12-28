@@ -9,11 +9,19 @@ current_dir = os.path.dirname(os.path.realpath(__file__))
 project_dir = os.path.join(current_dir, "..")
 igni_dir = os.path.join(project_dir, "vidformer-igni")
 
+try:
+    requests.get("http://localhost:8080/")
+    raise Exception("Port 8080 is already in use")
+except requests.exceptions.ConnectionError:
+    pass
+
 # Postgres
 print("Starting Postgres")
 igni_docker_compose = os.path.join(igni_dir, "docker-compose.yaml")
 sp.run(["docker-compose", "-f", igni_docker_compose, "down"], check=True)
 sp.run(["docker-compose", "-f", igni_docker_compose, "up", "-d"], check=True)
+
+time.sleep(10)  # Give the database time to apply the init scripts
 
 # Igni
 print("Starting Igni...")
@@ -41,13 +49,17 @@ print("Igni server started")
 
 # Run the tests
 viper_den_script = os.path.join(current_dir, "viper-den.sh")
-sp.run([viper_den_script], check=True)
+viper_den_response = sp.run([viper_den_script])
 
-# Cleanup
+# Cleanup (always run, even if tests failed)
 print("Cleaning up")
 igni_proc.terminate()
 igni_proc.wait()
 
 sp.run(["docker-compose", "-f", igni_docker_compose, "down"], check=True)
 
-print("Done!")
+if viper_den_response.returncode != 0:
+    print("Tests failed!")
+    exit(1)
+else:
+    print("Done!")

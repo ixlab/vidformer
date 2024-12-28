@@ -466,7 +466,7 @@ pub(crate) async fn push_part(
         ?;
 
     if let Some(max_ready_pos) = row {
-        info!(
+        debug!(
             "Applying parts [{}, {}] on spec {}",
             applied_parts, max_ready_pos, spec_id
         );
@@ -549,16 +549,21 @@ ON
     es.spec_id = mvs.spec_id
 WHERE 
     es.segment_idx > COALESCE(mvs.max_segment, -1);")
-    .bind(vod_segment_length_num)
-    .bind(vod_segment_length_denom)
-
-            .execute(&mut *transaction)
-            .await?;
+        .bind(vod_segment_length_num)
+        .bind(vod_segment_length_denom)
+                .execute(&mut *transaction)
+                .await?;
     }
 
     transaction.commit().await?;
 
+    let response = serde_json::json!({
+        "status": "ok"
+    });
+    let response = serde_json::to_string(&response).unwrap();
     Ok(hyper::Response::builder()
-        .status(hyper::StatusCode::OK)
-        .body(http_body_util::Full::new(hyper::body::Bytes::from("")))?)
+        .header("Content-Type", "application/json")
+        .body(http_body_util::Full::new(hyper::body::Bytes::from(
+            response,
+        )))?)
 }
