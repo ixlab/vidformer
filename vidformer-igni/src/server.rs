@@ -51,7 +51,9 @@ pub(crate) async fn cmd_server(
             if let Err(err) = http1::Builder::new()
                 .serve_connection(
                     io,
-                    hyper::service::service_fn(|req| igni_http_req(req, global.clone())),
+                    hyper::service::service_fn(|req| {
+                        igni_http_req_error_handler(req, global.clone())
+                    }),
                 )
                 .await
             {
@@ -61,10 +63,31 @@ pub(crate) async fn cmd_server(
     }
 }
 
-async fn igni_http_req(
+async fn igni_http_req_error_handler(
     req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
 ) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, std::convert::Infallible> {
+    match igni_http_req(req, global).await {
+        Ok(ok) => Ok(ok),
+        Err(err) => {
+            // An error occured which is not an explicitly handled error
+            // Log the error and return a 500 response
+            // Do not leak the error to the client
+            error!("Error handling request: {:?}", err);
+            Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::INTERNAL_SERVER_ERROR)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    "Internal server error",
+                )))
+                .unwrap())
+        }
+    }
+}
+
+async fn igni_http_req(
+    req: hyper::Request<impl hyper::body::Body>,
+    global: std::sync::Arc<IgniServerGlobal>,
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let uri = req.uri().path().to_string();
     let method = req.method().clone();
 
@@ -74,7 +97,7 @@ async fn igni_http_req(
             .body(http_body_util::Full::new(hyper::body::Bytes::from(
                 format!("vidformer-igni v{}\n", env!("CARGO_PKG_VERSION")),
             )))
-            .unwrap()),
+            ?),
         (hyper::Method::GET, _) // playlist.m3u8
             if {
                 Regex::new(r"^/vod/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/playlist.m3u8$").unwrap().is_match(req.uri().path())
@@ -171,35 +194,32 @@ async fn get_playlist(
     _req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
     spec_id: &str,
-) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, std::convert::Infallible> {
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let spec_id = Uuid::parse_str(spec_id).unwrap();
 
-    let mut transaction = global.pool.begin().await.unwrap();
+    let mut transaction = global.pool.begin().await?;
     let row: Option<bool> = sqlx::query_scalar("SELECT closed FROM spec WHERE id = $1")
         .bind(spec_id)
         .fetch_optional(&mut *transaction)
-        .await
-        .unwrap();
+        .await?;
 
     match row {
         None => {
-            transaction.commit().await.unwrap();
+            transaction.commit().await?;
             return Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::NOT_FOUND)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     "Not found",
-                )))
-                .unwrap());
+                )))?);
         }
         Some(closed) => {
             if closed {
-                transaction.commit().await.unwrap();
+                transaction.commit().await?;
                 return Ok(hyper::Response::builder()
                     .status(hyper::StatusCode::FORBIDDEN)
                     .body(http_body_util::Full::new(hyper::body::Bytes::from(
                         "VOD is closed",
-                    )))
-                    .unwrap());
+                    )))?);
             }
         }
     }
@@ -209,50 +229,46 @@ async fn get_playlist(
         spec_id
     );
 
-    transaction.commit().await.unwrap();
+    transaction.commit().await?;
 
     Ok(hyper::Response::builder()
         .header("Access-Control-Allow-Origin", "*")
         .header("Content-Type", "application/vnd.apple.mpegURL")
         .body(http_body_util::Full::new(hyper::body::Bytes::from(
             playlist_text,
-        )))
-        .unwrap())
+        )))?)
 }
 
 async fn get_stream(
     _req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
     spec_id: &str,
-) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, std::convert::Infallible> {
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let spec_id = Uuid::parse_str(spec_id).unwrap();
 
-    let mut transaction = global.pool.begin().await.unwrap();
+    let mut transaction = global.pool.begin().await?;
     let row: Option<(bool, i32, i32)> = sqlx::query_as("SELECT closed, vod_segment_length_num n, vod_segment_length_denom d FROM spec WHERE id = $1")
         .bind(spec_id)
         .fetch_optional(&mut *transaction)
-        .await
-        .unwrap();
+        .await?;
 
     match row {
         None => {
-            transaction.commit().await.unwrap();
+            transaction.commit().await?;
             return Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::NOT_FOUND)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     "Not found",
-                )))
-                .unwrap());
+                )))?);
         }
         Some((closed, _, _)) => {
             if closed {
-                transaction.commit().await.unwrap();
+                transaction.commit().await?;
                 return Ok(hyper::Response::builder()
                     .status(hyper::StatusCode::FORBIDDEN)
                     .body(http_body_util::Full::new(hyper::body::Bytes::from(
                         "VOD is closed",
-                    )))
-                    .unwrap());
+                    )))?);
             }
         }
     }
@@ -263,9 +279,8 @@ async fn get_stream(
     )
     .bind(spec_id)
     .fetch_all(&mut *transaction)
-    .await
-    .unwrap();
-    transaction.commit().await.unwrap();
+    .await?;
+    transaction.commit().await?;
 
     let mut stream_text =
         "#EXTM3U\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-TARGETDURATION:2\n#EXT-X-VERSION:4\n#EXT-X-MEDIA-SEQUENCE:0\n".to_string();
@@ -282,8 +297,7 @@ async fn get_stream(
         .header("Content-Type", "application/vnd.apple.mpegURL")
         .body(http_body_util::Full::new(hyper::body::Bytes::from(
             stream_text,
-        )))
-        .unwrap())
+        )))?)
 }
 
 async fn get_segment(
@@ -291,37 +305,34 @@ async fn get_segment(
     global: std::sync::Arc<IgniServerGlobal>,
     spec_id: &str,
     segment_number: i32,
-) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, std::convert::Infallible> {
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let spec_id = Uuid::parse_str(spec_id).unwrap();
 
     // Check that the spec exists, is not closed, and grab the width, height, and pix_fmt
-    let mut transaction = global.pool.begin().await.unwrap();
+    let mut transaction = global.pool.begin().await?;
     let row: Option<(i32, i32, String, bool)> =
         sqlx::query_as("SELECT width, height, pix_fmt, closed FROM spec WHERE id = $1")
             .bind(spec_id)
             .fetch_optional(&mut *transaction)
-            .await
-            .unwrap();
+            .await?;
 
     let (width, height, pix_fmt) = match row {
         None => {
-            transaction.commit().await.unwrap();
+            transaction.commit().await?;
             return Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::NOT_FOUND)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     "Not found",
-                )))
-                .unwrap());
+                )))?);
         }
         Some((width, height, pix_fmt, closed)) => {
             if closed {
-                transaction.commit().await.unwrap();
+                transaction.commit().await?;
                 return Ok(hyper::Response::builder()
                     .status(hyper::StatusCode::FORBIDDEN)
                     .body(http_body_util::Full::new(hyper::body::Bytes::from(
                         "VOD is closed",
-                    )))
-                    .unwrap());
+                    )))?);
             }
 
             (width, height, pix_fmt)
@@ -335,18 +346,16 @@ async fn get_segment(
     .bind(spec_id)
     .bind(segment_number)
     .fetch_optional(&mut *transaction)
-    .await
-    .unwrap();
+    .await?;
 
     let (first_t, last_t) = match row {
         None => {
-            transaction.commit().await.unwrap();
+            transaction.commit().await?;
             return Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::NOT_FOUND)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     "Not found",
-                )))
-                .unwrap());
+                )))?);
         }
         Some(row) => row,
     };
@@ -359,8 +368,7 @@ async fn get_segment(
     .bind(first_t)
     .bind(last_t)
     .fetch_all(&mut *transaction)
-    .await
-    .unwrap();
+    .await?;
 
     // map times to rational
     let times: Vec<num_rational::Ratio<i64>> = rows
@@ -405,7 +413,7 @@ async fn get_segment(
         let rows: Vec<(uuid::Uuid, String, i32, String, serde_json::Value, String, String, i32, i32, i64)> = sqlx::query_as("SELECT id, name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height, file_size FROM source")
             .fetch_all(&mut *transaction)
             .await
-            .unwrap();
+            ?;
 
         for (
             source_id,
@@ -426,8 +434,7 @@ async fn get_segment(
                 )
                 .bind(source_id)
                 .fetch_all(&mut *transaction)
-                .await
-                .unwrap();
+                .await?;
 
                 let ts: Vec<Rational64> = rows
                     .iter()
@@ -468,7 +475,7 @@ async fn get_segment(
 
         out
     };
-    transaction.commit().await.unwrap();
+    transaction.commit().await?;
 
     {
         // Print the sources, but not the ts and keys
@@ -532,53 +539,61 @@ async fn get_segment(
     .expect("Error joining blocking task");
 
     if let Err(err) = stats {
-        error!("Error running spec: {:?}", err);
-        return Ok(hyper::Response::builder()
-            .status(hyper::StatusCode::INTERNAL_SERVER_ERROR)
-            .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                "Internal server error",
-            )))
-            .unwrap());
+        return Err(IgniError::General(format!(
+            "Error running vidformer spec: {:?}",
+            err
+        )));
     }
 
     let stats = stats.unwrap();
     dbg! {&stats};
 
-    let output = tokio::fs::read(output_path2.as_str()).await.unwrap();
+    let output = match tokio::fs::read(output_path2.as_str()).await {
+        Ok(ok) => ok,
+        Err(err) => {
+            return Err(IgniError::General(format!(
+                "Failed to read temporary file: {}",
+                err
+            )))
+        }
+    };
+
     let res = hyper::Response::builder()
         .header("Access-Control-Allow-Origin", "*")
         .header("Content-Type", "video/MP2T")
-        .body(http_body_util::Full::new(hyper::body::Bytes::from(output)))
-        .unwrap();
+        .body(http_body_util::Full::new(hyper::body::Bytes::from(output)))?;
 
-    tokio::fs::remove_file(output_path2.as_str()).await.unwrap();
-
-    Ok(res)
+    match tokio::fs::remove_file(output_path2.as_str()).await {
+        Ok(_) => Ok(res),
+        Err(err) => Err(IgniError::General(format!(
+            "Failed to remove temporary file: {}",
+            err
+        ))),
+    }
 }
 
 async fn get_source(
     _req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
     source_id: &str,
-) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, std::convert::Infallible> {
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let source_id = Uuid::parse_str(source_id).unwrap();
 
-    let mut transaction = global.pool.begin().await.unwrap();
+    let mut transaction = global.pool.begin().await?;
     let row: Option<(String, i32, String, serde_json::Value, String, String, i32, i32)> =
         sqlx::query_as("SELECT name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height FROM source WHERE id = $1")
             .bind(source_id)
             .fetch_optional(&mut *transaction)
             .await
-            .unwrap();
+            ?;
 
     if row.is_none() {
-        transaction.commit().await.unwrap();
+        transaction.commit().await?;
         return Ok(hyper::Response::builder()
             .status(hyper::StatusCode::NOT_FOUND)
             .body(http_body_util::Full::new(hyper::body::Bytes::from(
                 "Not found",
-            )))
-            .unwrap());
+            )))?);
     }
 
     let row = row.unwrap();
@@ -596,10 +611,9 @@ async fn get_source(
     )
     .bind(source_id)
     .fetch_all(&mut *transaction)
-    .await
-    .unwrap();
+    .await?;
 
-    transaction.commit().await.unwrap();
+    transaction.commit().await?;
 
     let ts: Vec<Vec<serde_json::Value>> = row
         .iter()
@@ -629,14 +643,13 @@ async fn get_source(
         .header("Content-Type", "application/json")
         .body(http_body_util::Full::new(hyper::body::Bytes::from(
             serde_json::to_string(&res).unwrap(),
-        )))
-        .unwrap())
+        )))?)
 }
 
 async fn push_source(
     req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
-) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, std::convert::Infallible> {
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let req: Vec<u8> = match req.collect().await {
         Err(_err) => {
             error!("Error reading request body");
@@ -644,8 +657,7 @@ async fn push_source(
                 .status(hyper::StatusCode::BAD_REQUEST)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     "Bad request",
-                )))
-                .unwrap());
+                )))?);
         }
         Ok(req) => req.to_bytes().to_vec(),
     };
@@ -665,8 +677,7 @@ async fn push_source(
                 .status(hyper::StatusCode::BAD_REQUEST)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     format!("Bad request: {}", err),
-                )))
-                .unwrap());
+                )))?);
         }
         Ok(req) => req,
     };
@@ -696,17 +707,16 @@ async fn push_source(
                 .header("Content-Type", "application/json")
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     serde_json::to_string(&res).unwrap(),
-                )))
-                .unwrap())
+                )))?)
         }
         Err(err) => {
+            // TODO: This should have a more specific error message
             error!("Error profiling and adding source: {:?}", err);
             Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::INTERNAL_SERVER_ERROR)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     "Internal server error",
-                )))
-                .unwrap())
+                )))?)
         }
     }
 }
@@ -715,25 +725,24 @@ async fn get_spec(
     _req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
     source_id: &str,
-) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, std::convert::Infallible> {
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let source_id = Uuid::parse_str(source_id).unwrap();
 
-    let mut transaction = global.pool.begin().await.unwrap();
+    let mut transaction = global.pool.begin().await?;
     let row: Option<(i32, i32, String, i32, i32, Option<String>, Option<String>, i32, bool, bool)> =
         sqlx::query_as("SELECT width, height, pix_fmt, vod_segment_length_num, vod_segment_length_denom, ready_hook, steer_hook, applied_parts, terminated, closed FROM spec WHERE id = $1")
             .bind(source_id)
             .fetch_optional(&mut *transaction)
             .await
-            .unwrap();
+            ?;
 
     if row.is_none() {
-        transaction.commit().await.unwrap();
+        transaction.commit().await?;
         return Ok(hyper::Response::builder()
             .status(hyper::StatusCode::NOT_FOUND)
             .body(http_body_util::Full::new(hyper::body::Bytes::from(
                 "Not found",
-            )))
-            .unwrap());
+            )))?);
     }
 
     let row = row.unwrap();
@@ -762,20 +771,19 @@ async fn get_spec(
         "playlist": format!("http://localhost:8080/vod/{}/playlist.m3u8", source_id),
     });
 
-    transaction.commit().await.unwrap();
+    transaction.commit().await?;
 
     Ok(hyper::Response::builder()
         .header("Content-Type", "application/json")
         .body(http_body_util::Full::new(hyper::body::Bytes::from(
             serde_json::to_string(&res).unwrap(),
-        )))
-        .unwrap())
+        )))?)
 }
 
 async fn push_spec(
     req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
-) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, std::convert::Infallible> {
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let req: Vec<u8> = match req.collect().await {
         Err(_err) => {
             error!("Error reading request body");
@@ -783,8 +791,7 @@ async fn push_spec(
                 .status(hyper::StatusCode::BAD_REQUEST)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     "Bad request",
-                )))
-                .unwrap());
+                )))?);
         }
         Ok(req) => req.to_bytes().to_vec(),
     };
@@ -806,8 +813,7 @@ async fn push_spec(
                 .status(hyper::StatusCode::BAD_REQUEST)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     format!("Bad request: {}", err),
-                )))
-                .unwrap());
+                )))?);
         }
         Ok(req) => req,
     };
@@ -838,8 +844,7 @@ async fn push_spec(
                 .header("Content-Type", "application/json")
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     serde_json::to_string(&res).unwrap(),
-                )))
-                .unwrap())
+                )))?)
         }
         Err(err) => {
             error!("Error adding spec: {:?}", err);
@@ -847,8 +852,7 @@ async fn push_spec(
                 .status(hyper::StatusCode::INTERNAL_SERVER_ERROR)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     "Internal server error",
-                )))
-                .unwrap())
+                )))?)
         }
     }
 }
@@ -857,7 +861,7 @@ async fn push_part(
     req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
     spec_id: &str,
-) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, std::convert::Infallible> {
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let spec_id = Uuid::parse_str(spec_id).unwrap();
 
     let req: Vec<u8> = match req.collect().await {
@@ -867,8 +871,7 @@ async fn push_part(
                 .status(hyper::StatusCode::BAD_REQUEST)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     "Bad request",
-                )))
-                .unwrap());
+                )))?);
         }
         Ok(req) => req.to_bytes().to_vec(),
     };
@@ -887,8 +890,7 @@ async fn push_part(
                 .status(hyper::StatusCode::BAD_REQUEST)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     format!("Bad request: {}", err),
-                )))
-                .unwrap());
+                )))?);
         }
         Ok(req) => req,
     };
@@ -898,8 +900,7 @@ async fn push_part(
             .status(hyper::StatusCode::BAD_REQUEST)
             .body(http_body_util::Full::new(hyper::body::Bytes::from(
                 "Cannot push a non-terminal part with no frames",
-            )))
-            .unwrap());
+            )))?);
     }
 
     // stage frames
@@ -920,33 +921,31 @@ async fn push_part(
         }
     }
 
-    let mut transaction = global.pool.begin().await.unwrap();
+    let mut transaction = global.pool.begin().await?;
     let row: Option<(Uuid, bool, i32, i32, i32)> =
         sqlx::query_as("SELECT id, terminated OR closed, applied_parts, vod_segment_length_num, vod_segment_length_denom FROM spec WHERE id = $1")
             .bind(spec_id)
             .fetch_optional(&mut *transaction)
             .await
-            .unwrap();
+            ?;
 
     if row.is_none() {
-        transaction.commit().await.unwrap();
+        transaction.commit().await?;
         return Ok(hyper::Response::builder()
             .status(hyper::StatusCode::NOT_FOUND)
             .body(http_body_util::Full::new(hyper::body::Bytes::from(
                 "Not found",
-            )))
-            .unwrap());
+            )))?);
     }
     let row = row.unwrap();
 
     if row.1 {
-        transaction.commit().await.unwrap();
+        transaction.commit().await?;
         return Ok(hyper::Response::builder()
             .status(hyper::StatusCode::FORBIDDEN)
             .body(http_body_util::Full::new(hyper::body::Bytes::from(
                 "Forbidden to push to a terminated or closed spec",
-            )))
-            .unwrap());
+            )))?);
     }
     let applied_parts = row.2;
     let vod_segment_length_num = row.3;
@@ -954,13 +953,12 @@ async fn push_part(
 
     // check if the part is already in the database
     if req.pos < applied_parts as usize {
-        transaction.commit().await.unwrap();
+        transaction.commit().await?;
         return Ok(hyper::Response::builder()
             .status(hyper::StatusCode::BAD_REQUEST)
             .body(http_body_util::Full::new(hyper::body::Bytes::from(
                 "Part already exists",
-            )))
-            .unwrap());
+            )))?);
     }
 
     let row: Option<i32> =
@@ -968,17 +966,15 @@ async fn push_part(
             .bind(spec_id)
             .bind(req.pos as i32)
             .fetch_optional(&mut *transaction)
-            .await
-            .unwrap();
+            .await?;
 
     if row.is_some() {
-        transaction.commit().await.unwrap();
+        transaction.commit().await?;
         return Ok(hyper::Response::builder()
             .status(hyper::StatusCode::BAD_REQUEST)
             .body(http_body_util::Full::new(hyper::body::Bytes::from(
                 "Part already exists",
-            )))
-            .unwrap());
+            )))?);
     }
 
     // check if there is a terminal part before this part, if so, reject
@@ -987,28 +983,25 @@ async fn push_part(
             .bind(spec_id)
             .bind(req.pos as i32)
             .fetch_one(&mut *transaction)
-            .await
-            .unwrap();
+            .await?;
 
     if let Some(min_terminal_pos) = row {
         if req.terminal {
-            transaction.commit().await.unwrap();
+            transaction.commit().await?;
             return Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::BAD_REQUEST)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     "Cannot push a second terminal part",
-                )))
-                .unwrap());
+                )))?);
         }
 
         if min_terminal_pos < req.pos as i32 {
-            transaction.commit().await.unwrap();
+            transaction.commit().await?;
             return Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::BAD_REQUEST)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     "Cannot push a part after a terminal part",
-                )))
-                .unwrap());
+                )))?);
         }
     }
 
@@ -1018,8 +1011,7 @@ async fn push_part(
         .bind(req.pos as i32)
         .bind(req.terminal)
         .execute(&mut *transaction)
-        .await
-        .unwrap();
+        .await?;
 
     sqlx::query("INSERT INTO spec_part_staged_t (spec_id, pos, in_part_pos, t_numer, t_denom, frame) VALUES (unnest($1::uuid[]), unnest($2::int[]), unnest($3::int[]), unnest($4::bigint[]), unnest($5::bigint[]), unnest($6::jsonb[]))")
         .bind(&spec_ids)
@@ -1030,7 +1022,7 @@ async fn push_part(
         .bind(&frames)
         .execute(&mut *transaction)
         .await
-        .unwrap();
+        ?;
 
     // Check if this part makes a contiguous sequence of parts that can be applied
     let row: Option<i32> = sqlx::query_scalar("WITH ordered AS (SELECT pos, ROW_NUMBER() OVER (ORDER BY pos) AS rn FROM spec_part_staged WHERE spec_id = $1) SELECT MAX(pos) AS max_ready_pos FROM ordered WHERE (pos - rn) = ($2 - 1)")
@@ -1038,7 +1030,7 @@ async fn push_part(
         .bind(applied_parts)
         .fetch_one(&mut *transaction)
         .await
-        .unwrap();
+        ?;
 
     if let Some(max_ready_pos) = row {
         info!(
@@ -1054,7 +1046,7 @@ async fn push_part(
             .bind(max_ready_pos)
             .execute(&mut *transaction)
             .await
-            .unwrap();
+            ?;
 
         // If the last part is terminal, update the terminal field in spec
         sqlx::query("UPDATE spec SET terminated = TRUE WHERE id = $1 AND (SELECT terminal FROM spec_part_staged WHERE spec_id = $1 AND pos = $2)")
@@ -1062,29 +1054,26 @@ async fn push_part(
             .bind(max_ready_pos)
             .execute(&mut *transaction)
             .await
-            .unwrap();
+            ?;
 
         // Delete the parts up to and including max_ready_pos from spec_part_staged_t
         sqlx::query("DELETE FROM spec_part_staged_t WHERE spec_id = $1 AND pos <= $2")
             .bind(spec_id)
             .bind(max_ready_pos)
             .execute(&mut *transaction)
-            .await
-            .unwrap();
+            .await?;
         sqlx::query("DELETE FROM spec_part_staged WHERE spec_id = $1 AND pos <= $2")
             .bind(spec_id)
             .bind(max_ready_pos)
             .execute(&mut *transaction)
-            .await
-            .unwrap();
+            .await?;
 
         // Update the applied_parts field in spec
         sqlx::query("UPDATE spec SET applied_parts = $1 + 1 WHERE id = $2")
             .bind(max_ready_pos)
             .bind(spec_id)
             .execute(&mut *transaction)
-            .await
-            .unwrap();
+            .await?;
 
         sqlx::query("INSERT INTO vod_segment (spec_id, segment_number, first_t, last_t) WITH expected_t_segments AS (
     SELECT 
@@ -1131,14 +1120,12 @@ WHERE
     .bind(vod_segment_length_denom)
 
             .execute(&mut *transaction)
-            .await
-            .unwrap();
+            .await?;
     }
 
-    transaction.commit().await.unwrap();
+    transaction.commit().await?;
 
     Ok(hyper::Response::builder()
         .status(hyper::StatusCode::OK)
-        .body(http_body_util::Full::new(hyper::body::Bytes::from("")))
-        .unwrap())
+        .body(http_body_util::Full::new(hyper::body::Bytes::from("")))?)
 }

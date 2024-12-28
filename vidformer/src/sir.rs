@@ -60,10 +60,10 @@ impl Display for Expr {
 }
 
 impl Expr {
-    pub(crate) fn add_deps<'a>(&'a self, deps: &mut BTreeSet<&'a FrameSource>) {
+    pub(crate) fn add_source_deps<'a>(&'a self, deps: &mut BTreeSet<&'a FrameSource>) {
         match self {
             Expr::Frame(frame) => {
-                frame.add_deps(deps);
+                frame.add_source_deps(deps);
             }
             Expr::Data(_) => {}
         }
@@ -142,17 +142,18 @@ impl Display for IndexConst {
 }
 
 impl FrameExpr {
-    pub(crate) fn add_deps<'a>(&'a self, deps: &mut BTreeSet<&'a FrameSource>) {
+    /// Add all referenced frame sources to a set.
+    pub fn add_source_deps<'a>(&'a self, deps: &mut BTreeSet<&'a FrameSource>) {
         match self {
             FrameExpr::Source(src) => {
                 deps.insert(src);
             }
             FrameExpr::Filter(filter) => {
                 for arg in &filter.args {
-                    arg.add_deps(deps);
+                    arg.add_source_deps(deps);
                 }
                 for arg in filter.kwargs.values() {
-                    arg.add_deps(deps);
+                    arg.add_source_deps(deps);
                 }
             }
         }

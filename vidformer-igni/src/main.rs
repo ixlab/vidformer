@@ -27,6 +27,12 @@ impl From<vidformer::Error> for IgniError {
     }
 }
 
+impl From<hyper::http::Error> for IgniError {
+    fn from(e: hyper::http::Error) -> Self {
+        IgniError::General(format!("Hyper error: {}", e))
+    }
+}
+
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {

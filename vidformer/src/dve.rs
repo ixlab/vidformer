@@ -1261,7 +1261,7 @@ fn build_pool(
 
     for (oframe_i, oframe) in process_span.frames.iter().enumerate() {
         let mut frame_deps = std::collections::BTreeSet::new();
-        oframe.add_deps(&mut frame_deps);
+        oframe.add_source_deps(&mut frame_deps);
         assert!(
             frame_deps.len() <= config.decode_pool_size,
             "OFrame {} has too many dependencies ({}) for decode pool size {}",
