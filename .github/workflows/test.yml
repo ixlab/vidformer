@@ -62,7 +62,7 @@ jobs:
       run: cargo build -p vidformer-igni
     - name: Run vidformer-igni tests
       run: ./scripts/igni-test.py
-      timeout-minutes: 5
+      timeout-minutes: 15
 
   system-ffmpeg-build:
     runs-on: ubuntu-24.04

@@ -482,12 +482,15 @@ pub(crate) async fn push_part(
             ?;
 
         // If the last part is terminal, update the terminal field in spec
-        sqlx::query("UPDATE spec SET terminated = TRUE WHERE id = $1 AND (SELECT terminal FROM spec_part_staged WHERE spec_id = $1 AND pos = $2)")
+        let terminated_state: Option<bool> = sqlx::query_scalar("UPDATE spec SET terminated = TRUE WHERE id = $1 AND (SELECT terminal FROM spec_part_staged WHERE spec_id = $1 AND pos = $2) RETURNING terminated")
             .bind(spec_id)
             .bind(max_ready_pos)
-            .execute(&mut *transaction)
+            .fetch_optional(&mut *transaction)
             .await
             ?;
+        if let Some(terminated) = terminated_state {
+            assert!(terminated);
+        }
 
         // Delete the parts up to and including max_ready_pos from spec_part_staged_t
         sqlx::query("DELETE FROM spec_part_staged_t WHERE spec_id = $1 AND pos <= $2")
@@ -508,51 +511,113 @@ pub(crate) async fn push_part(
             .execute(&mut *transaction)
             .await?;
 
-        sqlx::query("INSERT INTO vod_segment (spec_id, segment_number, first_t, last_t) WITH expected_t_segments AS (
-    SELECT 
-        spec_id, 
-        pos, 
-        (spec_t.t_numer * $2) / $1 / spec_t.t_denom AS expected_segment_idx
-    FROM 
-        spec_t
-), 
-expected_segments AS (
-    SELECT 
-        spec_id, 
-        expected_segment_idx AS segment_idx, 
-        MIN(pos) AS first_t, 
-        MAX(pos) AS last_t
-    FROM 
-        expected_t_segments
-    GROUP BY 
-        spec_id, expected_segment_idx
-), 
-max_vod_segments AS (
-    SELECT 
-        spec_id, 
-        COALESCE(MAX(segment_number), -1) AS max_segment
-    FROM 
-        vod_segment
-    GROUP BY 
-        spec_id
-)
-SELECT 
-    es.spec_id, 
-    es.segment_idx segment_number, 
-    es.first_t, 
-    es.last_t
-FROM 
-    expected_segments es
-LEFT JOIN 
-    max_vod_segments mvs
-ON 
-    es.spec_id = mvs.spec_id
-WHERE 
-    es.segment_idx > COALESCE(mvs.max_segment, -1);")
-        .bind(vod_segment_length_num)
-        .bind(vod_segment_length_denom)
-                .execute(&mut *transaction)
-                .await?;
+        if terminated_state.is_some() {
+            sqlx::query("INSERT INTO vod_segment (spec_id, segment_number, first_t, last_t) WITH expected_t_segments AS (
+                    SELECT
+                        spec_id,
+                        pos,
+                        (spec_t.t_numer * $2) / $1 / spec_t.t_denom AS expected_segment_idx
+                    FROM
+                        spec_t
+                ),
+                expected_segments AS (
+                    SELECT
+                        spec_id,
+                        expected_segment_idx AS segment_idx,
+                        MIN(pos) AS first_t,
+                        MAX(pos) AS last_t
+                    FROM
+                        expected_t_segments
+                    GROUP BY
+                        spec_id, expected_segment_idx
+                ),
+                max_vod_segments AS (
+                    SELECT
+                        spec_id,
+                        COALESCE(MAX(segment_number), -1) AS max_segment
+                    FROM
+                        vod_segment
+                    GROUP BY
+                        spec_id
+                )
+                SELECT
+                    es.spec_id,
+                    es.segment_idx segment_number,
+                    es.first_t,
+                    es.last_t
+                FROM
+                    expected_segments es
+                LEFT JOIN
+                    max_vod_segments mvs
+                ON
+                    es.spec_id = mvs.spec_id
+                WHERE
+                    es.segment_idx > COALESCE(mvs.max_segment, -1)")
+                        .bind(vod_segment_length_num)
+                        .bind(vod_segment_length_denom)
+                                .execute(&mut *transaction)
+                                .await?;
+        } else {
+            sqlx::query("INSERT INTO vod_segment (spec_id, segment_number, first_t, last_t) WITH expected_t_segments AS (
+                    SELECT
+                        spec_id,
+                        pos,
+                        (spec_t.t_numer * $2) / $1 / spec_t.t_denom AS expected_segment_idx
+                    FROM
+                        spec_t
+                ),
+                expected_segments AS (
+                    SELECT
+                        spec_id,
+                        expected_segment_idx AS segment_idx,
+                        MIN(pos) AS first_t,
+                        MAX(pos) AS last_t
+                    FROM
+                        expected_t_segments
+                    GROUP BY
+                        spec_id, expected_segment_idx
+                ),
+                max_expected_segments AS (
+                    SELECT
+                        spec_id,
+                        MAX(segment_idx) AS max_segment
+                    FROM
+                        expected_segments
+                    GROUP BY
+                        spec_id
+                ),
+                max_vod_segments AS (
+                    SELECT
+                        spec_id,
+                        COALESCE(MAX(segment_number), -1) AS max_segment
+                    FROM
+                        vod_segment
+                    GROUP BY
+                        spec_id
+                )
+                SELECT
+                    es.spec_id,
+                    es.segment_idx segment_number,
+                    es.first_t,
+                    es.last_t
+                FROM
+                    expected_segments es
+                LEFT JOIN
+                    max_vod_segments mvs
+                ON
+                    es.spec_id = mvs.spec_id
+                LEFT JOIN
+                    max_expected_segments mes
+                ON
+                    es.spec_id = mes.spec_id
+                WHERE
+                    es.segment_idx > COALESCE(mvs.max_segment, -1)
+                    AND es.segment_idx < mes.max_segment")
+                        .bind(vod_segment_length_num)
+                        .bind(vod_segment_length_denom)
+                                .execute(&mut *transaction)
+                                .await?;
+        }
     }
 
     transaction.commit().await?;

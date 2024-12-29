@@ -1,5 +1,8 @@
 import requests
 import re
+import pytest
+import random
+
 
 ENDPOINT = "http://localhost:8080/"
 TOS_SOURCE = {
@@ -60,7 +63,6 @@ def test_get_source():
 def _get_source(source_id):
     response = requests.get(ENDPOINT + "v2/source/" + source_id)
     if response.status_code != 200:
-        print(response.text)
         response.raise_for_status()
     resp = response.json()
     return resp
@@ -98,7 +100,6 @@ def test_get_spec():
 def _get_spec(spec_id):
     response = requests.get(ENDPOINT + "v2/spec/" + spec_id)
     if response.status_code != 200:
-        print(response.text)
         response.raise_for_status()
     resp = response.json()
     return resp
@@ -295,3 +296,77 @@ def test_single_segment():
     response = requests.get(segment_0_url)
     response.raise_for_status()
     assert response.headers["Content-Type"].lower() == "video/mp2t"
+
+
+def _count_segments(spec_id):
+    stream_url = f"{ENDPOINT}vod/{spec_id}/stream.m3u8"
+    response = requests.get(stream_url)
+    response.raise_for_status()
+    txt = response.text
+
+    prefix = "#EXTM3U\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-TARGETDURATION:2\n#EXT-X-VERSION:4\n#EXT-X-MEDIA-SEQUENCE:0\n"
+    assert txt.startswith(prefix)
+    suffix = "\n#EXT-X-ENDLIST\n"
+    assert txt.endswith(suffix)
+
+    body = txt[len(prefix) : -len(suffix)]
+    if body == "":
+        return 0
+
+    lines = body.split("\n")
+    assert len(lines) % 2 == 0
+    for i, line in enumerate(lines):
+        if i % 2 == 0:
+            assert line == f"#EXTINF:2.0,"
+        else:
+            assert re.match(r".*/segment-\d+\.ts", line)
+    return len(lines) // 2
+
+
+@pytest.mark.parametrize("fps", [24, 25, 30, 60])
+def test_multiple_segments_in_order(fps):
+    source_id = _create_tos_source()
+    spec_id = _create_example_spec()
+
+    for i in range(500):
+        ts = [[i, fps]]
+        _push_frames(spec_id, source_id, ts, i, False)
+        assert _count_segments(spec_id) == i // (fps * 2)
+
+    # Terminate
+    ts = []
+    _push_frames(spec_id, source_id, ts, 500, True)
+    expected = 500 // (fps * 2)
+    if 500 % (fps * 2) > 0:
+        expected += 1
+    assert _count_segments(spec_id) == expected
+
+
+@pytest.mark.parametrize("fps", [24, 25, 30, 60])
+def test_multiple_segments_random_order(fps):
+    source_id = _create_tos_source()
+    spec_id = _create_example_spec()
+
+    pushes = []
+    for i in range(500):
+        ts = [[i, fps]]
+        pushes.append((i, ts, False))
+    pushes.append((500, [], True))
+    not_pushed_i = set(range(501))
+
+    random.shuffle(pushes)
+
+    for i, ts, term in pushes:
+        _push_frames(spec_id, source_id, ts, i, term)
+        not_pushed_i.remove(i)
+
+        if len(not_pushed_i) == 0:
+            # Terminated
+            expected = 500 // (fps * 2)
+            if 500 % (fps * 2) > 0:
+                expected += 1
+            assert _count_segments(spec_id) == expected
+        else:
+            lowest_contiguous = max(1, min(not_pushed_i)) - 1
+            expected = lowest_contiguous // (fps * 2)
+            assert _count_segments(spec_id) == expected
