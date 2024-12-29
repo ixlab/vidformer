@@ -375,7 +375,7 @@ pub(crate) async fn push_part(
     if row.1 {
         transaction.commit().await?;
         return Ok(hyper::Response::builder()
-            .status(hyper::StatusCode::FORBIDDEN)
+            .status(hyper::StatusCode::BAD_REQUEST)
             .body(http_body_util::Full::new(hyper::body::Bytes::from(
                 "Forbidden to push to a terminated or closed spec",
             )))?);

@@ -2,6 +2,8 @@ import requests
 import re
 import pytest
 import random
+import os
+import subprocess as sp
 
 
 ENDPOINT = "http://localhost:8080/"
@@ -60,6 +62,12 @@ def test_get_source():
         assert isinstance(ts[2], bool)
 
 
+def test_error_get_source_not_exists():
+    resp = requests.get(ENDPOINT + "v2/source/ca584794-54cd-4d65-9073-ebb88529708b")
+    assert resp.status_code == 404
+    assert resp.text == "Not found"
+
+
 def _get_source(source_id):
     response = requests.get(ENDPOINT + "v2/source/" + source_id)
     if response.status_code != 200:
@@ -95,6 +103,12 @@ def test_get_spec():
     assert spec["applied_parts"] == 0
     assert spec["terminated"] == False
     assert spec["closed"] == False
+
+
+def test_error_get_spec_not_exists():
+    resp = requests.get(ENDPOINT + "v2/spec/ca584794-54cd-4d65-9073-ebb88529708b")
+    assert resp.status_code == 404
+    assert resp.text == "Not found"
 
 
 def _get_spec(spec_id):
@@ -182,6 +196,68 @@ def test_push_part():
     spec = _get_spec(spec_id)
     assert spec["applied_parts"] == 1
     assert spec["terminated"] == False
+
+
+def test_error_push_part_empty():
+    spec_id = _create_example_spec()
+    ts = []
+    req = {"pos": 0, "terminal": False, "frames": ts}
+    response = requests.post(ENDPOINT + "v2/spec/" + spec_id + "/part", json=req)
+    assert response.status_code == 400
+    assert response.text == "Cannot push a non-terminal part with no frames"
+
+
+def test_error_push_part_after_termination():
+    source_id = _create_tos_source()
+    spec_id = _create_example_spec()
+    ts = [[0, 30]]
+    _push_frames(spec_id, source_id, ts, 0, True)
+
+    req = {
+        "pos": 1,
+        "terminal": False,
+        "frames": [[[1, 30], _sample_frame_expr(source_id)]],
+    }
+    response = requests.post(ENDPOINT + "v2/spec/" + spec_id + "/part", json=req)
+    print(response.status_code)
+    print(response.text)
+    assert response.status_code == 400
+    assert response.text == "Forbidden to push to a terminated or closed spec"
+
+
+def test_error_push_part_after_staged_termination():
+    source_id = _create_tos_source()
+    spec_id = _create_example_spec()
+    ts = [[1, 30]]
+    # Push a terminal part at pos 1; pos 0 is never pushed
+    _push_frames(spec_id, source_id, ts, 1, True)
+
+    req = {
+        "pos": 2,
+        "terminal": False,
+        "frames": [[[1, 30], _sample_frame_expr(source_id)]],
+    }
+    response = requests.post(ENDPOINT + "v2/spec/" + spec_id + "/part", json=req)
+    print(response.status_code)
+    print(response.text)
+    assert response.status_code == 400
+    assert response.text == "Cannot push a part after a terminal part"
+
+
+def test_error_push_two_parts_same_pos():
+    source_id = _create_tos_source()
+    spec_id = _create_example_spec()
+    ts = [[0, 30]]
+    _push_frames(spec_id, source_id, ts, 0, False)
+
+    req = {
+        "pos": 0,
+        "terminal": False,
+        "frames": [[[1, 30], _sample_frame_expr(source_id)]],
+    }
+    response = requests.post(ENDPOINT + "v2/spec/" + spec_id + "/part", json=req)
+    assert response.status_code == 400
+    assert response.text == "Part already exists"
 
 
 def test_push_two_parts_backwards():
@@ -370,3 +446,25 @@ def test_multiple_segments_random_order(fps):
             lowest_contiguous = max(1, min(not_pushed_i)) - 1
             expected = lowest_contiguous // (fps * 2)
             assert _count_segments(spec_id) == expected
+
+
+def test_ffmpeg_two_segment_terminal():
+    assert os.path.exists("../ffmpeg/build/bin/ffmpeg")
+
+    source_id = _create_tos_source()
+    spec_id = _create_example_spec()
+
+    ts = [[i, 30] for i in range(95)]
+    _push_frames(spec_id, source_id, ts, 0, True)
+
+    spec = _get_spec(spec_id)
+    assert spec["applied_parts"] == 1
+    assert spec["terminated"] == True
+
+    playlist_url = spec["playlist"]
+    assert playlist_url == f"{ENDPOINT}vod/{spec_id}/playlist.m3u8"
+
+    p = sp.run(["../ffmpeg/build/bin/ffmpeg", "-i", playlist_url, "out.mp4", "-y"])
+    assert p.returncode == 0
+    assert os.path.exists("out.mp4")
+    os.remove("out.mp4")
