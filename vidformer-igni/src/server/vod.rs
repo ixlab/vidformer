@@ -366,9 +366,7 @@ pub(crate) async fn get_segment(
             err
         )));
     }
-
-    let stats = stats.unwrap();
-    dbg! {&stats};
+    let _stats = stats.unwrap();
 
     let output = match tokio::fs::read(output_path2.as_str()).await {
         Ok(ok) => ok,

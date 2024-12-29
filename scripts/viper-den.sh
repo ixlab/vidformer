@@ -9,4 +9,4 @@ if ! curl -s localhost:8080/ > /dev/null; then
     exit 1
 fi
 
-pytest . --verbose
+pytest . -vv

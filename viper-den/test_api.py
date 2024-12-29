@@ -225,3 +225,73 @@ def test_terminate_delayed():
     spec = _get_spec(spec_id)
     assert spec["applied_parts"] == 2
     assert spec["terminated"] == True
+
+
+def test_empty_playlist_endpoint():
+    spec_id = _create_example_spec()
+    spec = _get_spec(spec_id)
+
+    playlist_url = spec["playlist"]
+    assert playlist_url == f"{ENDPOINT}vod/{spec_id}/playlist.m3u8"
+    response = requests.get(playlist_url)
+    response.raise_for_status()
+    assert (
+        response.text
+        == f"#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=640000\n{ENDPOINT}vod/{spec_id}/stream.m3u8\n"
+    )
+    assert response.headers["Content-Type"].lower() == "application/vnd.apple.mpegurl"
+
+
+def test_empty_stream_endpoint():
+    spec_id = _create_example_spec()
+
+    stream_url = f"{ENDPOINT}vod/{spec_id}/stream.m3u8"
+    response = requests.get(stream_url)
+    response.raise_for_status()
+    assert (
+        response.text
+        == f"""#EXTM3U
+#EXT-X-PLAYLIST-TYPE:VOD
+#EXT-X-TARGETDURATION:2
+#EXT-X-VERSION:4
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-ENDLIST
+"""
+    )
+    assert response.headers["Content-Type"].lower() == "application/vnd.apple.mpegurl"
+
+
+def test_single_segment_stream_endpoint():
+    source_id = _create_tos_source()
+    spec_id = _create_example_spec()
+    ts = [[i, 30] for i in range(60)]
+    _push_frames(spec_id, source_id, ts, 0, True)
+
+    stream_url = f"{ENDPOINT}vod/{spec_id}/stream.m3u8"
+    response = requests.get(stream_url)
+    response.raise_for_status()
+    assert (
+        response.text
+        == f"""#EXTM3U
+#EXT-X-PLAYLIST-TYPE:VOD
+#EXT-X-TARGETDURATION:2
+#EXT-X-VERSION:4
+#EXT-X-MEDIA-SEQUENCE:0
+#EXTINF:2.0,
+{ENDPOINT}vod/{spec_id}/segment-0.ts
+#EXT-X-ENDLIST
+"""
+    )
+    assert response.headers["Content-Type"].lower() == "application/vnd.apple.mpegurl"
+
+
+def test_single_segment():
+    source_id = _create_tos_source()
+    spec_id = _create_example_spec()
+    ts = [[i, 30] for i in range(60)]
+    _push_frames(spec_id, source_id, ts, 0, True)
+
+    segment_0_url = f"{ENDPOINT}vod/{spec_id}/segment-0.ts"
+    response = requests.get(segment_0_url)
+    response.raise_for_status()
+    assert response.headers["Content-Type"].lower() == "video/mp2t"

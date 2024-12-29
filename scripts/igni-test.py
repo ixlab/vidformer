@@ -26,7 +26,7 @@ time.sleep(10)  # Give the database time to apply the init scripts
 # Igni
 print("Starting Igni...")
 vidformer_igni_bin = os.path.join(project_dir, "target", "debug", "vidformer-igni")
-igni_env = {**os.environ, "RUST_LOG": "info"}
+igni_env = {**os.environ, "RUST_LOG": "warn"}
 igni_proc = sp.Popen([vidformer_igni_bin, "server"], cwd=igni_dir, env=igni_env)
 
 
