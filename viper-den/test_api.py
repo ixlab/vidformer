@@ -219,8 +219,6 @@ def test_error_push_part_after_termination():
         "frames": [[[1, 30], _sample_frame_expr(source_id)]],
     }
     response = requests.post(ENDPOINT + "v2/spec/" + spec_id + "/part", json=req)
-    print(response.status_code)
-    print(response.text)
     assert response.status_code == 400
     assert response.text == "Forbidden to push to a terminated or closed spec"
 
@@ -238,8 +236,6 @@ def test_error_push_part_after_staged_termination():
         "frames": [[[1, 30], _sample_frame_expr(source_id)]],
     }
     response = requests.post(ENDPOINT + "v2/spec/" + spec_id + "/part", json=req)
-    print(response.status_code)
-    print(response.text)
     assert response.status_code == 400
     assert response.text == "Cannot push a part after a terminal part"
 
@@ -328,11 +324,11 @@ def test_empty_stream_endpoint():
     assert (
         response.text
         == f"""#EXTM3U
-#EXT-X-PLAYLIST-TYPE:VOD
+#EXT-X-PLAYLIST-TYPE:EVENT
 #EXT-X-TARGETDURATION:2
 #EXT-X-VERSION:4
 #EXT-X-MEDIA-SEQUENCE:0
-#EXT-X-ENDLIST
+#EXT-X-START:TIME-OFFSET=0
 """
     )
     assert response.headers["Content-Type"].lower() == "application/vnd.apple.mpegurl"
@@ -350,10 +346,11 @@ def test_single_segment_stream_endpoint():
     assert (
         response.text
         == f"""#EXTM3U
-#EXT-X-PLAYLIST-TYPE:VOD
+#EXT-X-PLAYLIST-TYPE:EVENT
 #EXT-X-TARGETDURATION:2
 #EXT-X-VERSION:4
 #EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-START:TIME-OFFSET=0
 #EXTINF:2.0,
 {ENDPOINT}vod/{spec_id}/segment-0.ts
 #EXT-X-ENDLIST
@@ -380,14 +377,16 @@ def _count_segments(spec_id):
     response.raise_for_status()
     txt = response.text
 
-    prefix = "#EXTM3U\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-TARGETDURATION:2\n#EXT-X-VERSION:4\n#EXT-X-MEDIA-SEQUENCE:0\n"
+    prefix = "#EXTM3U\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-TARGETDURATION:2\n#EXT-X-VERSION:4\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-START:TIME-OFFSET=0\n"
     assert txt.startswith(prefix)
-    suffix = "\n#EXT-X-ENDLIST\n"
-    assert txt.endswith(suffix)
-
-    body = txt[len(prefix) : -len(suffix)]
+    terminal = False
+    if txt.endswith("\n#EXT-X-ENDLIST\n"):
+        terminal = True
+        txt = txt.replace("#EXT-X-ENDLIST\n", "")
+    body = txt[len(prefix):]
+    body = body.strip().strip("\n")
     if body == "":
-        return 0
+        return 0, terminal
 
     lines = body.split("\n")
     assert len(lines) % 2 == 0
@@ -396,7 +395,7 @@ def _count_segments(spec_id):
             assert line == f"#EXTINF:2.0,"
         else:
             assert re.match(r".*/segment-\d+\.ts", line)
-    return len(lines) // 2
+    return len(lines) // 2, terminal
 
 
 @pytest.mark.parametrize("fps", [24, 25, 30, 60])
@@ -407,7 +406,8 @@ def test_multiple_segments_in_order(fps):
     for i in range(500):
         ts = [[i, fps]]
         _push_frames(spec_id, source_id, ts, i, False)
-        assert _count_segments(spec_id) == i // (fps * 2)
+        assert _count_segments(spec_id)[0] == i // (fps * 2)
+        assert _count_segments(spec_id)[1] == False
 
     # Terminate
     ts = []
@@ -415,7 +415,8 @@ def test_multiple_segments_in_order(fps):
     expected = 500 // (fps * 2)
     if 500 % (fps * 2) > 0:
         expected += 1
-    assert _count_segments(spec_id) == expected
+    assert _count_segments(spec_id)[0] == expected
+    assert _count_segments(spec_id)[1] == True
 
 
 @pytest.mark.parametrize("fps", [24, 25, 30, 60])
@@ -441,11 +442,13 @@ def test_multiple_segments_random_order(fps):
             expected = 500 // (fps * 2)
             if 500 % (fps * 2) > 0:
                 expected += 1
-            assert _count_segments(spec_id) == expected
+            assert _count_segments(spec_id)[0] == expected
+            assert _count_segments(spec_id)[1] == True
         else:
             lowest_contiguous = max(1, min(not_pushed_i)) - 1
             expected = lowest_contiguous // (fps * 2)
-            assert _count_segments(spec_id) == expected
+            assert _count_segments(spec_id)[0] == expected
+            assert _count_segments(spec_id)[1] == False
 
 
 def test_ffmpeg_two_segment_terminal():

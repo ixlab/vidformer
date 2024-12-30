@@ -1,6 +1,5 @@
 use super::IgniServerGlobal;
 use crate::IgniError;
-use log::*;
 use num::Rational64;
 use std::collections::BTreeMap;
 use uuid::Uuid;
@@ -69,7 +68,7 @@ pub(crate) async fn get_stream(
     let spec_id = Uuid::parse_str(spec_id).unwrap();
 
     let mut transaction = global.pool.begin().await?;
-    let row: Option<(bool, i32, i32)> = sqlx::query_as("SELECT closed, vod_segment_length_num n, vod_segment_length_denom d FROM spec WHERE id = $1")
+    let row: Option<(bool, bool, i32, i32)> = sqlx::query_as("SELECT closed, terminated, vod_segment_length_num n, vod_segment_length_denom d FROM spec WHERE id = $1")
         .bind(spec_id)
         .fetch_optional(&mut *transaction)
         .await?;
@@ -83,7 +82,7 @@ pub(crate) async fn get_stream(
                     "Not found",
                 )))?);
         }
-        Some((closed, _, _)) => {
+        Some((closed, _, _, _)) => {
             if closed {
                 transaction.commit().await?;
                 return Ok(hyper::Response::builder()
@@ -95,6 +94,8 @@ pub(crate) async fn get_stream(
         }
     }
 
+    let terminated = row.unwrap().1;
+
     // Get vod_segment rows
     let rows: Vec<(i32,)> = sqlx::query_as(
         "SELECT segment_number FROM vod_segment WHERE spec_id = $1 ORDER BY segment_number",
@@ -105,14 +106,16 @@ pub(crate) async fn get_stream(
     transaction.commit().await?;
 
     let mut stream_text =
-        "#EXTM3U\n#EXT-X-PLAYLIST-TYPE:VOD\n#EXT-X-TARGETDURATION:2\n#EXT-X-VERSION:4\n#EXT-X-MEDIA-SEQUENCE:0\n".to_string();
+        "#EXTM3U\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-TARGETDURATION:2\n#EXT-X-VERSION:4\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-START:TIME-OFFSET=0\n".to_string();
     for (segment_number,) in rows {
         stream_text.push_str(&format!(
             "#EXTINF:2.0,\nhttp://localhost:8080/vod/{}/segment-{}.ts\n",
             spec_id, segment_number
         ));
     }
-    stream_text.push_str("#EXT-X-ENDLIST\n");
+    if terminated {
+        stream_text.push_str("#EXT-X-ENDLIST\n");
+    }
 
     Ok(hyper::Response::builder()
         .header("Access-Control-Allow-Origin", "*")
@@ -265,14 +268,12 @@ pub(crate) async fn get_segment(
 
                 let keys: Vec<Rational64> = rows
                     .iter()
-                    .map(|(t_num, t_denom, key)| {
-                        if *key {
-                            Rational64::new(*t_num, *t_denom)
-                        } else {
-                            Rational64::new(0, 1)
-                        }
-                    })
+                    .filter(|(_, _, key)| *key)
+                    .map(|(t_num, t_denom, _)| Rational64::new(*t_num, *t_denom))
                     .collect();
+
+                debug_assert!(ts.is_sorted());
+                debug_assert!(keys.is_sorted());
 
                 (ts, keys)
             };
@@ -298,24 +299,6 @@ pub(crate) async fn get_segment(
         out
     };
     transaction.commit().await?;
-
-    {
-        // Print the sources, but not the ts and keys
-        for source in &sources {
-            info!(
-                "source: {} {} {} {} {} {} {:?} {} {}",
-                source.name,
-                source.file_path,
-                source.stream_idx,
-                source.file_size,
-                source.codec,
-                source.pix_fmt,
-                source.service,
-                source.resolution.0,
-                source.resolution.1
-            );
-        }
-    }
 
     let arrays = std::collections::BTreeMap::new();
     let filters = filters();
