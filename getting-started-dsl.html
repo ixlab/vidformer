@@ -1,0 +1,340 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Getting Started - DSL - vidformer - Video Data Transformation</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">vidformer - Video Data Transformation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/ixlab/vidformer" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="getting-started---dsl"><a class="header" href="#getting-started---dsl">Getting Started - DSL</a></h1>
+<p>This is a walkthrough of getting started with <code>vidformer-py</code> core DSL.</p>
+<h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
+<p>See <a href="./install.html">Installation guide</a></p>
+<h2 id="hello-world"><a class="header" href="#hello-world">Hello, world!</a></h2>
+<blockquote>
+<p>⚠️ We assume this is in a Jupyter notebook. If not then <a href="https://ixlab.github.io/vidformer/vidformer-py/vidformer.html#Spec.play"><code>.play()</code></a> won't work and you have to use <a href="https://ixlab.github.io/vidformer/vidformer-py/vidformer.html#Spec.save"><code>.save()</code></a> instead.</p>
+</blockquote>
+<p>We start by connecting to a server and registering a source:</p>
+<pre><code class="language-python">import vidformer as vf
+from fractions import Fraction
+
+server = vf.YrdenServer(domain='localhost', port=8000)
+
+tos = vf.Source(
+    server,
+    "tos_720p",     # name (for pretty printing)
+    "https://f.dominik.win/data/dve2/tos_720p.mp4",
+    stream=0,       # index of the video stream we want to use
+)
+
+print(tos.ts())
+print(tos.fmt())
+</code></pre>
+<p>This will print the timestamps of all the frames in the video, and then format information:
+This may take a few seconds the first time, but frame times are cached afterwords.</p>
+<pre><code>&gt; [Fraction(0, 1), Fraction(1, 24), Fraction(1, 12), Fraction(1, 8), ...]
+&gt; {'width': 1280, 'height': 720, 'pix_fmt': 'yuv420p'}
+</code></pre>
+<p>Now lets create a 30 second clip starting at the 5 minute mark.
+The source video is at at a constant 24 FPS, so lets create a 24 FPS output as well:</p>
+<pre><code class="language-python">domain = [Fraction(i, 24) for i in range(24 * 30)]
+</code></pre>
+<p>Now we need to render each of these frames, so we define a render function.</p>
+<pre><code class="language-python">def render(t: Fraction, i: int):
+    clip_start_point = Fraction(5 * 60, 1) # start at 5 * 60 seconds
+    return tos[t + clip_start_point]
+</code></pre>
+<p>We used timestamp-based indexing here, but you can also use integer indexing (<code>tos.iloc[i + 5 * 60 * 24]</code>).</p>
+<p>Now we can create a spec and play it in the browser.
+We create a spec from the resulting video's frame timestamps (<code>domain</code>), a function to construct each output frame (<code>render</code>), and the output videos format (matching <code>tos.fmt()</code>).</p>
+<pre><code class="language-python">spec = vf.Spec(domain, render, tos.fmt())
+spec.play(server)
+</code></pre>
+<p>This plays this result:
+<video controls width="100%">
+<source src="https://f.dominik.win/data/dve2/quickstart-hello-world.mp4" type="video/mp4" />
+</video></p>
+<blockquote>
+<p>Some Jupyter environments are weird (i.e., VS Code), so  <code>.play()</code> might not work. Using <code>.play(..., method="iframe")</code> may help.</p>
+</blockquote>
+<p>It's worth noting that we are playing frames in order here and outputing video at the same framerate we recieved, but that doesn't need to be the case.
+Here are some things other things you can now try:</p>
+<ul>
+<li>Reversing the video</li>
+<li>Double the speed of the video
+<ul>
+<li>Either double the framerate or sample every other frame</li>
+</ul>
+</li>
+<li>Shuffle the frames into a random order</li>
+<li>Combining frames from multiple videos</li>
+<li>Create a variable frame rate video
+<ul>
+<li>Note: <code>.play()</code> will not work with VFR, but <code>.save()</code> will.</li>
+</ul>
+</li>
+</ul>
+<h2 id="bounding-boxes"><a class="header" href="#bounding-boxes">Bounding Boxes</a></h2>
+<p>Now let's overlay some bouding boxes over the entire clip:</p>
+<pre><code class="language-python"># Load some data
+import urllib.request, json 
+with urllib.request.urlopen("https://f.dominik.win/data/dve2/tos_720p-objects.json") as r:
+    detections_per_frame = json.load(r)
+
+bbox = vf.Filter("BoundingBox") # load the built-in BoundingBox filter
+
+domain = tos.ts() # output should have same frame timestamps as our example clip
+
+def render(t, i):
+    return bbox(
+        tos[t],
+        bounds=detections_per_frame[i])
+
+spec = vf.Spec(domain, render, tos.fmt())
+spec.play(server)
+</code></pre>
+<p>This plays this result (video is just a sample clip):
+<video controls width="100%">
+<source src="https://f.dominik.win/data/dve2/quickstart-bounding-box.mp4" type="video/mp4" />
+</video></p>
+<h2 id="composition"><a class="header" href="#composition">Composition</a></h2>
+<p>We can place frames next to each other with the <code>HStack</code> and <code>VStack</code> filters.
+For example, <code>HStack(left_frame, middle_frame, right_frame, width=1280, height=720, format="yuv420p")</code> will place three frames side-by-side.</p>
+<p>As a larger example, we can view a window function over frames as a 5x5 grid:</p>
+<pre><code class="language-python">hstack = vf.Filter("HStack")
+vstack = vf.Filter("VStack")
+
+w, h = 1920, 1080
+
+def create_grid(tos, i, N, width, height, fmt="yuv420p"):
+    grid = []
+    for row in range(N):
+        columns = []
+        for col in range(N):
+            index = row * N + col
+            columns.append(tos.iloc[i + index])
+        grid.append(hstack(*columns, width=width, height=height//N, format=fmt))
+    final_grid = vstack(*grid, width=width, height=height, format=fmt)
+    return final_grid
+
+domain = [Fraction(i, 24) for i in range(0, 5000)]
+
+def render(t, i):
+    return create_grid(tos, i, 5, w, h)
+
+fmt = {'width': w, 'height': h, 'pix_fmt': 'yuv420p'}
+
+spec = vf.Spec(domain, render, fmt)
+spec.play(server)
+</code></pre>
+<p>This plays this result (video is just a sample clip):
+<video controls width="100%">
+<source src="https://f.dominik.win/data/dve2/quickstart-composition.mp4" type="video/mp4" />
+</video></p>
+<h2 id="viewing-telemetry-and-user-defined-filters"><a class="header" href="#viewing-telemetry-and-user-defined-filters">Viewing Telemetry (and User-Defined Filters)</a></h2>
+<p>This <a href="https://github.com/ixlab/vidformer/blob/main/misc/UDFs-demo.ipynb">notebook</a> shows how to build custom filters to overlay data.</p>
+<p>This plays this result (video is just a sample clip):
+<video controls width="100%">
+<source src="https://f.dominik.win/data/dve2/quickstart-telemetry.mp4" type="video/mp4" />
+</video></p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="getting-started-cv2.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="concepts.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="getting-started-cv2.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="concepts.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
