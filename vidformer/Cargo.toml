@@ -24,7 +24,7 @@ thiserror = "2.0.3"
 opencv = { version = "0.93.0", default-features = false, features = ["clang-runtime", "imgproc"] }
 crossbeam-channel = "0.5"
 parking_lot = "0.12.2"
-opendal = { version = "0.50", features = ["layers-blocking", "services-fs", "services-http"] }
+opendal = { version = "0.51", features = ["layers-blocking", "services-fs", "services-http"] }
 tokio = { version = "1", features = ["full"] }
 rmp-serde = "1.3.0"
 serde_bytes = "0.11"
