@@ -44,6 +44,13 @@ class IgniServer:
         id = response["id"]
         return self.get_source(id)
 
+    def get_spec(self, id: str):
+        response = requests.get(f"{self._endpoint}/v2/spec/{id}")
+        if not response.ok:
+            raise Exception(response.text)
+        response = response.json()
+        return IgniSpec(response["id"], response)
+
     def create_spec(
         self,
         width,
@@ -76,9 +83,11 @@ class IgniServer:
             raise Exception(response.text)
         response = response.json()
         assert response["status"] == "ok"
-        return response["id"]
+        return self.get_spec(response["id"])
 
     def push_spec_part(self, spec_id, pos, frames, terminal):
+        if type(spec_id) == IgniSpec:
+            spec_id = spec_id._id
         assert type(spec_id) == str
         assert type(pos) == int
         assert type(frames) == list
@@ -130,3 +139,19 @@ class IgniSource:
         if type(idx) != Fraction:
             raise Exception("Source index must be a Fraction")
         return vf.SourceExpr(self, idx, False)
+
+
+class IgniSpec:
+    def __init__(self, id, src):
+        self._id = id
+        self._fmt = {
+            "width": src["width"],
+            "height": src["height"],
+            "pix_fmt": src["pix_fmt"],
+        }
+        self._playlist = src["playlist"]
+
+    def play(self, *args, **kwargs):
+        url = self._playlist
+        hls_js_url = "http://localhost:8080/hls.js"  # TODO: Fix this
+        return vf._play(self._id, url, hls_js_url, *args, **kwargs)

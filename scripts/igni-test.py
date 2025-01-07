@@ -17,7 +17,7 @@ except requests.exceptions.ConnectionError:
 
 # Postgres
 print("Starting Postgres")
-igni_docker_compose = os.path.join(igni_dir, "docker-compose.yaml")
+igni_docker_compose = os.path.join(igni_dir, "docker-compose-db.yaml")
 sp.run(["docker-compose", "-f", igni_docker_compose, "down"], check=True)
 sp.run(["docker-compose", "-f", igni_docker_compose, "up", "-d"], check=True)
 

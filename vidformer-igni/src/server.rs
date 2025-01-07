@@ -48,7 +48,7 @@ pub(crate) async fn cmd_server(
                 )
                 .await
             {
-                error!("Error serving connection: {:?}", err);
+                debug!("Dropped connection: {:?}", err);
             }
         });
     }
@@ -89,6 +89,15 @@ async fn igni_http_req(
                 format!("vidformer-igni v{}\n", env!("CARGO_PKG_VERSION")),
             )))
             ?),
+        (hyper::Method::GET, "/hls.js") => {
+            Ok(hyper::Response::builder()
+            .header("Access-Control-Allow-Origin", "*")
+            .header("Content-Type", "text/javascript")
+            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                include_str!("server/hls.js"),
+            )))
+            .unwrap())
+        }
         (hyper::Method::GET, _) // playlist.m3u8
             if {
                 Regex::new(r"^/vod/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/playlist.m3u8$").unwrap().is_match(req.uri().path())

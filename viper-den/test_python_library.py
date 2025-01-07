@@ -24,7 +24,7 @@ def test_create_spec():
     server = igni.IgniServer(ENDPOINT)
     segment_legnth = Fraction(2, 1)
     spec_id = server.create_spec(1920, 1080, "yuv420p", segment_legnth)
-    assert isinstance(spec_id, str)
+    assert isinstance(spec_id, igni.IgniSpec)
 
 
 def test_push_spec_part():

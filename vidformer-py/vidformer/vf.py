@@ -52,6 +52,42 @@ def _check_hls_link_exists(url, max_attempts=150, delay=0.1):
     return None
 
 
+def _play(namespace, hls_video_url, hls_js_url, method="html"):
+    if method == "html":
+        from IPython.display import HTML
+
+        # We add a namespace to the video element to avoid conflicts with other videos
+        html_code = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HLS Video Player</title>
+    <!-- Include hls.js library -->
+    <script src="{hls_js_url}"></script>
+</head>
+<body>
+    <!-- Video element -->
+    <video id="video-{namespace}" controls width="640" height="360" autoplay></video>
+    <script>
+        var video = document.getElementById('video-{namespace}');
+        var videoSrc = '{hls_video_url}';
+        var hls = new Hls();
+        hls.loadSource(videoSrc);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, function() {{
+            video.play();
+        }});
+    </script>
+</body>
+</html>
+"""
+        return HTML(data=html_code)
+    elif method == "link":
+        return url
+    else:
+        raise ValueError("Invalid method")
+
+
 class Spec:
     """
     A video transformation specification.

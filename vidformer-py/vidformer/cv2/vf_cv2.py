@@ -11,6 +11,7 @@ vidformer.cv2 is the cv2 frontend for [vidformer](https://github.com/ixlab/vidfo
 """
 
 from .. import vf
+from .. import igni
 
 try:
     import cv2 as _opencv2
@@ -81,7 +82,7 @@ def _server():
 def set_cv2_server(server):
     """Set the server to use for the cv2 frontend."""
     global _global_cv2_server
-    assert isinstance(server, vf.YrdenServer)
+    assert isinstance(server, vf.YrdenServer) or isinstance(server, igni.IgniServer)
     _global_cv2_server = server
 
 
@@ -228,9 +229,15 @@ def _inline_frame(arr):
 
 class VideoCapture:
     def __init__(self, path):
-        self._path = path
         server = _server()
-        self._source = vf.Source(server, str(uuid.uuid4()), path, 0)
+        if type(path) == str:
+            assert isinstance(server, vf.YrdenServer)
+            self._path = path
+            self._source = vf.Source(server, str(uuid.uuid4()), path, 0)
+        elif isinstance(path, igni.IgniSource):
+            assert isinstance(server, igni.IgniServer)
+            self._path = path._name
+            self._source = path
         self._next_frame_idx = 0
 
     def isOpened(self):
@@ -272,6 +279,56 @@ class VideoCapture:
 
     def release(self):
         pass
+
+
+class LiveVideoWriter:
+    def __init__(self, spec, fps, batch_size=4096):
+        server = _server()
+        assert isinstance(server, igni.IgniServer)
+        self._spec = spec
+        if isinstance(fps, int):
+            self._f_time = Fraction(1, fps)
+        elif ininstance(fps, Fraction):
+            self._f_time = 1 / fps
+        else:
+            raise Exception("fps must be an integer or a Fraction")
+        self._batch_size = batch_size
+        self._idx = 0
+        self._part_pos = 0
+        self._frame_buffer = []
+
+    def _flush(self, terminal=False):
+        server = _server()
+        server.push_spec_part(
+            self._spec, self._part_pos, self._frame_buffer, terminal=terminal
+        )
+        self._part_pos += 1
+        self._frame_buffer = []
+
+    def _explicit_terminate(self):
+        server = _server()
+        server.push_spec_part(self._spec._id, self._part_pos, [], terminal=True)
+        self._part_pos += 1
+
+    def write(self, frame):
+        frame = frameify(frame, "frame")
+        assert frame._fmt["width"] == self._spec._fmt["width"]
+        assert frame._fmt["height"] == self._spec._fmt["height"]
+        if frame._fmt["pix_fmt"] != self._spec._fmt["pix_fmt"]:
+            f_obj = _filter_scale(frame._f, pix_fmt=self._spec._fmt["pix_fmt"])
+            frame = Frame(f_obj, self._spec._fmt)
+        t = self._f_time * self._idx
+        self._frame_buffer.append((t, frame._f))
+        self._idx += 1
+
+        if len(self._frame_buffer) >= self._batch_size:
+            self._flush()
+
+    def release(self):
+        if len(self._frame_buffer) > 0:
+            self._flush(True)
+        else:
+            self._explicit_terminate()
 
 
 class VideoWriter:
