@@ -231,7 +231,7 @@ pub(crate) async fn get_segment(
     };
 
     // Get the frames from spec_t that are in the segment (pos between first_t and last_t)
-    let rows: Vec<(i64, i64, serde_json::Value)> = sqlx::query_as(
+    let rows: Vec<(i64, i64, String)> = sqlx::query_as(
         "SELECT t_numer, t_denom, frame FROM spec_t WHERE spec_id = $1 AND pos BETWEEN $2 AND $3",
     )
     .bind(spec_id)
@@ -251,7 +251,7 @@ pub(crate) async fn get_segment(
     // Map json values to FrameExpr
     let frames: Vec<vidformer::sir::FrameExpr> = rows
         .iter()
-        .map(|(_, _, frame)| serde_json::from_value(frame.clone()).unwrap())
+        .map(|(_, _, frame)| serde_json::from_str(frame).unwrap())
         .collect();
 
     struct IgniSpec {

@@ -342,13 +342,13 @@ pub(crate) async fn push_part(
     let mut in_part_poss = Vec::with_capacity(req.frames.len());
     let mut t_numers = Vec::with_capacity(req.frames.len());
     let mut t_denoms = Vec::with_capacity(req.frames.len());
-    let mut frames: Vec<Option<serde_json::Value>> = Vec::with_capacity(req.frames.len());
+    let mut frames: Vec<Option<String>> = Vec::with_capacity(req.frames.len());
     for (idx, ((numer, denom), frame)) in req.frames.iter().enumerate() {
         in_part_poss.push(idx as i32);
         t_numers.push(numer);
         t_denoms.push(denom);
         if let Some(expr) = frame {
-            frames.push(Some(serde_json::to_value(expr).unwrap()));
+            frames.push(Some(serde_json::to_string(expr).unwrap()));
         } else {
             frames.push(None);
         }
@@ -446,7 +446,7 @@ pub(crate) async fn push_part(
         .execute(&mut *transaction)
         .await?;
 
-    sqlx::query("INSERT INTO spec_part_staged_t (spec_id, pos, in_part_pos, t_numer, t_denom, frame) VALUES (unnest($1::uuid[]), unnest($2::int[]), unnest($3::int[]), unnest($4::bigint[]), unnest($5::bigint[]), unnest($6::jsonb[]))")
+        sqlx::query("INSERT INTO spec_part_staged_t (spec_id, pos, in_part_pos, t_numer, t_denom, frame) VALUES (unnest($1::uuid[]), unnest($2::int[]), unnest($3::int[]), unnest($4::bigint[]), unnest($5::bigint[]), unnest($6::text[]))")
         .bind(&spec_ids)
         .bind(&pos)
         .bind(&in_part_poss)

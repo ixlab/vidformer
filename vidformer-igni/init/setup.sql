@@ -60,7 +60,7 @@ CREATE TABLE spec_t (
     pos INT NOT NULL,
     t_numer BIGINT NOT NULL,
     t_denom BIGINT NOT NULL,
-    frame JSONB,
+    frame TEXT,
     PRIMARY KEY (spec_id, pos)
 );
 
@@ -100,7 +100,7 @@ CREATE TABLE spec_part_staged_t (
     in_part_pos INT NOT NULL,
     t_numer BIGINT,
     t_denom BIGINT,
-    frame JSONB,
+    frame TEXT,
     PRIMARY KEY (spec_id, pos, in_part_pos),
     FOREIGN KEY (spec_id, pos) REFERENCES spec_part_staged(spec_id, pos)
 );
