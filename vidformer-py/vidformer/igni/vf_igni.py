@@ -6,6 +6,10 @@ from fractions import Fraction
 
 class IgniServer:
     def __init__(self, endpoint: str):
+        if not endpoint.startswith("http://") and not endpoint.startswith("https://"):
+            raise Exception("Endpoint must start with http:// or https://")
+        if endpoint.endswith("/"):
+            raise Exception("Endpoint must not end with /")
         self._endpoint = endpoint
 
         version = vf._check_hls_link_exists(f"{self._endpoint}/")

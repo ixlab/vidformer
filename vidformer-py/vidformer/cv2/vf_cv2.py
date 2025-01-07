@@ -281,9 +281,30 @@ class VideoCapture:
         pass
 
 
-class LiveVideoWriter:
-    def __init__(self, spec, fps, batch_size=4096):
+class VideoWriter:
+    def __init__(self, *args, **kwargs):
         server = _server()
+        if isinstance(server, vf.YrdenServer):
+            self._writer = _YrdenVideoWriter(*args, **kwargs)
+        elif isinstance(server, igni.IgniServer):
+            self._writer = _IgniVideoWriter(*args, **kwargs)
+        else:
+            raise Exception("Unsupported server type")
+
+    def write(self, *args, **kwargs):
+        return self._writer.write(*args, **kwargs)
+
+    def release(self, *args, **kwargs):
+        return self._writer.release(*args, **kwargs)
+
+    def spec(self, *args, **kwargs):
+        return self._writer.spec(*args, **kwargs)
+
+
+class _IgniVideoWriter:
+    def __init__(self, spec, _fourcc, fps, size, batch_size=4096):
+        server = _server()
+        assert isinstance(spec, igni.IgniSpec)
         assert isinstance(server, igni.IgniServer)
         self._spec = spec
         if isinstance(fps, int):
@@ -292,6 +313,12 @@ class LiveVideoWriter:
             self._f_time = 1 / fps
         else:
             raise Exception("fps must be an integer or a Fraction")
+
+        assert isinstance(size, tuple) or isinstance(size, list)
+        assert len(size) == 2
+        assert size[0] == spec._fmt["width"]
+        assert size[1] == spec._fmt["height"]
+
         self._batch_size = batch_size
         self._idx = 0
         self._part_pos = 0
@@ -331,7 +358,7 @@ class LiveVideoWriter:
             self._explicit_terminate()
 
 
-class VideoWriter:
+class _YrdenVideoWriter:
     def __init__(self, path, fourcc, fps, size):
         assert isinstance(fourcc, VideoWriter_fourcc)
         if path is not None and not isinstance(path, str):
