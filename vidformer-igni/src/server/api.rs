@@ -519,6 +519,7 @@ pub(crate) async fn push_part(
                         (spec_t.t_numer * $2) / $1 / spec_t.t_denom AS expected_segment_idx
                     FROM
                         spec_t
+                    WHERE spec_id = $3
                 ),
                 expected_segments AS (
                     SELECT
@@ -528,6 +529,7 @@ pub(crate) async fn push_part(
                         MAX(pos) AS last_t
                     FROM
                         expected_t_segments
+                    WHERE spec_id = $3
                     GROUP BY
                         spec_id, expected_segment_idx
                 ),
@@ -537,6 +539,7 @@ pub(crate) async fn push_part(
                         COALESCE(MAX(segment_number), -1) AS max_segment
                     FROM
                         vod_segment
+                    WHERE spec_id = $3
                     GROUP BY
                         spec_id
                 )
@@ -552,9 +555,10 @@ pub(crate) async fn push_part(
                 ON
                     es.spec_id = mvs.spec_id
                 WHERE
-                    es.segment_idx > COALESCE(mvs.max_segment, -1)")
+                    es.segment_idx > COALESCE(mvs.max_segment, -1) AND es.spec_id = $3")
                         .bind(vod_segment_length_num)
                         .bind(vod_segment_length_denom)
+                        .bind(spec_id)
                                 .execute(&mut *transaction)
                                 .await?;
         } else {
@@ -565,6 +569,7 @@ pub(crate) async fn push_part(
                         (spec_t.t_numer * $2) / $1 / spec_t.t_denom AS expected_segment_idx
                     FROM
                         spec_t
+                    WHERE spec_id = $3
                 ),
                 expected_segments AS (
                     SELECT
@@ -574,6 +579,7 @@ pub(crate) async fn push_part(
                         MAX(pos) AS last_t
                     FROM
                         expected_t_segments
+                    WHERE spec_id = $3
                     GROUP BY
                         spec_id, expected_segment_idx
                 ),
@@ -583,6 +589,7 @@ pub(crate) async fn push_part(
                         MAX(segment_idx) AS max_segment
                     FROM
                         expected_segments
+                    WHERE spec_id = $3
                     GROUP BY
                         spec_id
                 ),
@@ -592,6 +599,7 @@ pub(crate) async fn push_part(
                         COALESCE(MAX(segment_number), -1) AS max_segment
                     FROM
                         vod_segment
+                    WHERE spec_id = $3
                     GROUP BY
                         spec_id
                 )
@@ -612,9 +620,11 @@ pub(crate) async fn push_part(
                     es.spec_id = mes.spec_id
                 WHERE
                     es.segment_idx > COALESCE(mvs.max_segment, -1)
-                    AND es.segment_idx < mes.max_segment")
+                    AND es.segment_idx < mes.max_segment
+                    AND es.spec_id = $3")
                         .bind(vod_segment_length_num)
                         .bind(vod_segment_length_denom)
+                        .bind(spec_id)
                                 .execute(&mut *transaction)
                                 .await?;
         }
