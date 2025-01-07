@@ -60,6 +60,8 @@ jobs:
       run: curl -O https://f.dominik.win/data/dve2/tos_720p.mp4 && curl -O https://f.dominik.win/data/dve2/apollo.jpg
     - name: Build Debug
       run: cargo build -p vidformer-igni
+    - name: Install vidformer-py
+      run: pip3 install ./vidformer-py
     - name: Run vidformer-igni tests
       run: ./scripts/igni-test.py
       timeout-minutes: 15
