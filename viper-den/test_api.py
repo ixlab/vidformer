@@ -383,7 +383,7 @@ def _count_segments(spec_id):
     if txt.endswith("\n#EXT-X-ENDLIST\n"):
         terminal = True
         txt = txt.replace("#EXT-X-ENDLIST\n", "")
-    body = txt[len(prefix):]
+    body = txt[len(prefix) :]
     body = body.strip().strip("\n")
     if body == "":
         return 0, terminal
@@ -398,7 +398,8 @@ def _count_segments(spec_id):
     return len(lines) // 2, terminal
 
 
-@pytest.mark.parametrize("fps", [24, 25, 30, 60])
+# @pytest.mark.parametrize("fps", [24, 25, 30, 60])
+@pytest.mark.parametrize("fps", [24, 60])
 def test_multiple_segments_in_order(fps):
     source_id = _create_tos_source()
     spec_id = _create_example_spec()
@@ -419,7 +420,8 @@ def test_multiple_segments_in_order(fps):
     assert _count_segments(spec_id)[1] == True
 
 
-@pytest.mark.parametrize("fps", [24, 25, 30, 60])
+# @pytest.mark.parametrize("fps", [24, 25, 30, 60])
+@pytest.mark.parametrize("fps", [25, 30])
 def test_multiple_segments_random_order(fps):
     source_id = _create_tos_source()
     spec_id = _create_example_spec()

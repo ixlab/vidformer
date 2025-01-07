@@ -18,8 +18,6 @@ RUN sed -i -e's/ main/ main contrib non-free/g' /etc/apt/sources.list.d/debian.s
   libxcb1-dev \
   libxcb-shm0-dev \
   libxcb-xfixes0-dev \
-  meson \
-  ninja-build \
   pkg-config \
   texinfo \
   wget \

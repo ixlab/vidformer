@@ -367,7 +367,7 @@ pub(crate) async fn push_part(
         return Ok(hyper::Response::builder()
             .status(hyper::StatusCode::NOT_FOUND)
             .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                "Not found",
+                "Spec not found",
             )))?);
     }
     let row = row.unwrap();

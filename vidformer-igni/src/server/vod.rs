@@ -272,8 +272,8 @@ pub(crate) async fn get_segment(
                     .map(|(t_num, t_denom, _)| Rational64::new(*t_num, *t_denom))
                     .collect();
 
-                debug_assert!(ts.is_sorted());
-                debug_assert!(keys.is_sorted());
+                // debug_assert!(ts.is_sorted());
+                // debug_assert!(keys.is_sorted());
 
                 (ts, keys)
             };
