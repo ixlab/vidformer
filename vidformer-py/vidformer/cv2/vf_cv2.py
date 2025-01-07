@@ -211,9 +211,12 @@ class Frame:
 
 
 def _inline_frame(arr):
-    assert arr.dtype == np.uint8
-    assert arr.ndim == 3
-    assert arr.shape[2] == 3
+    if arr.dtype != np.uint8:
+        raise Exception("Only uint8 arrays are supported")
+    if len(arr.shape) != 3:
+        raise Exception("Only 3D arrays are supported")
+    if arr.shape[2] != 3:
+        raise Exception("To inline a frame, the array must have 3 channels")
 
     # convert BGR to RGB
     arr = arr[:, :, ::-1]
@@ -302,7 +305,7 @@ class VideoWriter:
 
 
 class _IgniVideoWriter:
-    def __init__(self, spec, _fourcc, fps, size, batch_size=4096):
+    def __init__(self, spec, _fourcc, fps, size, batch_size=128):
         server = _server()
         assert isinstance(spec, igni.IgniSpec)
         assert isinstance(server, igni.IgniServer)
@@ -484,6 +487,8 @@ def vidplay(video, *args, **kwargs):
         return video.play(_server(), *args, **kwargs)
     elif isinstance(video, VideoWriter):
         return video.spec().play(_server(), *args, **kwargs)
+    elif isinstance(video, igni.IgniSpec):
+        return video.play(*args, **kwargs)
     else:
         raise Exception("Unsupported video type to vidplay")
 

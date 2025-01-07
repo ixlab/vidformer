@@ -83,7 +83,7 @@ def _play(namespace, hls_video_url, hls_js_url, method="html"):
 """
         return HTML(data=html_code)
     elif method == "link":
-        return url
+        return hls_video_url
     else:
         raise ValueError("Invalid method")
 
