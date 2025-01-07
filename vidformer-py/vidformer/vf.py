@@ -52,12 +52,14 @@ def _check_hls_link_exists(url, max_attempts=150, delay=0.1):
     return None
 
 
-def _play(namespace, hls_video_url, hls_js_url, method="html"):
+def _play(namespace, hls_video_url, hls_js_url, method="html", status_url=None):
+    # The namespace is so multiple videos in one tab don't conflict
+
     if method == "html":
         from IPython.display import HTML
 
-        # We add a namespace to the video element to avoid conflicts with other videos
-        html_code = f"""
+        if not status_url:
+            html_code = f"""
 <!DOCTYPE html>
 <html>
 <head>
@@ -66,17 +68,107 @@ def _play(namespace, hls_video_url, hls_js_url, method="html"):
     <script src="{hls_js_url}"></script>
 </head>
 <body>
-    <!-- Video element -->
     <video id="video-{namespace}" controls width="640" height="360" autoplay></video>
     <script>
         var video = document.getElementById('video-{namespace}');
         var videoSrc = '{hls_video_url}';
-        var hls = new Hls();
-        hls.loadSource(videoSrc);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, function() {{
-            video.play();
-        }});
+
+        if (Hls.isSupported()) {{
+            var hls = new Hls();
+            hls.loadSource(videoSrc);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {{
+                video.play();
+            }});
+        }} else if (video.canPlayType('application/vnd.apple.mpegurl')) {{
+            video.src = videoSrc;
+            video.addEventListener('loadedmetadata', function() {{
+                video.play();
+            }});
+        }} else {{
+            console.error('This browser does not appear to support HLS.');
+        }}
+    </script>
+</body>
+</html>
+"""
+            return HTML(data=html_code)
+        else:
+            html_code = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HLS Video Player</title>
+    <script src="{hls_js_url}"></script>
+</head>
+<body>
+    <div id="container"></div>
+    <script>
+        var statusUrl = '{status_url}';
+        var videoSrc = '{hls_video_url}';
+        var videoNamespace = '{namespace}';
+
+        function showWaiting() {{
+            document.getElementById('container').textContent = 'Waiting...';
+            pollStatus();
+        }}
+
+        function pollStatus() {{
+            setTimeout(function() {{
+                fetch(statusUrl)
+                    .then(r => r.json())
+                    .then(res => {{
+                        if (res.ready) {{
+                            document.getElementById('container').textContent = '';
+                            attachHls();
+                        }} else {{
+                            pollStatus();
+                        }}
+                    }})
+                    .catch(e => {{
+                        console.error(e);
+                        pollStatus();
+                    }});
+            }}, 250);
+        }}
+
+        function attachHls() {{
+            var container = document.getElementById('container');
+            container.textContent = '';
+            var video = document.createElement('video');
+            video.id = 'video-' + videoNamespace;
+            video.controls = true;
+            video.width = 640;
+            video.height = 360;
+            container.appendChild(video);
+            if (Hls.isSupported()) {{
+                var hls = new Hls();
+                hls.loadSource(videoSrc);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {{
+                    video.play();
+                }});
+            }} else if (video.canPlayType('application/vnd.apple.mpegurl')) {{
+                video.src = videoSrc;
+                video.addEventListener('loadedmetadata', function() {{
+                    video.play();
+                }});
+            }}
+        }}
+
+        fetch(statusUrl)
+            .then(r => r.json())
+            .then(res => {{
+                if (res.ready) {{
+                    attachHls();
+                }} else {{
+                    showWaiting();
+                }}
+            }})
+            .catch(e => {{
+                console.error(e);
+                showWaiting();
+            }});
     </script>
 </body>
 </html>

@@ -122,6 +122,18 @@ async fn igni_http_req(
             let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
             vod::get_stream(req, global, spec_id).await
         }
+        (hyper::Method::GET, _) // status
+            if {
+                Regex::new(r"^/vod/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/status$").unwrap().is_match(req.uri().path())
+            } =>
+        {
+            let r = Regex::new(
+                r"^/vod/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/status$",
+            );
+            let uri = req.uri().path().to_string();
+            let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            vod::get_status(req, global, spec_id).await
+        }
         (hyper::Method::GET, _) // segment-$n.ts
             if {
                 Regex::new(r"^/vod/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/segment-[0-9]+.ts$").unwrap().is_match(req.uri().path())

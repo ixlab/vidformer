@@ -53,6 +53,7 @@ class IgniServer:
         if not response.ok:
             raise Exception(response.text)
         response = response.json()
+        response["hls_js_url"] = f"{self._endpoint}/hls.js"
         return IgniSpec(response["id"], response)
 
     def create_spec(
@@ -154,8 +155,12 @@ class IgniSpec:
             "pix_fmt": src["pix_fmt"],
         }
         self._playlist = src["playlist"]
+        self._hls_js_url = src["hls_js_url"]  # We keep this here for convenience
 
     def play(self, *args, **kwargs):
         url = self._playlist
-        hls_js_url = "http://localhost:8080/hls.js"  # TODO: Fix this
-        return vf._play(self._id, url, hls_js_url, *args, **kwargs)
+        status_url = url.replace("playlist.m3u8", "status")
+        hls_js_url = self._hls_js_url
+        return vf._play(
+            self._id, url, hls_js_url, *args, **kwargs, status_url=status_url
+        )

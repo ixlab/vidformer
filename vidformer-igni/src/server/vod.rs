@@ -125,6 +125,51 @@ pub(crate) async fn get_stream(
         )))?)
 }
 
+pub(crate) async fn get_status(
+    _req: hyper::Request<impl hyper::body::Body>,
+    global: std::sync::Arc<IgniServerGlobal>,
+    spec_id: &str,
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
+    let spec_id = Uuid::parse_str(spec_id).unwrap();
+
+    #[derive(serde::Serialize)]
+    struct Response {
+        closed: bool,
+        terminated: bool,
+        ready: bool,
+    }
+
+    let mut transaction = global.pool.begin().await?;
+    let row: Option<(bool, bool, bool)> = sqlx::query_as("SELECT closed, terminated, EXISTS (SELECT 1 FROM vod_segment WHERE spec_id = $1) ready FROM spec WHERE id = $1")
+        .bind(spec_id)
+        .fetch_optional(&mut *transaction)
+        .await?;
+
+    match row {
+        None => {
+            transaction.commit().await?;
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::NOT_FOUND)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    "Not found",
+                )))?);
+        }
+        Some((closed, terminated, ready)) => {
+            transaction.commit().await?;
+            let response = Response {
+                closed,
+                terminated,
+                ready,
+            };
+            let body = serde_json::to_string(&response).unwrap();
+            Ok(hyper::Response::builder()
+                .header("Access-Control-Allow-Origin", "*")
+                .header("Content-Type", "application/json")
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(body)))?)
+        }
+    }
+}
+
 pub(crate) async fn get_segment(
     _req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
