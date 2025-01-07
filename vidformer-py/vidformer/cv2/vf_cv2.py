@@ -78,7 +78,7 @@ def _server():
     return _global_cv2_server
 
 
-def set_cv2_server(server: vf.YrdenServer):
+def set_cv2_server(server):
     """Set the server to use for the cv2 frontend."""
     global _global_cv2_server
     assert isinstance(server, vf.YrdenServer)
