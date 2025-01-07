@@ -1,17 +1,18 @@
 import vidformer as vf
+import vidformer.igni as igni
 from fractions import Fraction
 
 ENDPOINT = "http://localhost:8080/"
 
 
 def test_connect():
-    server = vf.IgniServer(ENDPOINT)
+    server = igni.IgniServer(ENDPOINT)
 
 
 def test_source():
-    server = vf.IgniServer(ENDPOINT)
+    server = igni.IgniServer(ENDPOINT)
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
-    assert isinstance(tos, vf.IgniSource)
+    assert isinstance(tos, igni.IgniSource)
 
     assert len(tos) == 17616
     assert len(tos.ts()) == 17616
@@ -20,14 +21,14 @@ def test_source():
 
 
 def test_create_spec():
-    server = vf.IgniServer(ENDPOINT)
+    server = igni.IgniServer(ENDPOINT)
     segment_legnth = Fraction(2, 1)
     spec_id = server.create_spec(1920, 1080, "yuv420p", segment_legnth)
     assert isinstance(spec_id, str)
 
 
 def test_push_spec_part():
-    server = vf.IgniServer(ENDPOINT)
+    server = igni.IgniServer(ENDPOINT)
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
     spec_id = server.create_spec(1920, 1080, "yuv420p", Fraction(2, 1))
 
@@ -41,7 +42,7 @@ def test_push_spec_part():
 
 
 def test_push_spec_part_multiple():
-    server = vf.IgniServer(ENDPOINT)
+    server = igni.IgniServer(ENDPOINT)
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
     spec_id = server.create_spec(1920, 1080, "yuv420p", Fraction(2, 1))
 
