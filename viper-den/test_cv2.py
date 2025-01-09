@@ -35,7 +35,7 @@ def test_write_video():
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    spec = server.create_spec(width, height, "yuv420p", Fraction(2, 1))
+    spec = server.create_spec(width, height, "yuv420p", Fraction(2, 1), Fraction(30, 1))
     video_url = cv2.vidplay(spec, method="link")
     assert type(video_url) == str
 
@@ -68,7 +68,7 @@ def test_write_video_with_text():
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    spec = server.create_spec(width, height, "yuv420p", Fraction(2, 1))
+    spec = server.create_spec(width, height, "yuv420p", Fraction(2, 1), Fraction(30, 1))
     out = cv2.VideoWriter(
         spec, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height), batch_size=101
     )

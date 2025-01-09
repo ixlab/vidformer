@@ -119,8 +119,8 @@ pub(crate) async fn profile_and_add_source(
 
 pub(crate) async fn add_spec(
     pool: &sqlx::Pool<sqlx::Postgres>,
-    num: i32,
-    denom: i32,
+    segment_length: (i32, i32),
+    frame_rate: (i32, i32),
     height: i32,
     width: i32,
     pix_fmt: String,
@@ -129,13 +129,17 @@ pub(crate) async fn add_spec(
 ) -> Result<uuid::Uuid, IgniError> {
     let spec_id = uuid::Uuid::new_v4();
 
-    sqlx::query("INSERT INTO spec (id, width, height, pix_fmt, vod_segment_length_num, vod_segment_length_denom, ready_hook, steer_hook, applied_parts, terminated, closed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, false, false)")
+    sqlx::query("INSERT INTO spec (id, width, height, pix_fmt, vod_segment_length_num, vod_segment_length_denom, frame_rate_num, frame_rate_denom, pos_discontinuity, closed, ready_hook, steer_hook) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)")
         .bind(spec_id)
         .bind(width)
         .bind(height)
         .bind(pix_fmt)
-        .bind(num)
-        .bind(denom)
+        .bind(segment_length.0)
+        .bind(segment_length.1)
+        .bind(frame_rate.0)
+        .bind(frame_rate.1)
+        .bind(0)
+        .bind(false)
         .bind(ready_hook)
         .bind(steer_hook)
         .execute(pool)

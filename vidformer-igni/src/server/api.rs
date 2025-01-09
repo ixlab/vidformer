@@ -1,4 +1,5 @@
 use super::super::IgniError;
+use crate::schema;
 use http_body_util::BodyExt;
 use log::*;
 use uuid::Uuid;
@@ -89,7 +90,7 @@ pub(crate) async fn push_source(
             return Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::BAD_REQUEST)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                    "Bad request",
+                    "Error reading request body",
                 )))?);
         }
         Ok(req) => req.to_bytes().to_vec(),
@@ -161,16 +162,12 @@ pub(crate) async fn get_spec(
 ) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let source_id = Uuid::parse_str(source_id).unwrap();
 
-    let mut transaction = global.pool.begin().await?;
-    let row: Option<(i32, i32, String, i32, i32, Option<String>, Option<String>, i32, bool, bool)> =
-        sqlx::query_as("SELECT width, height, pix_fmt, vod_segment_length_num, vod_segment_length_denom, ready_hook, steer_hook, applied_parts, terminated, closed FROM spec WHERE id = $1")
-            .bind(source_id)
-            .fetch_optional(&mut *transaction)
-            .await
-            ?;
+    let row: Option<schema::SpecRow> = sqlx::query_as("SELECT * FROM spec WHERE id = $1")
+        .bind(source_id)
+        .fetch_optional(&global.pool)
+        .await?;
 
     if row.is_none() {
-        transaction.commit().await?;
         return Ok(hyper::Response::builder()
             .status(hyper::StatusCode::NOT_FOUND)
             .body(http_body_util::Full::new(hyper::body::Bytes::from(
@@ -179,32 +176,19 @@ pub(crate) async fn get_spec(
     }
 
     let row = row.unwrap();
-    let width = row.0;
-    let height = row.1;
-    let pix_fmt = row.2;
-    let vod_segment_length_num = row.3;
-    let vod_segment_length_denom = row.4;
-    let ready_hook = row.5;
-    let steer_hook = row.6;
-    let applied_parts = row.7;
-    let terminated = row.8;
-    let closed = row.9;
-
     let res = serde_json::json!({
         "id": source_id,
-        "width": width,
-        "height": height,
-        "pix_fmt": pix_fmt,
-        "vod_segment_length": [vod_segment_length_num, vod_segment_length_denom],
-        "ready_hook": ready_hook,
-        "steer_hook": steer_hook,
-        "applied_parts": applied_parts,
-        "terminated": terminated,
-        "closed": closed,
-        "playlist": format!("http://localhost:8080/vod/{}/playlist.m3u8", source_id),
+        "width": row.width,
+        "height": row.height,
+        "pix_fmt": row.pix_fmt,
+        "vod_segment_length": [row.vod_segment_length_num, row.vod_segment_length_denom],
+        "ready_hook": row.ready_hook,
+        "steer_hook": row.steer_hook,
+        "terminated": if let Some(pos_terminal) = row.pos_terminal { pos_terminal == row.pos_discontinuity - 1 } else { false },
+        "frames_applied": row.pos_discontinuity,
+        "closed": row.closed,
+        "vod_endpoint": format!("http://localhost:8080/vod/{}/", source_id), // TODO: This should be configurable
     });
-
-    transaction.commit().await?;
 
     Ok(hyper::Response::builder()
         .header("Content-Type", "application/json")
@@ -235,6 +219,7 @@ pub(crate) async fn push_spec(
         height: i32,
         pix_fmt: String,
         vod_segment_length: [i32; 2],
+        frame_rate: [i32; 2],
         ready_hook: Option<String>,
         steer_hook: Option<String>,
     }
@@ -251,13 +236,10 @@ pub(crate) async fn push_spec(
         Ok(req) => req,
     };
 
-    let vod_segment_length_num = req.vod_segment_length[0];
-    let vod_segment_length_denom = req.vod_segment_length[1];
-
     let spec = crate::ops::add_spec(
         &global.pool,
-        vod_segment_length_num,
-        vod_segment_length_denom,
+        (req.vod_segment_length[0], req.vod_segment_length[1]),
+        (req.frame_rate[0], req.frame_rate[1]),
         req.height,
         req.width,
         req.pix_fmt,
@@ -311,7 +293,7 @@ pub(crate) async fn push_part(
 
     #[derive(serde::Deserialize, serde::Serialize)]
     struct RequestContent {
-        pos: usize,
+        pos: i32,
         terminal: bool,
         frames: Vec<((i64, i64), Option<vidformer::sir::FrameExpr>)>,
     }
@@ -336,33 +318,32 @@ pub(crate) async fn push_part(
             )))?);
     }
 
-    // stage frames
-    let spec_ids = vec![spec_id; req.frames.len()];
-    let pos = vec![req.pos as i32; req.frames.len()];
-    let mut in_part_poss = Vec::with_capacity(req.frames.len());
-    let mut t_numers = Vec::with_capacity(req.frames.len());
-    let mut t_denoms = Vec::with_capacity(req.frames.len());
-    let mut frames: Vec<Option<String>> = Vec::with_capacity(req.frames.len());
-    for (idx, ((numer, denom), frame)) in req.frames.iter().enumerate() {
-        in_part_poss.push(idx as i32);
-        t_numers.push(numer);
-        t_denoms.push(denom);
+    let pos = req.pos as i32;
+    let n_frames = req.frames.len();
+
+    // stage inserted rows before beginning transaction
+    let insert_spec_ids = vec![spec_id; req.frames.len()];
+    let mut insert_pos: Vec<i32> = Vec::with_capacity(req.frames.len());
+    let mut insert_frames: Vec<Option<String>> = Vec::with_capacity(req.frames.len());
+    for (frame_idx, ((_numer, _denom), frame)) in req.frames.iter().enumerate() {
+        // TODO: Check numer and denom are correct?
+
+        insert_pos.push(pos + frame_idx as i32);
         if let Some(expr) = frame {
-            frames.push(Some(serde_json::to_string(expr).unwrap()));
+            insert_frames.push(Some(serde_json::to_string(expr).unwrap()));
         } else {
-            frames.push(None);
+            insert_frames.push(None);
         }
     }
 
     let mut transaction = global.pool.begin().await?;
-    let row: Option<(Uuid, bool, i32, i32, i32)> =
-        sqlx::query_as("SELECT id, terminated OR closed, applied_parts, vod_segment_length_num, vod_segment_length_denom FROM spec WHERE id = $1")
-            .bind(spec_id)
-            .fetch_optional(&mut *transaction)
-            .await
-            ?;
 
-    if row.is_none() {
+    let spec: Option<schema::SpecRow> = sqlx::query_as("SELECT * FROM spec WHERE id = $1")
+        .bind(spec_id)
+        .fetch_optional(&mut *transaction)
+        .await?;
+
+    if spec.is_none() {
         transaction.commit().await?;
         return Ok(hyper::Response::builder()
             .status(hyper::StatusCode::NOT_FOUND)
@@ -370,264 +351,129 @@ pub(crate) async fn push_part(
                 "Spec not found",
             )))?);
     }
-    let row = row.unwrap();
+    let spec = spec.unwrap();
 
-    if row.1 {
+    // Check if the spec is closed
+    if spec.closed {
         transaction.commit().await?;
         return Ok(hyper::Response::builder()
             .status(hyper::StatusCode::BAD_REQUEST)
             .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                "Forbidden to push to a terminated or closed spec",
+                "Can not push to a closed spec",
             )))?);
     }
-    let applied_parts = row.2;
-    let vod_segment_length_num = row.3;
-    let vod_segment_length_denom = row.4;
 
-    // check if the part is already in the database
-    if req.pos < applied_parts as usize {
+    // Check we are not pushing a terminal onto an already terminal spec
+    if req.terminal && spec.pos_terminal.is_some() {
         transaction.commit().await?;
         return Ok(hyper::Response::builder()
             .status(hyper::StatusCode::BAD_REQUEST)
             .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                "Part already exists",
+                "Can not push a terminal part onto a terminal spec",
             )))?);
     }
 
-    let row: Option<i32> =
-        sqlx::query_scalar("SELECT pos FROM spec_part_staged WHERE spec_id = $1 AND pos = $2")
-            .bind(spec_id)
-            .bind(req.pos as i32)
-            .fetch_optional(&mut *transaction)
-            .await?;
-
-    if row.is_some() {
-        transaction.commit().await?;
-        return Ok(hyper::Response::builder()
-            .status(hyper::StatusCode::BAD_REQUEST)
-            .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                "Part already exists",
-            )))?);
-    }
-
-    // check if there is a terminal part before this part, if so, reject
-    let row: Option<i32> =
-        sqlx::query_scalar("SELECT MIN(pos) FROM spec_part_staged WHERE spec_id = $1 AND terminal")
-            .bind(spec_id)
-            .bind(req.pos as i32)
-            .fetch_one(&mut *transaction)
-            .await?;
-
-    if let Some(min_terminal_pos) = row {
-        if req.terminal {
+    // Check if we are pushing past the terminal
+    if let Some(pos_terminal) = spec.pos_terminal {
+        if pos >= pos_terminal {
             transaction.commit().await?;
             return Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::BAD_REQUEST)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                    "Cannot push a second terminal part",
-                )))?);
-        }
-
-        if min_terminal_pos < req.pos as i32 {
-            transaction.commit().await?;
-            return Ok(hyper::Response::builder()
-                .status(hyper::StatusCode::BAD_REQUEST)
-                .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                    "Cannot push a part after a terminal part",
+                    "Can not push past the terminal frame",
                 )))?);
         }
     }
 
-    // insert the part into spec_part_staged
-    sqlx::query("INSERT INTO spec_part_staged (spec_id, pos, terminal) VALUES ($1, $2, $3)")
+    if req.terminal {
+        // If the part is terminal, make sure there are no existing values in spec_t with pos >= req.pos
+        let existing: Option<(i32,)> =
+            sqlx::query_as("SELECT pos FROM spec_t WHERE spec_id = $1 AND pos >= $2 LIMIT 1")
+                .bind(spec_id)
+                .bind(pos)
+                .fetch_optional(&mut *transaction)
+                .await?;
+        if let Some((pos,)) = existing {
+            transaction.commit().await?;
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::BAD_REQUEST)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    format!("Can not push to an existing position (position {})", pos),
+                )))?);
+        }
+    } else {
+        // Make sure there are no existing values in spec_t with pos between pos and pos + n_frames
+        let existing: Option<(i32,)> = sqlx::query_as(
+            "SELECT pos FROM spec_t WHERE spec_id = $1 AND pos >= $2 AND pos < $3 LIMIT 1",
+        )
         .bind(spec_id)
-        .bind(req.pos as i32)
-        .bind(req.terminal)
-        .execute(&mut *transaction)
+        .bind(pos)
+        .bind(pos + n_frames as i32)
+        .fetch_optional(&mut *transaction)
+        .await?;
+        if let Some((pos,)) = existing {
+            transaction.commit().await?;
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::BAD_REQUEST)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    format!("Can not push to an existing position (position {})", pos),
+                )))?);
+        }
+    }
+
+    if !insert_spec_ids.is_empty() {
+        // Only insert if there are frames to insert
+        sqlx::query("INSERT INTO spec_t (spec_id, pos, frame) VALUES (UNNEST($1::UUID[]), UNNEST($2::INT[]), UNNEST($3::TEXT[]))")
+            .bind(&insert_spec_ids)
+            .bind(&insert_pos)
+            .bind(&insert_frames)
+            .execute(&mut *transaction)
+            .await?;
+
+        // Check if we need to update the spec's pos_discontinuity
+        // TODO: We can restrict this to only scan frames after pos_discontinuity
+        let x: (Option<i32>,) = sqlx::query_as(
+            "WITH cte AS (
+    SELECT
+        pos,
+        (row_number() OVER (ORDER BY pos) - 1)::INT4 AS rn
+    FROM spec_t
+    WHERE spec_id = $1
+)
+SELECT CASE WHEN (SELECT MIN(cte.rn) FROM cte
+WHERE cte.pos <> cte.rn) IS NULL THEN (SELECT MAX(pos) + 1 FROM cte) ELSE (SELECT MIN(cte.rn) FROM cte
+WHERE cte.pos <> cte.rn) END AS first_missing_pos
+",
+        )
+        .bind(spec_id)
+        .fetch_one(&mut *transaction)
         .await?;
 
-        sqlx::query("INSERT INTO spec_part_staged_t (spec_id, pos, in_part_pos, t_numer, t_denom, frame) VALUES (unnest($1::uuid[]), unnest($2::int[]), unnest($3::int[]), unnest($4::bigint[]), unnest($5::bigint[]), unnest($6::text[]))")
-        .bind(&spec_ids)
-        .bind(&pos)
-        .bind(&in_part_poss)
-        .bind(&t_numers)
-        .bind(&t_denoms)
-        .bind(&frames)
-        .execute(&mut *transaction)
-        .await
-        ?;
-
-    // Check if this part makes a contiguous sequence of parts that can be applied
-    let row: Option<i32> = sqlx::query_scalar("WITH ordered AS (SELECT pos, ROW_NUMBER() OVER (ORDER BY pos) AS rn FROM spec_part_staged WHERE spec_id = $1) SELECT MAX(pos) AS max_ready_pos FROM ordered WHERE (pos - rn) = ($2 - 1)")
-        .bind(spec_id)
-        .bind(applied_parts)
-        .fetch_one(&mut *transaction)
-        .await
-        ?;
-
-    if let Some(max_ready_pos) = row {
-        debug!(
-            "Applying parts [{}, {}] on spec {}",
-            applied_parts, max_ready_pos, spec_id
-        );
-
-        // Insert spec_part_staged_t values into spec_t
-        // A new global pos is assigned to each part from the part-local in_part_pos value
-        // After this operation, the spec_t pos values are contiguous
-        sqlx::query("WITH max_pos AS (SELECT COALESCE(MAX(pos), -1) AS mp FROM spec_t WHERE spec_id = $1) INSERT INTO spec_t (spec_id, pos, t_numer, t_denom, frame) SELECT spec_id, ROW_NUMBER() OVER (ORDER BY pos, in_part_pos) + max_pos.mp AS pos, t_numer, t_denom, frame FROM spec_part_staged_t, max_pos WHERE spec_id = $1 AND pos <= $2;")
-            .bind(spec_id)
-            .bind(max_ready_pos)
-            .execute(&mut *transaction)
-            .await
-            ?;
-
-        // If the last part is terminal, update the terminal field in spec
-        let terminated_state: Option<bool> = sqlx::query_scalar("UPDATE spec SET terminated = TRUE WHERE id = $1 AND (SELECT terminal FROM spec_part_staged WHERE spec_id = $1 AND pos = $2) RETURNING terminated")
-            .bind(spec_id)
-            .bind(max_ready_pos)
-            .fetch_optional(&mut *transaction)
-            .await
-            ?;
-        if let Some(terminated) = terminated_state {
-            assert!(terminated);
-        }
-
-        // Delete the parts up to and including max_ready_pos from spec_part_staged_t
-        sqlx::query("DELETE FROM spec_part_staged_t WHERE spec_id = $1 AND pos <= $2")
-            .bind(spec_id)
-            .bind(max_ready_pos)
-            .execute(&mut *transaction)
-            .await?;
-        sqlx::query("DELETE FROM spec_part_staged WHERE spec_id = $1 AND pos <= $2")
-            .bind(spec_id)
-            .bind(max_ready_pos)
-            .execute(&mut *transaction)
-            .await?;
-
-        // Update the applied_parts field in spec
-        sqlx::query("UPDATE spec SET applied_parts = $1 + 1 WHERE id = $2")
-            .bind(max_ready_pos)
-            .bind(spec_id)
-            .execute(&mut *transaction)
-            .await?;
-
-        if terminated_state.is_some() {
-            sqlx::query("INSERT INTO vod_segment (spec_id, segment_number, first_t, last_t) WITH expected_t_segments AS (
-                    SELECT
-                        spec_id,
-                        pos,
-                        (spec_t.t_numer * $2) / $1 / spec_t.t_denom AS expected_segment_idx
-                    FROM
-                        spec_t
-                    WHERE spec_id = $3
-                ),
-                expected_segments AS (
-                    SELECT
-                        spec_id,
-                        expected_segment_idx AS segment_idx,
-                        MIN(pos) AS first_t,
-                        MAX(pos) AS last_t
-                    FROM
-                        expected_t_segments
-                    WHERE spec_id = $3
-                    GROUP BY
-                        spec_id, expected_segment_idx
-                ),
-                max_vod_segments AS (
-                    SELECT
-                        spec_id,
-                        COALESCE(MAX(segment_number), -1) AS max_segment
-                    FROM
-                        vod_segment
-                    WHERE spec_id = $3
-                    GROUP BY
-                        spec_id
-                )
-                SELECT
-                    es.spec_id,
-                    es.segment_idx segment_number,
-                    es.first_t,
-                    es.last_t
-                FROM
-                    expected_segments es
-                LEFT JOIN
-                    max_vod_segments mvs
-                ON
-                    es.spec_id = mvs.spec_id
-                WHERE
-                    es.segment_idx > COALESCE(mvs.max_segment, -1) AND es.spec_id = $3")
-                        .bind(vod_segment_length_num)
-                        .bind(vod_segment_length_denom)
-                        .bind(spec_id)
-                                .execute(&mut *transaction)
-                                .await?;
+        if let (Some(first_missing_pos),) = x {
+            assert!(first_missing_pos >= spec.pos_discontinuity);
+            if first_missing_pos > spec.pos_discontinuity {
+                sqlx::query("UPDATE spec SET pos_discontinuity = $1 WHERE id = $2")
+                    .bind(first_missing_pos)
+                    .bind(spec_id)
+                    .execute(&mut *transaction)
+                    .await?;
+            }
         } else {
-            sqlx::query("INSERT INTO vod_segment (spec_id, segment_number, first_t, last_t) WITH expected_t_segments AS (
-                    SELECT
-                        spec_id,
-                        pos,
-                        (spec_t.t_numer * $2) / $1 / spec_t.t_denom AS expected_segment_idx
-                    FROM
-                        spec_t
-                    WHERE spec_id = $3
-                ),
-                expected_segments AS (
-                    SELECT
-                        spec_id,
-                        expected_segment_idx AS segment_idx,
-                        MIN(pos) AS first_t,
-                        MAX(pos) AS last_t
-                    FROM
-                        expected_t_segments
-                    WHERE spec_id = $3
-                    GROUP BY
-                        spec_id, expected_segment_idx
-                ),
-                max_expected_segments AS (
-                    SELECT
-                        spec_id,
-                        MAX(segment_idx) AS max_segment
-                    FROM
-                        expected_segments
-                    WHERE spec_id = $3
-                    GROUP BY
-                        spec_id
-                ),
-                max_vod_segments AS (
-                    SELECT
-                        spec_id,
-                        COALESCE(MAX(segment_number), -1) AS max_segment
-                    FROM
-                        vod_segment
-                    WHERE spec_id = $3
-                    GROUP BY
-                        spec_id
-                )
-                SELECT
-                    es.spec_id,
-                    es.segment_idx segment_number,
-                    es.first_t,
-                    es.last_t
-                FROM
-                    expected_segments es
-                LEFT JOIN
-                    max_vod_segments mvs
-                ON
-                    es.spec_id = mvs.spec_id
-                LEFT JOIN
-                    max_expected_segments mes
-                ON
-                    es.spec_id = mes.spec_id
-                WHERE
-                    es.segment_idx > COALESCE(mvs.max_segment, -1)
-                    AND es.segment_idx < mes.max_segment
-                    AND es.spec_id = $3")
-                        .bind(vod_segment_length_num)
-                        .bind(vod_segment_length_denom)
-                        .bind(spec_id)
-                                .execute(&mut *transaction)
-                                .await?;
+            // If there are no missing frames, set pos_discontinuity to the next frame
+            sqlx::query("UPDATE spec SET pos_discontinuity = $1 WHERE id = $2")
+                .bind(pos + n_frames as i32)
+                .bind(spec_id)
+                .execute(&mut *transaction)
+                .await?;
         }
+    }
+
+    if req.terminal {
+        sqlx::query("UPDATE spec SET pos_terminal = $1 WHERE id = $2")
+            .bind(pos + n_frames as i32 - 1)
+            .bind(spec_id)
+            .execute(&mut *transaction)
+            .await?;
     }
 
     transaction.commit().await?;

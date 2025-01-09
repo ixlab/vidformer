@@ -62,6 +62,7 @@ class IgniServer:
         height,
         pix_fmt,
         vod_segment_length,
+        frame_rate,
         ready_hook=None,
         steer_hook=None,
     ):
@@ -69,6 +70,7 @@ class IgniServer:
         assert type(height) == int
         assert type(pix_fmt) == str
         assert type(vod_segment_length) == Fraction
+        assert type(frame_rate) == Fraction
         assert type(ready_hook) == str or ready_hook is None
         assert type(steer_hook) == str or steer_hook is None
 
@@ -80,6 +82,7 @@ class IgniServer:
                 vod_segment_length.numerator,
                 vod_segment_length.denominator,
             ],
+            "frame_rate": [frame_rate.numerator, frame_rate.denominator],
             "ready_hook": ready_hook,
             "steer_hook": steer_hook,
         }
@@ -154,12 +157,12 @@ class IgniSpec:
             "height": src["height"],
             "pix_fmt": src["pix_fmt"],
         }
-        self._playlist = src["playlist"]
+        self._vod_endpoint = src["vod_endpoint"]
         self._hls_js_url = src["hls_js_url"]  # We keep this here for convenience
 
     def play(self, *args, **kwargs):
-        url = self._playlist
-        status_url = url.replace("playlist.m3u8", "status")
+        url = f"{self._vod_endpoint}playlist.m3u8"
+        status_url = f"{self._vod_endpoint}status"
         hls_js_url = self._hls_js_url
         return vf._play(
             self._id, url, hls_js_url, *args, **kwargs, status_url=status_url

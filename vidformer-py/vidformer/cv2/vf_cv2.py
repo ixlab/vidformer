@@ -324,21 +324,21 @@ class _IgniVideoWriter:
 
         self._batch_size = batch_size
         self._idx = 0
-        self._part_pos = 0
         self._frame_buffer = []
 
     def _flush(self, terminal=False):
         server = _server()
         server.push_spec_part(
-            self._spec, self._part_pos, self._frame_buffer, terminal=terminal
+            self._spec,
+            self._idx - len(self._frame_buffer),
+            self._frame_buffer,
+            terminal=terminal,
         )
-        self._part_pos += 1
         self._frame_buffer = []
 
     def _explicit_terminate(self):
         server = _server()
-        server.push_spec_part(self._spec._id, self._part_pos, [], terminal=True)
-        self._part_pos += 1
+        server.push_spec_part(self._spec._id, self._idx, [], terminal=True)
 
     def write(self, frame):
         frame = frameify(frame, "frame")

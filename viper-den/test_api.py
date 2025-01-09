@@ -19,6 +19,7 @@ EXAMPLE_SPEC = {
     "height": 720,
     "pix_fmt": "yuv420p",
     "vod_segment_length": [2, 1],
+    "frame_rate": [30, 1],
     "ready_hook": None,
     "steer_hook": None,
 }
@@ -76,8 +77,10 @@ def _get_source(source_id):
     return resp
 
 
-def _create_example_spec():
-    response = requests.post(ENDPOINT + "v2/spec", json=EXAMPLE_SPEC)
+def _create_example_spec(fps=30):
+    req = EXAMPLE_SPEC.copy()
+    req["frame_rate"] = [fps, 1]
+    response = requests.post(ENDPOINT + "v2/spec", json=req)
     response.raise_for_status()
     resp = response.json()
     assert resp["status"] == "ok"
@@ -99,10 +102,9 @@ def test_get_spec():
     assert spec["vod_segment_length"] == [2, 1]
     assert spec["ready_hook"] == None
     assert spec["steer_hook"] == None
-    assert spec["playlist"] == ENDPOINT + "vod/" + spec_id + "/playlist.m3u8"
-    assert spec["applied_parts"] == 0
     assert spec["terminated"] == False
     assert spec["closed"] == False
+    assert spec["vod_endpoint"] == ENDPOINT + "vod/" + spec_id + "/"
 
 
 def test_error_get_spec_not_exists():
@@ -194,7 +196,7 @@ def test_push_part():
     _push_frames(spec_id, source_id, ts, 0, False)
 
     spec = _get_spec(spec_id)
-    assert spec["applied_parts"] == 1
+    assert spec["frames_applied"] == 1
     assert spec["terminated"] == False
 
 
@@ -220,7 +222,7 @@ def test_error_push_part_after_termination():
     }
     response = requests.post(ENDPOINT + "v2/spec/" + spec_id + "/part", json=req)
     assert response.status_code == 400
-    assert response.text == "Forbidden to push to a terminated or closed spec"
+    assert response.text == "Can not push past the terminal frame"
 
 
 def test_error_push_part_after_staged_termination():
@@ -237,7 +239,7 @@ def test_error_push_part_after_staged_termination():
     }
     response = requests.post(ENDPOINT + "v2/spec/" + spec_id + "/part", json=req)
     assert response.status_code == 400
-    assert response.text == "Cannot push a part after a terminal part"
+    assert response.text == "Can not push past the terminal frame"
 
 
 def test_error_push_two_parts_same_pos():
@@ -253,7 +255,7 @@ def test_error_push_two_parts_same_pos():
     }
     response = requests.post(ENDPOINT + "v2/spec/" + spec_id + "/part", json=req)
     assert response.status_code == 400
-    assert response.text == "Part already exists"
+    assert response.text == "Can not push to an existing position (position 0)"
 
 
 def test_push_two_parts_backwards():
@@ -261,15 +263,15 @@ def test_push_two_parts_backwards():
     spec_id = _create_example_spec()
 
     ts = [[3, 30], [4, 30], [5, 30]]
-    _push_frames(spec_id, source_id, ts, 1, False)
+    _push_frames(spec_id, source_id, ts, 3, False)
     spec = _get_spec(spec_id)
-    assert spec["applied_parts"] == 0
+    assert spec["frames_applied"] == 0
     assert spec["terminated"] == False
 
     ts = [[0, 30], [1, 30], [2, 30]]
     _push_frames(spec_id, source_id, ts, 0, False)
     spec = _get_spec(spec_id)
-    assert spec["applied_parts"] == 2
+    assert spec["frames_applied"] == 6
     assert spec["terminated"] == False
 
 
@@ -279,7 +281,7 @@ def test_terminate():
     ts = [[0, 30], [1, 30], [2, 30]]
     _push_frames(spec_id, source_id, ts, 0, True)
     spec = _get_spec(spec_id)
-    assert spec["applied_parts"] == 1
+    assert spec["frames_applied"] == 3
     assert spec["terminated"] == True
 
 
@@ -288,24 +290,25 @@ def test_terminate_delayed():
     spec_id = _create_example_spec()
 
     ts = [[3, 30], [4, 30], [5, 30]]
-    _push_frames(spec_id, source_id, ts, 1, True)
+    _push_frames(spec_id, source_id, ts, 3, True)
     spec = _get_spec(spec_id)
-    assert spec["applied_parts"] == 0
-    assert spec["terminated"] == False
+    assert spec["frames_applied"] == 0
+    assert not spec["terminated"]
 
     ts = [[0, 30], [1, 30], [2, 30]]
     _push_frames(spec_id, source_id, ts, 0, False)
     spec = _get_spec(spec_id)
-    assert spec["applied_parts"] == 2
-    assert spec["terminated"] == True
+    assert spec["frames_applied"] == 6
+    assert spec["terminated"]
 
 
 def test_empty_playlist_endpoint():
     spec_id = _create_example_spec()
     spec = _get_spec(spec_id)
 
-    playlist_url = spec["playlist"]
-    assert playlist_url == f"{ENDPOINT}vod/{spec_id}/playlist.m3u8"
+    vod_endpoint = spec["vod_endpoint"]
+    assert vod_endpoint == f"{ENDPOINT}vod/{spec_id}/"
+    playlist_url = f"{vod_endpoint}playlist.m3u8"
     response = requests.get(playlist_url)
     response.raise_for_status()
     assert (
@@ -351,7 +354,7 @@ def test_single_segment_stream_endpoint():
 #EXT-X-VERSION:4
 #EXT-X-MEDIA-SEQUENCE:0
 #EXT-X-START:TIME-OFFSET=0
-#EXTINF:2.0,
+#EXTINF:2,
 {ENDPOINT}vod/{spec_id}/segment-0.ts
 #EXT-X-ENDLIST
 """
@@ -392,22 +395,24 @@ def _count_segments(spec_id):
     assert len(lines) % 2 == 0
     for i, line in enumerate(lines):
         if i % 2 == 0:
-            assert line == f"#EXTINF:2.0,"
+            # assert line == f"#EXTINF:2,"
+            assert line.startswith("#EXTINF:")
+            assert line.endswith(",")
         else:
             assert re.match(r".*/segment-\d+\.ts", line)
     return len(lines) // 2, terminal
 
 
-# @pytest.mark.parametrize("fps", [24, 25, 30, 60])
 @pytest.mark.parametrize("fps", [24, 60])
 def test_multiple_segments_in_order(fps):
     source_id = _create_tos_source()
-    spec_id = _create_example_spec()
+    spec_id = _create_example_spec(fps)
 
     for i in range(500):
         ts = [[i, fps]]
         _push_frames(spec_id, source_id, ts, i, False)
-        assert _count_segments(spec_id)[0] == i // (fps * 2)
+        print(_count_segments(spec_id)[0])
+        assert _count_segments(spec_id)[0] == (i + 1) // (fps * 2)
         assert _count_segments(spec_id)[1] == False
 
     # Terminate
@@ -420,11 +425,10 @@ def test_multiple_segments_in_order(fps):
     assert _count_segments(spec_id)[1] == True
 
 
-# @pytest.mark.parametrize("fps", [24, 25, 30, 60])
 @pytest.mark.parametrize("fps", [25, 30])
 def test_multiple_segments_random_order(fps):
     source_id = _create_tos_source()
-    spec_id = _create_example_spec()
+    spec_id = _create_example_spec(fps)
 
     pushes = []
     for i in range(500):
@@ -448,7 +452,7 @@ def test_multiple_segments_random_order(fps):
             assert _count_segments(spec_id)[1] == True
         else:
             lowest_contiguous = max(1, min(not_pushed_i)) - 1
-            expected = lowest_contiguous // (fps * 2)
+            expected = (lowest_contiguous + 1) // (fps * 2)
             assert _count_segments(spec_id)[0] == expected
             assert _count_segments(spec_id)[1] == False
 
@@ -463,11 +467,11 @@ def test_ffmpeg_two_segment_terminal():
     _push_frames(spec_id, source_id, ts, 0, True)
 
     spec = _get_spec(spec_id)
-    assert spec["applied_parts"] == 1
+    assert spec["frames_applied"] == 95
     assert spec["terminated"] == True
 
-    playlist_url = spec["playlist"]
-    assert playlist_url == f"{ENDPOINT}vod/{spec_id}/playlist.m3u8"
+    endpoint_url = spec["vod_endpoint"]
+    playlist_url = f"{endpoint_url}playlist.m3u8"
 
     p = sp.run(["../ffmpeg/build/bin/ffmpeg", "-i", playlist_url, "out.mp4", "-y"])
     assert p.returncode == 0

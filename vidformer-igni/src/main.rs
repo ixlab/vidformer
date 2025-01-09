@@ -3,6 +3,8 @@ use sqlx::postgres::PgPoolOptions;
 use tabled::{Table, Tabled};
 
 mod ops;
+mod schema;
+mod segment;
 mod server;
 
 #[derive(thiserror::Error, Debug)]
@@ -72,6 +74,8 @@ struct SpecAddOpt {
     pix_fmt: String,
     #[clap(long)]
     segment_length: String,
+    #[clap(long)]
+    frame_rate: String,
     #[clap(long)]
     ready_hook: Option<String>,
     #[clap(long)]
@@ -191,7 +195,7 @@ async fn cmd_source(
 }
 
 async fn cmd_source_ls(pool: sqlx::Pool<sqlx::Postgres>) -> Result<(), IgniError> {
-    let rows: Vec<(uuid::Uuid, String, i32, Option<String>, sqlx::types::Json<serde_json::Value>, Option<String>, Option<String>, Option<i32>, Option<i32>)> = sqlx::query_as("SELECT id, name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height FROM source ORDER BY id")
+    let rows: Vec<schema::SourceRow> = sqlx::query_as("SELECT * FROM source ORDER BY id")
         .fetch_all(&pool)
         .await?;
 
@@ -206,37 +210,25 @@ async fn cmd_source_ls(pool: sqlx::Pool<sqlx::Postgres>) -> Result<(), IgniError
         pix_fmt: String,
         width: String,
         height: String,
+        file_size: i64,
     }
+
     let rows = rows
         .iter()
-        .map(
-            |(
-                id,
-                name,
-                stream_idx,
-                storage_service,
-                storage_config,
-                codec,
-                pix_fmt,
-                width,
-                height,
-            )| Row {
-                id: id.to_string(),
-                name: name.to_string(),
-                stream_idx: *stream_idx as usize,
-                storage_service: storage_service.clone().unwrap_or_else(|| "".to_string()),
-                storage_config: storage_config.to_string(),
-                codec: codec.clone().unwrap_or_else(|| "".to_string()),
-                pix_fmt: pix_fmt.clone().unwrap_or_else(|| "".to_string()),
-                width: width
-                    .map(|w| w.to_string())
-                    .unwrap_or_else(|| "".to_string()),
-                height: height
-                    .map(|h| h.to_string())
-                    .unwrap_or_else(|| "".to_string()),
-            },
-        )
+        .map(|row| Row {
+            id: row.id.to_string(),
+            name: row.name.clone(),
+            stream_idx: row.stream_idx as usize,
+            storage_service: row.storage_service.clone(),
+            storage_config: row.storage_config.to_string(),
+            codec: row.codec.clone(),
+            pix_fmt: row.pix_fmt.clone(),
+            width: row.width.to_string(),
+            height: row.height.to_string(),
+            file_size: row.file_size,
+        })
         .collect::<Vec<_>>();
+
     let table = Table::new(&rows);
     println!("{}", table);
     Ok(())
@@ -302,7 +294,7 @@ async fn cmd_spec(pool: sqlx::Pool<sqlx::Postgres>, source_cmd: SpecCmd) -> Resu
 }
 
 async fn cmd_spec_ls(pool: sqlx::Pool<sqlx::Postgres>) -> Result<(), IgniError> {
-    let rows: Vec<(uuid::Uuid, i32, i32, String, i32, i32, Option<String>, Option<String>, i32, bool, bool)> = sqlx::query_as("SELECT id, width, height, pix_fmt, vod_segment_length_num, vod_segment_length_denom, ready_hook, steer_hook, applied_parts, terminated, closed FROM spec ORDER BY id")
+    let rows: Vec<schema::SpecRow> = sqlx::query_as("SELECT * FROM spec ORDER BY id")
         .fetch_all(&pool)
         .await?;
 
@@ -313,56 +305,65 @@ async fn cmd_spec_ls(pool: sqlx::Pool<sqlx::Postgres>) -> Result<(), IgniError> 
         height: i32,
         pix_fmt: String,
         segment_length: String,
+        frame_rate: String,
+        pos_discontinuity: i32,
+        pos_terminal: String,
+        closed: bool,
         ready_hook: String,
         steer_hook: String,
-        applied_parts: i32,
-        terminated: bool,
-        closed: bool,
     }
+
     let rows = rows
         .iter()
-        .map(
-            |(
-                id,
-                width,
-                height,
-                pix_fmt,
-                vod_segment_length_num,
-                vod_segment_length_denom,
-                ready_hook,
-                steer_hook,
-                applied_parts,
-                terminated,
-                closed,
-            )| Row {
-                id: id.to_string(),
-                width: *width,
-                height: *height,
-                pix_fmt: pix_fmt.clone(),
-                segment_length: format!("{}/{}", vod_segment_length_num, vod_segment_length_denom),
-                ready_hook: ready_hook.clone().unwrap_or_else(|| "".to_string()),
-                steer_hook: steer_hook.clone().unwrap_or_else(|| "".to_string()),
-                applied_parts: *applied_parts,
-                terminated: *terminated,
-                closed: *closed,
-            },
-        )
+        .map(|row| Row {
+            id: row.id.to_string(),
+            width: row.width,
+            height: row.height,
+            pix_fmt: row.pix_fmt.clone(),
+            segment_length: format!(
+                "{}/{}",
+                row.vod_segment_length_num, row.vod_segment_length_denom
+            ),
+            frame_rate: format!("{}/{}", row.frame_rate_num, row.frame_rate_denom),
+            pos_discontinuity: row.pos_discontinuity,
+            pos_terminal: row
+                .pos_terminal
+                .map(|t| t.to_string())
+                .unwrap_or_else(|| "".to_string()),
+            closed: row.closed,
+            ready_hook: row.ready_hook.clone().unwrap_or_else(|| "".to_string()),
+            steer_hook: row.steer_hook.clone().unwrap_or_else(|| "".to_string()),
+        })
         .collect::<Vec<_>>();
+
     let table = Table::new(&rows);
     println!("{}", table);
     Ok(())
 }
 
-async fn cmd_spec_add(pool: sqlx::Pool<sqlx::Postgres>, opt: SpecAddOpt) -> Result<(), IgniError> {
-    let (num, denom) = match opt.segment_length.as_str() {
-        "2/1" => (2, 1),
-        _ => {
-            return Err(IgniError::General(format!(
-                "Invalid segment length: {}",
-                opt.segment_length
-            )));
-        }
+fn parse_frac(s: &str) -> Result<(i32, i32), IgniError> {
+    let parts: Vec<&str> = s.split('/').collect();
+    if parts.len() != 2 {
+        return Err(IgniError::General(format!("Invalid fraction: {}", s)));
+    }
+
+    let num = if let Ok(n) = parts[0].parse::<i32>() {
+        n
+    } else {
+        return Err(IgniError::General(format!("Invalid fraction: {}", s)));
     };
+    let denom = if let Ok(d) = parts[1].parse::<i32>() {
+        d
+    } else {
+        return Err(IgniError::General(format!("Invalid fraction: {}", s)));
+    };
+
+    Ok((num, denom))
+}
+
+async fn cmd_spec_add(pool: sqlx::Pool<sqlx::Postgres>, opt: SpecAddOpt) -> Result<(), IgniError> {
+    let (seg_num, seg_denom) = parse_frac(&opt.segment_length)?;
+    let (frame_num, frame_denom) = parse_frac(&opt.frame_rate)?;
 
     let height = opt.height as i32;
     let width = opt.width as i32;
@@ -371,7 +372,14 @@ async fn cmd_spec_add(pool: sqlx::Pool<sqlx::Postgres>, opt: SpecAddOpt) -> Resu
     let steer_hook = opt.steer_hook.clone();
 
     let spec_id = ops::add_spec(
-        &pool, num, denom, height, width, pix_fmt, ready_hook, steer_hook,
+        &pool,
+        (seg_num, seg_denom),
+        (frame_num, frame_denom),
+        height,
+        width,
+        pix_fmt,
+        ready_hook,
+        steer_hook,
     )
     .await?;
 

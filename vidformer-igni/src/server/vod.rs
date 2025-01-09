@@ -1,6 +1,8 @@
 use super::IgniServerGlobal;
+use crate::schema;
 use crate::IgniError;
 use num::Rational64;
+use num::ToPrimitive;
 use std::collections::BTreeMap;
 use uuid::Uuid;
 
@@ -67,53 +69,56 @@ pub(crate) async fn get_stream(
 ) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let spec_id = Uuid::parse_str(spec_id).unwrap();
 
-    let mut transaction = global.pool.begin().await?;
-    let row: Option<(bool, bool, i32, i32)> = sqlx::query_as("SELECT closed, terminated, vod_segment_length_num n, vod_segment_length_denom d FROM spec WHERE id = $1")
+    let row: Option<schema::SpecRow> = sqlx::query_as("SELECT * FROM spec WHERE id = $1")
         .bind(spec_id)
-        .fetch_optional(&mut *transaction)
+        .fetch_optional(&global.pool)
         .await?;
 
-    match row {
+    let spec = match row {
         None => {
-            transaction.commit().await?;
             return Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::NOT_FOUND)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
                     "Not found",
                 )))?);
         }
-        Some((closed, _, _, _)) => {
-            if closed {
-                transaction.commit().await?;
+        Some(spec) => {
+            if spec.closed {
                 return Ok(hyper::Response::builder()
                     .status(hyper::StatusCode::FORBIDDEN)
                     .body(http_body_util::Full::new(hyper::body::Bytes::from(
                         "VOD is closed",
                     )))?);
             }
+
+            spec
         }
-    }
+    };
 
-    let terminated = row.unwrap().1;
+    let segment_length =
+        num_rational::Ratio::new(spec.vod_segment_length_num, spec.vod_segment_length_denom);
+    let frame_rate = num_rational::Ratio::new(spec.frame_rate_num, spec.frame_rate_denom);
+    let n_frames: i32 = spec.pos_discontinuity;
+    let terminal = if let Some(pos_terminal) = spec.pos_terminal {
+        pos_terminal == spec.pos_discontinuity - 1
+    } else {
+        false
+    };
 
-    // Get vod_segment rows
-    let rows: Vec<(i32,)> = sqlx::query_as(
-        "SELECT segment_number FROM vod_segment WHERE spec_id = $1 ORDER BY segment_number",
-    )
-    .bind(spec_id)
-    .fetch_all(&mut *transaction)
-    .await?;
-    transaction.commit().await?;
+    let segments = crate::segment::segments(n_frames, &segment_length, &frame_rate, terminal);
 
     let mut stream_text =
         "#EXTM3U\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXT-X-TARGETDURATION:2\n#EXT-X-VERSION:4\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-START:TIME-OFFSET=0\n".to_string();
-    for (segment_number,) in rows {
+    for (segment_number, segment) in segments.iter().enumerate() {
+        let duration: Rational64 = segment.duration(&frame_rate);
         stream_text.push_str(&format!(
-            "#EXTINF:2.0,\nhttp://localhost:8080/vod/{}/segment-{}.ts\n",
-            spec_id, segment_number
+            "#EXTINF:{},\nhttp://localhost:8080/vod/{}/segment-{}.ts\n", // TODO: Make configurable
+            duration.to_f32().unwrap(),
+            spec_id,
+            segment_number
         ));
     }
-    if terminated {
+    if terminal {
         stream_text.push_str("#EXT-X-ENDLIST\n");
     }
 
@@ -139,35 +144,46 @@ pub(crate) async fn get_status(
         ready: bool,
     }
 
-    let mut transaction = global.pool.begin().await?;
-    let row: Option<(bool, bool, bool)> = sqlx::query_as("SELECT closed, terminated, EXISTS (SELECT 1 FROM vod_segment WHERE spec_id = $1) ready FROM spec WHERE id = $1")
+    let row: Option<schema::SpecRow> = sqlx::query_as("SELECT * FROM spec WHERE id = $1")
         .bind(spec_id)
-        .fetch_optional(&mut *transaction)
+        .fetch_optional(&global.pool)
         .await?;
 
-    match row {
+    let spec = match row {
         None => {
-            transaction.commit().await?;
             return Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::NOT_FOUND)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                    "Not found",
+                    "Spec not found",
                 )))?);
         }
-        Some((closed, terminated, ready)) => {
-            transaction.commit().await?;
-            let response = Response {
-                closed,
-                terminated,
-                ready,
-            };
-            let body = serde_json::to_string(&response).unwrap();
-            Ok(hyper::Response::builder()
-                .header("Access-Control-Allow-Origin", "*")
-                .header("Content-Type", "application/json")
-                .body(http_body_util::Full::new(hyper::body::Bytes::from(body)))?)
-        }
-    }
+        Some(spec) => spec,
+    };
+
+    let frame_rate = num_rational::Ratio::new(spec.frame_rate_num, spec.frame_rate_denom);
+    let segment_length =
+        num_rational::Ratio::new(spec.vod_segment_length_num, spec.vod_segment_length_denom);
+    let n_frames: i32 = spec.pos_discontinuity;
+    let closed = spec.closed;
+    let terminated = if let Some(pos_terminal) = spec.pos_terminal {
+        pos_terminal == spec.pos_discontinuity - 1
+    } else {
+        false
+    };
+    let ready =
+        crate::segment::num_segments(n_frames, &segment_length, &frame_rate, terminated) > 0;
+
+    let response = Response {
+        closed,
+        terminated,
+        ready,
+    };
+
+    let body = serde_json::to_string(&response).unwrap();
+    Ok(hyper::Response::builder()
+        .header("Access-Control-Allow-Origin", "*")
+        .header("Content-Type", "application/json")
+        .body(http_body_util::Full::new(hyper::body::Bytes::from(body)))?)
 }
 
 pub(crate) async fn get_segment(
@@ -180,13 +196,18 @@ pub(crate) async fn get_segment(
 
     // Check that the spec exists, is not closed, and grab the width, height, and pix_fmt
     let mut transaction = global.pool.begin().await?;
-    let row: Option<(i32, i32, String, bool)> =
-        sqlx::query_as("SELECT width, height, pix_fmt, closed FROM spec WHERE id = $1")
-            .bind(spec_id)
-            .fetch_optional(&mut *transaction)
-            .await?;
+    // let row: Option<(i32, i32, String, bool)> =
+    //     sqlx::query_as("SELECT width, height, pix_fmt, closed FROM spec WHERE id = $1")
+    //         .bind(spec_id)
+    //         .fetch_optional(&mut *transaction)
+    //         .await?;
 
-    let (width, height, pix_fmt) = match row {
+    let row: Option<schema::SpecRow> = sqlx::query_as("SELECT * FROM spec WHERE id = $1")
+        .bind(spec_id)
+        .fetch_optional(&mut *transaction)
+        .await?;
+
+    let spec_db = match row {
         None => {
             transaction.commit().await?;
             return Ok(hyper::Response::builder()
@@ -195,44 +216,50 @@ pub(crate) async fn get_segment(
                     "Not found",
                 )))?);
         }
-        Some((width, height, pix_fmt, closed)) => {
-            if closed {
-                transaction.commit().await?;
-                return Ok(hyper::Response::builder()
-                    .status(hyper::StatusCode::FORBIDDEN)
-                    .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                        "VOD is closed",
-                    )))?);
-            }
-
-            (width, height, pix_fmt)
-        }
+        Some(spec) => spec,
     };
 
-    // Check that the segment exists, also grab the first_t and last_t
-    let row: Option<(i32, i32)> = sqlx::query_as(
-        "SELECT first_t, last_t FROM vod_segment WHERE spec_id = $1 AND segment_number = $2",
-    )
-    .bind(spec_id)
-    .bind(segment_number)
-    .fetch_optional(&mut *transaction)
-    .await?;
+    if spec_db.closed {
+        transaction.commit().await?;
+        return Ok(hyper::Response::builder()
+            .status(hyper::StatusCode::FORBIDDEN)
+            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                "VOD is closed",
+            )))?);
+    }
 
-    let (first_t, last_t) = match row {
-        None => {
-            transaction.commit().await?;
-            return Ok(hyper::Response::builder()
-                .status(hyper::StatusCode::NOT_FOUND)
-                .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                    "Not found",
-                )))?);
-        }
-        Some(row) => row,
+    let segment_length = num_rational::Ratio::new(
+        spec_db.vod_segment_length_num,
+        spec_db.vod_segment_length_denom,
+    );
+    let frame_rate = num_rational::Ratio::new(spec_db.frame_rate_num, spec_db.frame_rate_denom);
+    let n_frames: i32 = spec_db.pos_discontinuity;
+    let terminal = if let Some(pos_terminal) = spec_db.pos_terminal {
+        pos_terminal == spec_db.pos_discontinuity - 1
+    } else {
+        false
     };
+
+    let num_segments =
+        crate::segment::num_segments(n_frames, &segment_length, &frame_rate, terminal);
+
+    if segment_number >= num_segments {
+        transaction.commit().await?;
+        return Ok(hyper::Response::builder()
+            .status(hyper::StatusCode::NOT_FOUND)
+            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                "Segment not found",
+            )))?);
+    }
+
+    let segment = crate::segment::segment(segment_number, n_frames, &segment_length, &frame_rate);
+
+    let first_t = segment.start_frame;
+    let last_t = first_t + segment.n_frames - 1;
 
     // Get the frames from spec_t that are in the segment (pos between first_t and last_t)
-    let rows: Vec<(i64, i64, String)> = sqlx::query_as(
-        "SELECT t_numer, t_denom, frame FROM spec_t WHERE spec_id = $1 AND pos BETWEEN $2 AND $3",
+    let rows: Vec<(i32, String)> = sqlx::query_as(
+        "SELECT pos, frame FROM spec_t WHERE spec_id = $1 AND pos BETWEEN $2 AND $3 ORDER BY pos",
     )
     .bind(spec_id)
     .bind(first_t)
@@ -240,10 +267,12 @@ pub(crate) async fn get_segment(
     .fetch_all(&mut *transaction)
     .await?;
 
+    assert!(rows.len() == segment.n_frames as usize);
+
     // map times to rational
     let times: Vec<num_rational::Ratio<i64>> = rows
         .iter()
-        .map(|(t_numer, t_denom, _)| num_rational::Ratio::new(*t_numer, *t_denom))
+        .map(|(pos, _)| num_rational::Ratio::from(*pos as i64) * frame_rate.recip())
         .collect();
     let start = *times.first().unwrap();
     let end = *times.last().unwrap();
@@ -251,7 +280,7 @@ pub(crate) async fn get_segment(
     // Map json values to FrameExpr
     let frames: Vec<vidformer::sir::FrameExpr> = rows
         .iter()
-        .map(|(_, _, frame)| serde_json::from_str(frame).unwrap())
+        .map(|(_, frame)| serde_json::from_str(frame).unwrap())
         .collect();
 
     struct IgniSpec {
@@ -355,9 +384,9 @@ pub(crate) async fn get_segment(
         decoder_view: 50,
         decoders: u16::MAX as usize,
         filterers: 8,
-        output_width: width as usize,
-        output_height: height as usize,
-        output_pix_fmt: pix_fmt,
+        output_width: spec_db.width as usize,
+        output_height: spec_db.height as usize,
+        output_pix_fmt: spec_db.pix_fmt,
         encoder: None,
         format: None,
     };
