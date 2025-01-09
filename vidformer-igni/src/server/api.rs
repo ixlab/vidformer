@@ -375,7 +375,7 @@ pub(crate) async fn push_part(
 
     // Check if we are pushing past the terminal
     if let Some(pos_terminal) = spec.pos_terminal {
-        if pos >= pos_terminal {
+        if pos + req.frames.len() as i32 > pos_terminal + 1 {
             transaction.commit().await?;
             return Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::BAD_REQUEST)
@@ -386,9 +386,9 @@ pub(crate) async fn push_part(
     }
 
     if req.terminal {
-        // If the part is terminal, make sure there are no existing values in spec_t with pos >= req.pos
+        // If the part is terminal, make sure there are no existing values in spec_t with pos > req.pos
         let existing: Option<(i32,)> =
-            sqlx::query_as("SELECT pos FROM spec_t WHERE spec_id = $1 AND pos >= $2 LIMIT 1")
+            sqlx::query_as("SELECT pos FROM spec_t WHERE spec_id = $1 AND pos > $2 LIMIT 1")
                 .bind(spec_id)
                 .bind(pos)
                 .fetch_optional(&mut *transaction)
@@ -398,7 +398,10 @@ pub(crate) async fn push_part(
             return Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::BAD_REQUEST)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                    format!("Can not push to an existing position (position {})", pos),
+                    format!(
+                        "Can not terminate middle of stream (position {} exists)",
+                        pos
+                    ),
                 )))?);
         }
     } else {
