@@ -10,25 +10,22 @@ vidformer is a highly modular suite of tools that work together:
 - [*libvidformer*](./libvidformer.md): The core data-oriented declarative video editing library
   - An embedded video processing execution engine with low-level interfaces
   - Systems code, written in Rust 🦀
-  - **You should use if:** You are building a VDBMS or other multimodal data-system infrastructure.
+  - **You should use if:** You are building a VDBMS or other multimodal data-system *infrastructure*.
   - **You should *not* use if:** You just want to use vidformer in your workflows or projects.
 
-- *yrden*: A vidformer Video-on-Demand server
-  - Provides vidformer services over a REST-style API
-  - Allows for client libraries to be written in any language
-  - Serves video results via [HLS](https://en.wikipedia.org/wiki/HTTP_Live_Streaming) streams
+- *yrden*: A vidformer server for local use
   - Designed for local single-tenant use
-  - **You should use if:** You want to create faster video results in your workflows or projects.
-  - Note that yrden servers may be spun up transparently by client libraries, so you might use yrden without realizing it.
+  - Enables broad drop-in `cv2` compatability
+  - Supports basic Video on Demand hosting
 
-- *igni*: A *planned* scale-out Video-on-Demand server
-  - Will allow for scalable and secure public-facing VOD endpoints
+- *igni*: A vidformer server for the cloud
+  - An *in progress* multi-tenant scale-out server
+  - Designed for Video on Demand *only*
+    - Does not support full-video exports
+    - All video sources must be over the network, not local
+  - Enables live streaming and waiting on external dependencies for even lower time-to-playback latency
 
 **Client libraries in other languages:**
 Writing a vidformer client library for other languages is simple.
 It's a few hundred lines of code, and you just have to construct some JSON.
 Contributions or suggestions for other languages are welcome.
-
-**Other VoD servers:**
-We provide yrden as a simple reference VoD server implementation.
-If you want to scale-out deployments, multi-tenant deployments, or deep integration with a specific system, writing another VoD server is needed. (In progress work)
