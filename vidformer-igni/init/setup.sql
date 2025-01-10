@@ -3,8 +3,8 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- users table
 CREATE TABLE "user" (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name TEXT NOT NULL,
-    api_key VARCHAR(32) NOT NULL
+    name TEXT NOT NULL UNIQUE, -- Not actually used for authentication, just for record keeping
+    api_key VARCHAR(32) NOT NULL UNIQUE
 );
 
 CREATE INDEX user_api_key_idx ON "user"(api_key);
