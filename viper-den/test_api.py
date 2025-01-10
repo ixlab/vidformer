@@ -358,6 +358,41 @@ def test_terminate_delayed():
     assert spec["terminated"]
 
 
+def test_status_endpoint():
+    spec_id = _create_example_spec()
+
+    status_url = f"{ENDPOINT}vod/{spec_id}/status"
+    response = requests.get(status_url)
+    response.raise_for_status()
+    response = response.json()
+    assert response["closed"] == False
+    assert response["terminated"] == False
+    assert response["ready"] == False
+
+    # Push 60 frames (enough for 1 segment)
+    source_id = _create_tos_source()
+    ts = [[i, 30] for i in range(60)]
+    _push_frames(spec_id, source_id, ts, 0, False)
+
+    response = requests.get(status_url)
+    response.raise_for_status()
+    response = response.json()
+    assert response["closed"] == False
+    assert response["terminated"] == False
+    assert response["ready"] == True
+
+    # Terminate
+    ts = []
+    _push_frames(spec_id, source_id, ts, 60, True)
+
+    response = requests.get(status_url)
+    response.raise_for_status()
+    response = response.json()
+    assert response["closed"] == False
+    assert response["terminated"] == True
+    assert response["ready"] == True
+
+
 def test_empty_playlist_endpoint():
     spec_id = _create_example_spec()
     spec = _get_spec(spec_id)

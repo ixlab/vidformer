@@ -30,7 +30,7 @@ jobs:
       run: cargo build
     - name: Build Release
       run: cargo build --release
-    - name: Run vidformer tests
+    - name: Run vidformer Rust tests
       run: cargo test --verbose
       timeout-minutes: 5
     - name: Install vidformer-py
