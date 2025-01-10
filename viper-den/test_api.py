@@ -395,7 +395,6 @@ def _count_segments(spec_id):
     assert len(lines) % 2 == 0
     for i, line in enumerate(lines):
         if i % 2 == 0:
-            # assert line == f"#EXTINF:2,"
             assert line.startswith("#EXTINF:")
             assert line.endswith(",")
         else:

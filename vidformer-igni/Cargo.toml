@@ -21,3 +21,4 @@ hyper-util = { version = "0.1", features = ["full"] }
 regex = "1"
 "num-rational" = { version = "0.4", features=["serde"] }
 "num" = "0.4"
+"toml" = "0.8.19"

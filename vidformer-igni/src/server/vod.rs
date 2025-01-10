@@ -48,8 +48,8 @@ pub(crate) async fn get_playlist(
     }
 
     let playlist_text = format!(
-        "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=640000\nhttp://localhost:8080/vod/{}/stream.m3u8\n",
-        spec_id
+        "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=640000\n{}{}/stream.m3u8\n",
+        global.config.vod_prefix, spec_id
     );
 
     transaction.commit().await?;
@@ -112,8 +112,9 @@ pub(crate) async fn get_stream(
     for (segment_number, segment) in segments.iter().enumerate() {
         let duration: Rational64 = segment.duration(&frame_rate);
         stream_text.push_str(&format!(
-            "#EXTINF:{},\nhttp://localhost:8080/vod/{}/segment-{}.ts\n", // TODO: Make configurable
+            "#EXTINF:{},\n{}{}/segment-{}.ts\n", // TODO: Make configurable
             duration.to_f32().unwrap(),
+            global.config.vod_prefix,
             spec_id,
             segment_number
         ));

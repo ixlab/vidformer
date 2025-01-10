@@ -7,7 +7,33 @@ mod api;
 mod vod;
 
 struct IgniServerGlobal {
+    config: ServerConfig,
     pool: sqlx::Pool<sqlx::Postgres>,
+}
+
+fn load_config(path: &String) -> Result<ServerConfig, IgniError> {
+    let config_string = std::fs::read_to_string(path)
+        .map_err(|e| IgniError::General(format!("Failed to read config file: {}", e)))?;
+    let config: ServerConfig = toml::from_str(&config_string).map_err(|e: toml::de::Error| {
+        IgniError::General(format!("Failed to parse config file: {}", e))
+    })?;
+
+    // Validate the config
+    if !config.vod_prefix.starts_with("http://") && !config.vod_prefix.starts_with("https://") {
+        return Err(IgniError::General(
+            "vod_prefix must start with http:// or https://".to_string(),
+        ));
+    }
+    if !config.vod_prefix.ends_with("/") {
+        return Err(IgniError::General("vod_prefix must end with /".to_string()));
+    }
+
+    Ok(config)
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct ServerConfig {
+    vod_prefix: String,
 }
 
 pub(crate) async fn cmd_server(
@@ -17,7 +43,8 @@ pub(crate) async fn cmd_server(
     use hyper::server::conn::http1;
     use hyper_util::rt::TokioIo;
 
-    let global = std::sync::Arc::new(IgniServerGlobal { pool });
+    let config = load_config(&opt.config)?;
+    let global = std::sync::Arc::new(IgniServerGlobal { config, pool });
     let addr: std::net::SocketAddr = format!("[::]:{}", opt.port).parse().unwrap();
     let listener = tokio::net::TcpListener::bind(&addr)
         .await

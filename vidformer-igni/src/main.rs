@@ -56,6 +56,8 @@ enum ArgCmd {
 struct ServerOpt {
     #[clap(long, default_value = "8080")]
     port: u16,
+    #[clap(long)]
+    config: String,
 }
 
 #[derive(Parser, Debug)]
@@ -128,7 +130,7 @@ async fn db_connect() -> Result<sqlx::Pool<sqlx::Postgres>, IgniError> {
     let start_time = std::time::Instant::now();
     loop {
         match PgPoolOptions::new()
-            .max_connections(1)
+            .max_connections(10)
             .connect("postgres://igni:igni@localhost/igni")
             .await
         {

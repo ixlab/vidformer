@@ -187,7 +187,7 @@ pub(crate) async fn get_spec(
         "terminated": if let Some(pos_terminal) = row.pos_terminal { pos_terminal == row.pos_discontinuity - 1 } else { false },
         "frames_applied": row.pos_discontinuity,
         "closed": row.closed,
-        "vod_endpoint": format!("http://localhost:8080/vod/{}/", source_id), // TODO: This should be configurable
+        "vod_endpoint": format!("{}{}/", global.config.vod_prefix, source_id), // TODO: This should be configurable
     });
 
     Ok(hyper::Response::builder()
