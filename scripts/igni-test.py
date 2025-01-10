@@ -29,7 +29,7 @@ time.sleep(10)  # Give the database time to apply the init scripts
 print("Running Igni admin cli checks")
 vidformer_igni_bin = os.path.join(project_dir, "target", "debug", "vidformer-igni")
 
-sp.run([vidformer_igni_bin, "ping"], check=True)
+sp.run([vidformer_igni_bin, "ping"], check=True, capture_output=True)
 
 # Add a user for the tests
 test_user = sp.run(
@@ -60,8 +60,8 @@ source = sp.run(
     check=True,
 )
 source_id = source.stdout.decode().strip()
-sp.run([vidformer_igni_bin, "source", "ls"], check=True)
-sp.run([vidformer_igni_bin, "source", "rm", source_id], check=True)
+sp.run([vidformer_igni_bin, "source", "ls"], check=True, capture_output=True)
+sp.run([vidformer_igni_bin, "source", "rm", source_id], check=True, capture_output=True)
 
 spec = sp.run(
     [
@@ -85,7 +85,7 @@ spec = sp.run(
     check=True,
 )
 spec_id = spec.stdout.decode().strip()
-sp.run([vidformer_igni_bin, "spec", "ls"], check=True)
+sp.run([vidformer_igni_bin, "spec", "ls"], check=True, capture_output=True)
 
 tmp_user = sp.run(
     [
@@ -93,15 +93,15 @@ tmp_user = sp.run(
         "user",
         "add",
         "--name",
-        "test",
+        "tmp_user",
     ],
     check=True,
     capture_output=True,
 )
 assert len(tmp_user.stdout.decode().strip().split("\n")) == 2
 user_id = tmp_user.stdout.decode().strip().split("\n")[0]
-sp.run([vidformer_igni_bin, "user", "ls"], check=True)
-sp.run([vidformer_igni_bin, "user", "rm", user_id], check=True)
+sp.run([vidformer_igni_bin, "user", "ls"], check=True, capture_output=True)
+sp.run([vidformer_igni_bin, "user", "rm", user_id], check=True, capture_output=True)
 
 # Igni server
 print("Starting Igni...")
