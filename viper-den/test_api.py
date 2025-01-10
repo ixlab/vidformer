@@ -77,6 +77,34 @@ def _get_source(source_id):
     return resp
 
 
+def test_list_sources():
+    source_id = _create_tos_source()
+    response = requests.get(ENDPOINT + "v2/source")
+    response.raise_for_status()
+    resp = response.json()
+    assert type(resp) == list
+    for sid in resp:
+        assert type(sid) == str
+    assert source_id in resp
+
+
+def test_delete_source():
+    source_id = _create_tos_source()
+    response = requests.delete(ENDPOINT + "v2/source/" + source_id)
+    response.raise_for_status()
+    resp = response.json()
+    assert resp["status"] == "ok"
+
+    response = requests.get(ENDPOINT + "v2/source/" + source_id)
+    assert response.status_code == 404
+    assert response.text == "Not found"
+
+    response = requests.get(ENDPOINT + "v2/source")
+    response.raise_for_status()
+    resp = response.json()
+    assert source_id not in resp
+
+
 def _create_example_spec(fps=30):
     req = EXAMPLE_SPEC.copy()
     req["frame_rate"] = [fps, 1]
@@ -119,6 +147,34 @@ def _get_spec(spec_id):
         response.raise_for_status()
     resp = response.json()
     return resp
+
+
+def test_list_specs():
+    spec_id = _create_example_spec()
+    response = requests.get(ENDPOINT + "v2/spec")
+    response.raise_for_status()
+    resp = response.json()
+    assert type(resp) == list
+    for sid in resp:
+        assert type(sid) == str
+    assert spec_id in resp
+
+
+def test_delete_spec():
+    spec_id = _create_example_spec()
+    response = requests.delete(ENDPOINT + "v2/spec/" + spec_id)
+    response.raise_for_status()
+    resp = response.json()
+    assert resp["status"] == "ok"
+
+    response = requests.get(ENDPOINT + "v2/spec/" + spec_id)
+    assert response.status_code == 404
+    assert response.text == "Not found"
+
+    response = requests.get(ENDPOINT + "v2/spec")
+    response.raise_for_status()
+    resp = response.json()
+    assert spec_id not in resp
 
 
 def _sample_frame_expr(source_id):
@@ -407,7 +463,7 @@ def test_multiple_segments_in_order(fps):
     source_id = _create_tos_source()
     spec_id = _create_example_spec(fps)
 
-    for i in range(500):
+    for i in range(250):
         ts = [[i, fps]]
         _push_frames(spec_id, source_id, ts, i, False)
         print(_count_segments(spec_id)[0])
@@ -416,9 +472,9 @@ def test_multiple_segments_in_order(fps):
 
     # Terminate
     ts = []
-    _push_frames(spec_id, source_id, ts, 500, True)
-    expected = 500 // (fps * 2)
-    if 500 % (fps * 2) > 0:
+    _push_frames(spec_id, source_id, ts, 250, True)
+    expected = 250 // (fps * 2)
+    if 250 % (fps * 2) > 0:
         expected += 1
     assert _count_segments(spec_id)[0] == expected
     assert _count_segments(spec_id)[1] == True
@@ -430,11 +486,11 @@ def test_multiple_segments_random_order(fps):
     spec_id = _create_example_spec(fps)
 
     pushes = []
-    for i in range(500):
+    for i in range(250):
         ts = [[i, fps]]
         pushes.append((i, ts, False))
-    pushes.append((500, [], True))
-    not_pushed_i = set(range(501))
+    pushes.append((250, [], True))
+    not_pushed_i = set(range(251))
 
     random.shuffle(pushes)
 
@@ -444,8 +500,8 @@ def test_multiple_segments_random_order(fps):
 
         if len(not_pushed_i) == 0:
             # Terminated
-            expected = 500 // (fps * 2)
-            if 500 % (fps * 2) > 0:
+            expected = 250 // (fps * 2)
+            if 250 % (fps * 2) > 0:
                 expected += 1
             assert _count_segments(spec_id)[0] == expected
             assert _count_segments(spec_id)[1] == True

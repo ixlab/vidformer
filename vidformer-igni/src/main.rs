@@ -265,6 +265,19 @@ async fn cmd_source_del(
             }
         };
 
+        let conflicting_spec: Option<uuid::Uuid> =
+            sqlx::query_scalar("SELECT spec_id FROM spec_source_dependency WHERE source_id = $1")
+                .bind(&source_id)
+                .fetch_optional(&pool)
+                .await?;
+
+        if let Some(spec_id) = conflicting_spec {
+            return Err(IgniError::General(format!(
+                "Spec {} depends on source {}",
+                spec_id, source_id
+            )));
+        }
+
         let resp = sqlx::query("DELETE FROM source WHERE id = $1")
             .bind(source_id)
             .execute(&pool)

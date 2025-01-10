@@ -62,3 +62,9 @@ CREATE TABLE spec_t (
     frame TEXT,
     PRIMARY KEY (spec_id, pos)
 );
+
+CREATE TABLE spec_source_dependency (
+    spec_id UUID REFERENCES spec(id) ON DELETE CASCADE,
+    source_id UUID REFERENCES source(id),
+    PRIMARY KEY (spec_id, source_id)
+);

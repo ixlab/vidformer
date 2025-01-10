@@ -20,11 +20,27 @@ class IgniServer:
             raise Exception(f"Endpoint not a vidformer-igni server!")
 
     def get_source(self, id: str):
+        assert type(id) == str
         response = requests.get(f"{self._endpoint}/v2/source/{id}")
         if not response.ok:
             raise Exception(response.text)
         response = response.json()
         return IgniSource(response["id"], response)
+
+    def list_sources(self):
+        response = requests.get(f"{self._endpoint}/v2/source")
+        if not response.ok:
+            raise Exception(response.text)
+        response = response.json()
+        return response
+
+    def delete_source(self, id: str):
+        assert type(id) == str
+        response = requests.delete(f"{self._endpoint}/v2/source/{id}")
+        if not response.ok:
+            raise Exception(response.text)
+        response = response.json()
+        assert response["status"] == "ok"
 
     def create_source(self, name, stream_idx, storage_service, storage_config):
         assert type(name) == str
@@ -49,12 +65,20 @@ class IgniServer:
         return self.get_source(id)
 
     def get_spec(self, id: str):
+        assert type(id) == str
         response = requests.get(f"{self._endpoint}/v2/spec/{id}")
         if not response.ok:
             raise Exception(response.text)
         response = response.json()
         response["hls_js_url"] = f"{self._endpoint}/hls.js"
         return IgniSpec(response["id"], response)
+
+    def list_specs(self):
+        response = requests.get(f"{self._endpoint}/v2/spec")
+        if not response.ok:
+            raise Exception(response.text)
+        response = response.json()
+        return response
 
     def create_spec(
         self,
@@ -92,6 +116,14 @@ class IgniServer:
         response = response.json()
         assert response["status"] == "ok"
         return self.get_spec(response["id"])
+
+    def delete_spec(self, id: str):
+        assert type(id) == str
+        response = requests.delete(f"{self._endpoint}/v2/spec/{id}")
+        if not response.ok:
+            raise Exception(response.text)
+        response = response.json()
+        assert response["status"] == "ok"
 
     def push_spec_part(self, spec_id, pos, frames, terminal):
         if type(spec_id) == IgniSpec:
@@ -134,6 +166,9 @@ class IgniSource:
         self._ts = [Fraction(x[0], x[1]) for x in src["ts"]]
         self.iloc = vf.SourceILoc(self)
 
+    def id(self):
+        return self._name
+
     def fmt(self):
         return {**self._fmt}
 
@@ -159,6 +194,9 @@ class IgniSpec:
         }
         self._vod_endpoint = src["vod_endpoint"]
         self._hls_js_url = src["hls_js_url"]  # We keep this here for convenience
+
+    def id(self):
+        return self._id
 
     def play(self, *args, **kwargs):
         url = f"{self._vod_endpoint}playlist.m3u8"

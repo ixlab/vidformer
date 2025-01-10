@@ -174,6 +174,10 @@ async fn igni_http_req(
             let segment_number = matches.get(2).unwrap().as_str().parse().unwrap();
             vod::get_segment(req, global, spec_id, segment_number).await
         }
+        (hyper::Method::GET, "/v2/source") // /v2/source (list)
+        => {
+            api::list_sources(req, global).await
+        }
         (hyper::Method::GET, _) // /v2/source/<uuid>
             if {
                 Regex::new(r"^/v2/source/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").unwrap().is_match(req.uri().path())
@@ -190,6 +194,22 @@ async fn igni_http_req(
         => {
             api::push_source(req, global).await
         }
+        (hyper::Method::DELETE, _) // /v2/source/<uuid>
+            if {
+                Regex::new(r"^/v2/source/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").unwrap().is_match(req.uri().path())
+            } =>
+        {
+            let r = Regex::new(
+                r"^/v2/source/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+            );
+            let uri = req.uri().path().to_string();
+            let source_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            api::delete_source(req, global, source_id).await
+        }
+        (hyper::Method::GET, "/v2/spec") // /v2/spec (list)
+        => {
+            api::list_specs(req, global).await
+        }
         (hyper::Method::GET, _) // /v2/spec/<uuid>
             if {
                 Regex::new(r"^/v2/spec/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").unwrap().is_match(req.uri().path())
@@ -201,6 +221,18 @@ async fn igni_http_req(
             let uri = req.uri().path().to_string();
             let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
             api::get_spec(req, global, spec_id).await
+        }
+        (hyper::Method::DELETE, _) // /v2/spec/<uuid>
+            if {
+                Regex::new(r"^/v2/spec/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").unwrap().is_match(req.uri().path())
+            } =>
+        {
+            let r = Regex::new(
+                r"^/v2/spec/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+            );
+            let uri = req.uri().path().to_string();
+            let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            api::delete_spec(req, global, spec_id).await
         }
         (hyper::Method::POST, "/v2/spec") // /v2/spec
         => {
