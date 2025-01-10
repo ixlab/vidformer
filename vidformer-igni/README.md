@@ -6,5 +6,6 @@ The next generation scale-out vidformer server.
 
 ```bash
 docker-compose -f docker-compose-db.yaml up
-cargo run -- server
+cargo run -- user add --name test --api-key test
+cargo run -- server --config igni.toml
 ```

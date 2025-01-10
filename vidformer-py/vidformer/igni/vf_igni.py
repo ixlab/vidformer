@@ -5,7 +5,7 @@ from fractions import Fraction
 
 
 class IgniServer:
-    def __init__(self, endpoint: str):
+    def __init__(self, endpoint: str, api_key: str):
         if not endpoint.startswith("http://") and not endpoint.startswith("https://"):
             raise Exception("Endpoint must start with http:// or https://")
         if endpoint.endswith("/"):
@@ -19,16 +19,32 @@ class IgniServer:
         if not version.startswith("vidformer-igni"):
             raise Exception(f"Endpoint not a vidformer-igni server!")
 
+        self._api_key = api_key
+        response = requests.get(
+            f"{self._endpoint}/v2/auth",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
+        if not response.ok:
+            raise Exception(response.text)
+        response = response.json()
+        assert response["status"] == "ok"
+
     def get_source(self, id: str):
         assert type(id) == str
-        response = requests.get(f"{self._endpoint}/v2/source/{id}")
+        response = requests.get(
+            f"{self._endpoint}/v2/source/{id}",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
         if not response.ok:
             raise Exception(response.text)
         response = response.json()
         return IgniSource(response["id"], response)
 
     def list_sources(self):
-        response = requests.get(f"{self._endpoint}/v2/source")
+        response = requests.get(
+            f"{self._endpoint}/v2/source",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
         if not response.ok:
             raise Exception(response.text)
         response = response.json()
@@ -36,7 +52,10 @@ class IgniServer:
 
     def delete_source(self, id: str):
         assert type(id) == str
-        response = requests.delete(f"{self._endpoint}/v2/source/{id}")
+        response = requests.delete(
+            f"{self._endpoint}/v2/source/{id}",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
         if not response.ok:
             raise Exception(response.text)
         response = response.json()
@@ -56,7 +75,11 @@ class IgniServer:
             "storage_service": storage_service,
             "storage_config": storage_config,
         }
-        response = requests.post(f"{self._endpoint}/v2/source", json=req)
+        response = requests.post(
+            f"{self._endpoint}/v2/source",
+            json=req,
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
         if not response.ok:
             raise Exception(response.text)
         response = response.json()
@@ -66,7 +89,10 @@ class IgniServer:
 
     def get_spec(self, id: str):
         assert type(id) == str
-        response = requests.get(f"{self._endpoint}/v2/spec/{id}")
+        response = requests.get(
+            f"{self._endpoint}/v2/spec/{id}",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
         if not response.ok:
             raise Exception(response.text)
         response = response.json()
@@ -74,7 +100,10 @@ class IgniServer:
         return IgniSpec(response["id"], response)
 
     def list_specs(self):
-        response = requests.get(f"{self._endpoint}/v2/spec")
+        response = requests.get(
+            f"{self._endpoint}/v2/spec",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
         if not response.ok:
             raise Exception(response.text)
         response = response.json()
@@ -110,7 +139,11 @@ class IgniServer:
             "ready_hook": ready_hook,
             "steer_hook": steer_hook,
         }
-        response = requests.post(f"{self._endpoint}/v2/spec", json=req)
+        response = requests.post(
+            f"{self._endpoint}/v2/spec",
+            json=req,
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
         if not response.ok:
             raise Exception(response.text)
         response = response.json()
@@ -119,7 +152,10 @@ class IgniServer:
 
     def delete_spec(self, id: str):
         assert type(id) == str
-        response = requests.delete(f"{self._endpoint}/v2/spec/{id}")
+        response = requests.delete(
+            f"{self._endpoint}/v2/spec/{id}",
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
         if not response.ok:
             raise Exception(response.text)
         response = response.json()
@@ -148,7 +184,11 @@ class IgniServer:
             "frames": req_frames,
             "terminal": terminal,
         }
-        response = requests.post(f"{self._endpoint}/v2/spec/{spec_id}/part", json=req)
+        response = requests.post(
+            f"{self._endpoint}/v2/spec/{spec_id}/part",
+            json=req,
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
         if not response.ok:
             raise Exception(response.text)
         response = response.json()

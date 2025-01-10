@@ -8,11 +8,28 @@ use uuid::Uuid;
 
 use super::IgniServerGlobal;
 
+pub(crate) async fn auth(
+    _req: hyper::Request<impl hyper::body::Body>,
+    _global: std::sync::Arc<IgniServerGlobal>,
+    _user: &super::UserAuth,
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
+    let res = serde_json::json!({
+        "status": "ok",
+    });
+    Ok(hyper::Response::builder()
+        .header("Content-Type", "application/json")
+        .body(http_body_util::Full::new(hyper::body::Bytes::from(
+            serde_json::to_string(&res).unwrap(),
+        )))?)
+}
+
 pub(crate) async fn list_sources(
     _req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
+    user: &super::UserAuth,
 ) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
-    let rows: Vec<(Uuid,)> = sqlx::query_as("SELECT id FROM source")
+    let rows: Vec<(Uuid,)> = sqlx::query_as("SELECT id FROM source WHERE user_id = $1")
+        .bind(user.user_id)
         .fetch_all(&global.pool)
         .await?;
 
@@ -29,13 +46,15 @@ pub(crate) async fn get_source(
     _req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
     source_id: &str,
+    user: &super::UserAuth,
 ) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let source_id = Uuid::parse_str(source_id).unwrap();
 
     let mut transaction = global.pool.begin().await?;
     let row: Option<(String, i32, String, serde_json::Value, String, String, i32, i32)> =
-        sqlx::query_as("SELECT name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height FROM source WHERE id = $1")
+        sqlx::query_as("SELECT name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height FROM source WHERE id = $1 AND user_id = $2")
             .bind(source_id)
+            .bind(user.user_id)
             .fetch_optional(&mut *transaction)
             .await
             ?;
@@ -103,15 +122,18 @@ pub(crate) async fn delete_source(
     _req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
     source_id: &str,
+    user: &super::UserAuth,
 ) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let source_id = Uuid::parse_str(source_id).unwrap();
 
     let mut transaction = global.pool.begin().await?;
     // Check if the source exists
-    let source_exists: Option<(Uuid,)> = sqlx::query_as("SELECT id FROM source WHERE id = $1")
-        .bind(source_id)
-        .fetch_optional(&mut *transaction)
-        .await?;
+    let source_exists: Option<(Uuid,)> =
+        sqlx::query_as("SELECT id FROM source WHERE id = $1 AND user_id = $2")
+            .bind(source_id)
+            .bind(user.user_id)
+            .fetch_optional(&mut *transaction)
+            .await?;
 
     if source_exists.is_none() {
         transaction.commit().await?;
@@ -162,6 +184,7 @@ pub(crate) async fn delete_source(
 pub(crate) async fn push_source(
     req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
+    user: &super::UserAuth,
 ) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let req: Vec<u8> = match req.collect().await {
         Err(_err) => {
@@ -202,6 +225,7 @@ pub(crate) async fn push_source(
 
     let uuid = crate::ops::profile_and_add_source(
         &global.pool,
+        &user.user_id,
         name,
         stream_idx as usize,
         &storage_service,
@@ -237,10 +261,13 @@ pub(crate) async fn push_source(
 pub(crate) async fn list_specs(
     _req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
+    user: &super::UserAuth,
 ) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
-    let rows: Vec<(Uuid,)> = sqlx::query_as("SELECT id FROM spec WHERE NOT closed")
-        .fetch_all(&global.pool)
-        .await?;
+    let rows: Vec<(Uuid,)> =
+        sqlx::query_as("SELECT id FROM spec WHERE NOT closed AND user_id = $1")
+            .bind(user.user_id)
+            .fetch_all(&global.pool)
+            .await?;
 
     let res = rows.iter().map(|(id,)| id).collect::<Vec<_>>();
 
@@ -255,12 +282,14 @@ pub(crate) async fn get_spec(
     _req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
     source_id: &str,
+    user: &super::UserAuth,
 ) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let source_id = Uuid::parse_str(source_id).unwrap();
 
     let row: Option<schema::SpecRow> =
-        sqlx::query_as("SELECT * FROM spec WHERE id = $1 AND NOT closed")
+        sqlx::query_as("SELECT * FROM spec WHERE id = $1 AND NOT closed AND user_id = $2")
             .bind(source_id)
+            .bind(user.user_id)
             .fetch_optional(&global.pool)
             .await?;
 
@@ -298,14 +327,16 @@ pub(crate) async fn delete_spec(
     _req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
     spec_id: &str,
+    user: &super::UserAuth,
 ) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let spec_id = Uuid::parse_str(spec_id).unwrap();
 
     let mut transaction = global.pool.begin().await?;
     // Check if the spec exists
     let spec_exists: Option<(Uuid,)> =
-        sqlx::query_as("SELECT id FROM spec WHERE id = $1 AND NOT closed")
+        sqlx::query_as("SELECT id FROM spec WHERE id = $1 AND NOT closed AND user_id = $2")
             .bind(spec_id)
+            .bind(user.user_id)
             .fetch_optional(&mut *transaction)
             .await?;
 
@@ -348,6 +379,7 @@ pub(crate) async fn delete_spec(
 pub(crate) async fn push_spec(
     req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
+    user: &super::UserAuth,
 ) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let req: Vec<u8> = match req.collect().await {
         Err(_err) => {
@@ -386,6 +418,7 @@ pub(crate) async fn push_spec(
 
     let spec = crate::ops::add_spec(
         &global.pool,
+        &user.user_id,
         (req.vod_segment_length[0], req.vod_segment_length[1]),
         (req.frame_rate[0], req.frame_rate[1]),
         req.height,
@@ -424,6 +457,7 @@ pub(crate) async fn push_part(
     req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
     spec_id: &str,
+    user: &super::UserAuth,
 ) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let spec_id = Uuid::parse_str(spec_id).unwrap();
 
@@ -521,8 +555,9 @@ pub(crate) async fn push_part(
     let mut transaction = global.pool.begin().await?;
 
     let spec: Option<schema::SpecRow> =
-        sqlx::query_as("SELECT * FROM spec WHERE id = $1 AND NOT closed")
+        sqlx::query_as("SELECT * FROM spec WHERE id = $1 AND NOT closed AND user_id = $2")
             .bind(spec_id)
+            .bind(user.user_id)
             .fetch_optional(&mut *transaction)
             .await?;
 
@@ -560,6 +595,32 @@ pub(crate) async fn push_part(
 
     // Check source references are valid
     {
+        // Check all sources both exist and are owned by the user
+        let source_ids = frame_ref_by_pos
+            .iter()
+            .map(|(source_id, _)| *source_id)
+            .chain(frame_ref_by_ts.iter().map(|(source_id, _)| *source_id))
+            .collect::<Vec<_>>();
+        if !source_ids.is_empty() {
+            let db_sources: Vec<(Uuid,)> =
+                sqlx::query_as("SELECT id FROM source WHERE id = ANY($1::UUID[]) AND user_id = $2")
+                    .bind(&source_ids)
+                    .bind(user.user_id)
+                    .fetch_all(&mut *transaction)
+                    .await?;
+
+            for source_id in &source_ids {
+                if !db_sources.iter().any(|(id,)| id == source_id) {
+                    transaction.commit().await?;
+                    return Ok(hyper::Response::builder()
+                        .status(hyper::StatusCode::NOT_FOUND)
+                        .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                            format!("Source {} not found", source_id),
+                        )))?);
+                }
+            }
+        }
+
         // Check by pos
         if !frame_ref_by_pos.is_empty() {
             let source_ids = frame_ref_by_pos

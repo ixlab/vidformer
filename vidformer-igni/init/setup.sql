@@ -1,22 +1,18 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- -- users table
--- CREATE TABLE "user" (
---     id UUID PRIMARY KEY DEFAULT uuid_generate_v4()
--- );
+-- users table
+CREATE TABLE "user" (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    api_key VARCHAR(32) NOT NULL
+);
 
--- -- api_key table
--- CREATE TABLE api_key (
---     user_id UUID REFERENCES "user"(id) ON DELETE CASCADE,
---     name TEXT NOT NULL,
---     key TEXT NOT NULL,
---     PRIMARY KEY (user_id, name)
--- );
+CREATE INDEX user_api_key_idx ON "user"(api_key);
 
 -- source table
 CREATE TABLE source (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    -- user_id UUID REFERENCES "user"(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     stream_idx INT NOT NULL,
     storage_service TEXT NOT NULL,
@@ -40,7 +36,7 @@ CREATE TABLE source_t (
 
 CREATE TABLE spec (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    -- user_id UUID REFERENCES "user"(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
     width INT NOT NULL,
     height INT NOT NULL,
     pix_fmt TEXT NOT NULL,

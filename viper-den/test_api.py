@@ -5,8 +5,9 @@ import random
 import os
 import subprocess as sp
 
-
 ENDPOINT = "http://localhost:8080/"
+AUTH_HEADERS = {"Authorization": "Bearer test"}
+
 TOS_SOURCE = {
     "name": "../tos_720p.mp4",
     "stream_idx": 0,
@@ -31,8 +32,29 @@ def test_version():
     assert re.match(r"vidformer-igni v\d+\.\d+\.\d+", response.text)
 
 
+def test_auth():
+    response = requests.get(ENDPOINT + "v2/auth", headers=AUTH_HEADERS)
+    response.raise_for_status()
+
+
+def test_auth_err_no_header():
+    response = requests.get(ENDPOINT + "v2/auth")
+    assert response.status_code == 401
+    assert response.text == "Unauthorized"
+
+
+def test_auth_err_invalid_header():
+    response = requests.get(
+        ENDPOINT + "v2/auth", headers={"Authorization": "Bearer invalid"}
+    )
+    assert response.status_code == 401
+    assert response.text == "Unauthorized"
+
+
 def _create_tos_source():
-    response = requests.post(ENDPOINT + "v2/source", json=TOS_SOURCE)
+    response = requests.post(
+        ENDPOINT + "v2/source", json=TOS_SOURCE, headers=AUTH_HEADERS
+    )
     response.raise_for_status()
     resp = response.json()
     assert resp["status"] == "ok"
@@ -64,13 +86,16 @@ def test_get_source():
 
 
 def test_error_get_source_not_exists():
-    resp = requests.get(ENDPOINT + "v2/source/ca584794-54cd-4d65-9073-ebb88529708b")
+    resp = requests.get(
+        ENDPOINT + "v2/source/ca584794-54cd-4d65-9073-ebb88529708b",
+        headers=AUTH_HEADERS,
+    )
     assert resp.status_code == 404
     assert resp.text == "Not found"
 
 
 def _get_source(source_id):
-    response = requests.get(ENDPOINT + "v2/source/" + source_id)
+    response = requests.get(ENDPOINT + "v2/source/" + source_id, headers=AUTH_HEADERS)
     if response.status_code != 200:
         response.raise_for_status()
     resp = response.json()
@@ -79,7 +104,7 @@ def _get_source(source_id):
 
 def test_list_sources():
     source_id = _create_tos_source()
-    response = requests.get(ENDPOINT + "v2/source")
+    response = requests.get(ENDPOINT + "v2/source", headers=AUTH_HEADERS)
     response.raise_for_status()
     resp = response.json()
     assert type(resp) == list
@@ -90,16 +115,18 @@ def test_list_sources():
 
 def test_delete_source():
     source_id = _create_tos_source()
-    response = requests.delete(ENDPOINT + "v2/source/" + source_id)
+    response = requests.delete(
+        ENDPOINT + "v2/source/" + source_id, headers=AUTH_HEADERS
+    )
     response.raise_for_status()
     resp = response.json()
     assert resp["status"] == "ok"
 
-    response = requests.get(ENDPOINT + "v2/source/" + source_id)
+    response = requests.get(ENDPOINT + "v2/source/" + source_id, headers=AUTH_HEADERS)
     assert response.status_code == 404
     assert response.text == "Not found"
 
-    response = requests.get(ENDPOINT + "v2/source")
+    response = requests.get(ENDPOINT + "v2/source", headers=AUTH_HEADERS)
     response.raise_for_status()
     resp = response.json()
     assert source_id not in resp
@@ -108,7 +135,7 @@ def test_delete_source():
 def _create_example_spec(fps=30):
     req = EXAMPLE_SPEC.copy()
     req["frame_rate"] = [fps, 1]
-    response = requests.post(ENDPOINT + "v2/spec", json=req)
+    response = requests.post(ENDPOINT + "v2/spec", json=req, headers=AUTH_HEADERS)
     response.raise_for_status()
     resp = response.json()
     assert resp["status"] == "ok"
@@ -136,13 +163,15 @@ def test_get_spec():
 
 
 def test_error_get_spec_not_exists():
-    resp = requests.get(ENDPOINT + "v2/spec/ca584794-54cd-4d65-9073-ebb88529708b")
+    resp = requests.get(
+        ENDPOINT + "v2/spec/ca584794-54cd-4d65-9073-ebb88529708b", headers=AUTH_HEADERS
+    )
     assert resp.status_code == 404
     assert resp.text == "Not found"
 
 
 def _get_spec(spec_id):
-    response = requests.get(ENDPOINT + "v2/spec/" + spec_id)
+    response = requests.get(ENDPOINT + "v2/spec/" + spec_id, headers=AUTH_HEADERS)
     if response.status_code != 200:
         response.raise_for_status()
     resp = response.json()
@@ -151,7 +180,7 @@ def _get_spec(spec_id):
 
 def test_list_specs():
     spec_id = _create_example_spec()
-    response = requests.get(ENDPOINT + "v2/spec")
+    response = requests.get(ENDPOINT + "v2/spec", headers=AUTH_HEADERS)
     response.raise_for_status()
     resp = response.json()
     assert type(resp) == list
@@ -162,16 +191,16 @@ def test_list_specs():
 
 def test_delete_spec():
     spec_id = _create_example_spec()
-    response = requests.delete(ENDPOINT + "v2/spec/" + spec_id)
+    response = requests.delete(ENDPOINT + "v2/spec/" + spec_id, headers=AUTH_HEADERS)
     response.raise_for_status()
     resp = response.json()
     assert resp["status"] == "ok"
 
-    response = requests.get(ENDPOINT + "v2/spec/" + spec_id)
+    response = requests.get(ENDPOINT + "v2/spec/" + spec_id, headers=AUTH_HEADERS)
     assert response.status_code == 404
     assert response.text == "Not found"
 
-    response = requests.get(ENDPOINT + "v2/spec")
+    response = requests.get(ENDPOINT + "v2/spec", headers=AUTH_HEADERS)
     response.raise_for_status()
     resp = response.json()
     assert spec_id not in resp
@@ -238,7 +267,9 @@ def _push_frames(spec_id, source_id, ts, pos, terminal):
     for t in ts:
         frames.append([t, frame_expr])
     req = {"pos": pos, "terminal": terminal, "frames": frames}
-    response = requests.post(ENDPOINT + "v2/spec/" + spec_id + "/part", json=req)
+    response = requests.post(
+        ENDPOINT + "v2/spec/" + spec_id + "/part", json=req, headers=AUTH_HEADERS
+    )
     response.raise_for_status()
     resp = response.json()
     assert len(resp) == 1
@@ -260,7 +291,9 @@ def test_error_push_part_empty():
     spec_id = _create_example_spec()
     ts = []
     req = {"pos": 0, "terminal": False, "frames": ts}
-    response = requests.post(ENDPOINT + "v2/spec/" + spec_id + "/part", json=req)
+    response = requests.post(
+        ENDPOINT + "v2/spec/" + spec_id + "/part", json=req, headers=AUTH_HEADERS
+    )
     assert response.status_code == 400
     assert response.text == "Cannot push a non-terminal part with no frames"
 
@@ -276,7 +309,9 @@ def test_error_push_part_after_termination():
         "terminal": False,
         "frames": [[[1, 30], _sample_frame_expr(source_id)]],
     }
-    response = requests.post(ENDPOINT + "v2/spec/" + spec_id + "/part", json=req)
+    response = requests.post(
+        ENDPOINT + "v2/spec/" + spec_id + "/part", json=req, headers=AUTH_HEADERS
+    )
     assert response.status_code == 400
     assert response.text == "Can not push past the terminal frame"
 
@@ -293,7 +328,9 @@ def test_error_push_part_after_staged_termination():
         "terminal": False,
         "frames": [[[1, 30], _sample_frame_expr(source_id)]],
     }
-    response = requests.post(ENDPOINT + "v2/spec/" + spec_id + "/part", json=req)
+    response = requests.post(
+        ENDPOINT + "v2/spec/" + spec_id + "/part", json=req, headers=AUTH_HEADERS
+    )
     assert response.status_code == 400
     assert response.text == "Can not push past the terminal frame"
 
@@ -309,7 +346,9 @@ def test_error_push_two_parts_same_pos():
         "terminal": False,
         "frames": [[[1, 30], _sample_frame_expr(source_id)]],
     }
-    response = requests.post(ENDPOINT + "v2/spec/" + spec_id + "/part", json=req)
+    response = requests.post(
+        ENDPOINT + "v2/spec/" + spec_id + "/part", json=req, headers=AUTH_HEADERS
+    )
     assert response.status_code == 400
     assert response.text == "Can not push to an existing position (position 0)"
 

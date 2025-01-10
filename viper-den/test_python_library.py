@@ -3,14 +3,15 @@ import vidformer.igni as igni
 from fractions import Fraction
 
 ENDPOINT = "http://localhost:8080"
+API_KEY = "test"
 
 
 def test_connect():
-    server = igni.IgniServer(ENDPOINT)
+    server = igni.IgniServer(ENDPOINT, API_KEY)
 
 
 def test_source():
-    server = igni.IgniServer(ENDPOINT)
+    server = igni.IgniServer(ENDPOINT, API_KEY)
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
     assert isinstance(tos, igni.IgniSource)
 
@@ -21,7 +22,7 @@ def test_source():
 
 
 def test_list_sources():
-    server = igni.IgniServer(ENDPOINT)
+    server = igni.IgniServer(ENDPOINT, API_KEY)
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
     sources = server.list_sources()
     for source in sources:
@@ -30,7 +31,7 @@ def test_list_sources():
 
 
 def test_delete_source():
-    server = igni.IgniServer(ENDPOINT)
+    server = igni.IgniServer(ENDPOINT, API_KEY)
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
     server.delete_source(tos.id())
     sources = server.list_sources()
@@ -38,14 +39,14 @@ def test_delete_source():
 
 
 def test_create_spec():
-    server = igni.IgniServer(ENDPOINT)
+    server = igni.IgniServer(ENDPOINT, API_KEY)
     segment_legnth = Fraction(2, 1)
     spec_id = server.create_spec(1920, 1080, "yuv420p", segment_legnth, Fraction(30, 1))
     assert isinstance(spec_id, igni.IgniSpec)
 
 
 def test_list_specs():
-    server = igni.IgniServer(ENDPOINT)
+    server = igni.IgniServer(ENDPOINT, API_KEY)
     spec = server.create_spec(1920, 1080, "yuv420p", Fraction(2, 1), Fraction(30, 1))
     specs = server.list_specs()
     for s in specs:
@@ -54,7 +55,7 @@ def test_list_specs():
 
 
 def test_delete_spec():
-    server = igni.IgniServer(ENDPOINT)
+    server = igni.IgniServer(ENDPOINT, API_KEY)
     spec = server.create_spec(1920, 1080, "yuv420p", Fraction(2, 1), Fraction(30, 1))
     server.delete_spec(spec.id())
     specs = server.list_specs()
@@ -62,7 +63,7 @@ def test_delete_spec():
 
 
 def test_push_spec_part():
-    server = igni.IgniServer(ENDPOINT)
+    server = igni.IgniServer(ENDPOINT, API_KEY)
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
     spec_id = server.create_spec(1920, 1080, "yuv420p", Fraction(2, 1), Fraction(30, 1))
 
@@ -76,7 +77,7 @@ def test_push_spec_part():
 
 
 def test_push_spec_part_multiple():
-    server = igni.IgniServer(ENDPOINT)
+    server = igni.IgniServer(ENDPOINT, API_KEY)
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
     spec_id = server.create_spec(1920, 1080, "yuv420p", Fraction(2, 1), Fraction(30, 1))
 

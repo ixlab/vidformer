@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use rand::Rng;
 use sqlx::postgres::PgPoolOptions;
 use tabled::{Table, Tabled};
 
@@ -50,6 +51,8 @@ enum ArgCmd {
     Source(SourceCmd),
     #[command(subcommand)]
     Spec(SpecCmd),
+    #[command(subcommand)]
+    User(UserCmd),
 }
 
 #[derive(Parser, Debug)]
@@ -68,6 +71,8 @@ enum SpecCmd {
 
 #[derive(Parser, Debug)]
 struct SpecAddOpt {
+    #[clap(long)]
+    user_id: String,
     #[clap(long)]
     width: usize,
     #[clap(long)]
@@ -94,6 +99,8 @@ enum SourceCmd {
 #[derive(Parser, Debug)]
 struct SourceAddOpt {
     #[clap(long)]
+    user_id: String,
+    #[clap(long)]
     name: String,
     #[clap(long)]
     stream_idx: usize,
@@ -105,6 +112,26 @@ struct SourceAddOpt {
 
 #[derive(Parser, Debug)]
 struct SourceRmOpt {
+    id: Vec<String>,
+}
+
+#[derive(Parser, Debug)]
+enum UserCmd {
+    Ls,
+    Add(UserAddOpt),
+    Rm(UserRmOpt),
+}
+
+#[derive(Parser, Debug)]
+struct UserAddOpt {
+    #[clap(long)]
+    name: String,
+    #[clap(long)]
+    api_key: Option<String>,
+}
+
+#[derive(Parser, Debug)]
+struct UserRmOpt {
     id: Vec<String>,
 }
 
@@ -167,6 +194,9 @@ async fn async_main(args: Args) -> Result<(), IgniError> {
         ArgCmd::Spec(spec_cmd) => {
             cmd_spec(pool, spec_cmd).await?;
         }
+        ArgCmd::User(user_cmd) => {
+            cmd_user(pool, user_cmd).await?;
+        }
     }
 
     Ok(())
@@ -204,6 +234,7 @@ async fn cmd_source_ls(pool: sqlx::Pool<sqlx::Postgres>) -> Result<(), IgniError
     #[derive(Tabled)]
     struct Row {
         id: String,
+        user_id: String,
         name: String,
         stream_idx: usize,
         storage_service: String,
@@ -219,6 +250,7 @@ async fn cmd_source_ls(pool: sqlx::Pool<sqlx::Postgres>) -> Result<(), IgniError
         .iter()
         .map(|row| Row {
             id: row.id.to_string(),
+            user_id: row.user_id.to_string(),
             name: row.name.clone(),
             stream_idx: row.stream_idx as usize,
             storage_service: row.storage_service.clone(),
@@ -240,8 +272,15 @@ async fn cmd_source_add(
     pool: sqlx::Pool<sqlx::Postgres>,
     add_source: SourceAddOpt,
 ) -> Result<(), IgniError> {
+    let user_id = match uuid::Uuid::parse_str(&add_source.user_id) {
+        Ok(u) => u,
+        Err(e) => {
+            return Err(IgniError::General(format!("Invalid user id: {}", e)));
+        }
+    };
     let source_id = ops::profile_and_add_source(
         &pool,
+        &user_id,
         add_source.name.to_string(),
         add_source.stream_idx,
         &add_source.storage_service,
@@ -316,6 +355,7 @@ async fn cmd_spec_ls(pool: sqlx::Pool<sqlx::Postgres>) -> Result<(), IgniError> 
     #[derive(Tabled)]
     struct Row {
         id: String,
+        user_id: String,
         width: i32,
         height: i32,
         pix_fmt: String,
@@ -332,6 +372,7 @@ async fn cmd_spec_ls(pool: sqlx::Pool<sqlx::Postgres>) -> Result<(), IgniError> 
         .iter()
         .map(|row| Row {
             id: row.id.to_string(),
+            user_id: row.user_id.to_string(),
             width: row.width,
             height: row.height,
             pix_fmt: row.pix_fmt.clone(),
@@ -380,6 +421,12 @@ async fn cmd_spec_add(pool: sqlx::Pool<sqlx::Postgres>, opt: SpecAddOpt) -> Resu
     let (seg_num, seg_denom) = parse_frac(&opt.segment_length)?;
     let (frame_num, frame_denom) = parse_frac(&opt.frame_rate)?;
 
+    let user_id = match uuid::Uuid::parse_str(&opt.user_id) {
+        Ok(u) => u,
+        Err(e) => {
+            return Err(IgniError::General(format!("Invalid user id: {}", e)));
+        }
+    };
     let height = opt.height as i32;
     let width = opt.width as i32;
     let pix_fmt = opt.pix_fmt.clone();
@@ -388,6 +435,7 @@ async fn cmd_spec_add(pool: sqlx::Pool<sqlx::Postgres>, opt: SpecAddOpt) -> Resu
 
     let spec_id = ops::add_spec(
         &pool,
+        &user_id,
         (seg_num, seg_denom),
         (frame_num, frame_denom),
         height,
@@ -399,5 +447,94 @@ async fn cmd_spec_add(pool: sqlx::Pool<sqlx::Postgres>, opt: SpecAddOpt) -> Resu
     .await?;
 
     println!("{}", spec_id);
+    Ok(())
+}
+
+async fn cmd_user(pool: sqlx::Pool<sqlx::Postgres>, user_cmd: UserCmd) -> Result<(), IgniError> {
+    match user_cmd {
+        UserCmd::Ls => {
+            cmd_user_ls(pool).await?;
+        }
+        UserCmd::Add(add_user) => {
+            cmd_user_add(pool, add_user).await?;
+        }
+        UserCmd::Rm(del_user) => {
+            cmd_user_del(pool, del_user).await?;
+        }
+    }
+    Ok(())
+}
+
+async fn cmd_user_ls(pool: sqlx::Pool<sqlx::Postgres>) -> Result<(), IgniError> {
+    let rows: Vec<schema::UserRow> = sqlx::query_as("SELECT * FROM \"user\" ORDER BY id")
+        .fetch_all(&pool)
+        .await?;
+
+    #[derive(Tabled)]
+    struct Row {
+        id: String,
+        name: String,
+        api_key: String,
+    }
+
+    let rows = rows
+        .iter()
+        .map(|row| Row {
+            id: row.id.to_string(),
+            name: row.name.clone(),
+            api_key: row.api_key.clone(),
+        })
+        .collect::<Vec<_>>();
+
+    let table = Table::new(&rows);
+    println!("{}", table);
+    Ok(())
+}
+
+async fn cmd_user_add(
+    pool: sqlx::Pool<sqlx::Postgres>,
+    add_user: UserAddOpt,
+) -> Result<(), IgniError> {
+    let name = add_user.name.clone();
+    let api_key = match add_user.api_key.clone() {
+        Some(key) => key,
+        None => rand::thread_rng()
+            .sample_iter(&rand::distributions::Alphanumeric)
+            .take(30)
+            .map(char::from)
+            .collect(),
+    };
+    let user_id = ops::add_user(&pool, &name, &api_key).await?;
+    println!("{}", user_id);
+    if add_user.api_key.is_none() {
+        println!("{}", api_key);
+    }
+    Ok(())
+}
+
+async fn cmd_user_del(
+    pool: sqlx::Pool<sqlx::Postgres>,
+    del_user: UserRmOpt,
+) -> Result<(), IgniError> {
+    for user_id in &del_user.id {
+        let user_id = match uuid::Uuid::parse_str(user_id) {
+            Ok(u) => u,
+            Err(e) => {
+                return Err(IgniError::General(format!("Invalid user id: {}", e)));
+            }
+        };
+
+        let resp = sqlx::query("DELETE FROM \"user\" WHERE id = $1")
+            .bind(user_id)
+            .execute(&pool)
+            .await?;
+
+        if resp.rows_affected() == 0 {
+            return Err(IgniError::General(format!("User not found: {}", user_id)));
+        }
+
+        println!("{}", user_id);
+    }
+
     Ok(())
 }

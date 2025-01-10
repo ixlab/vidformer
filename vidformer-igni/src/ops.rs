@@ -50,8 +50,25 @@ pub(crate) fn parse_storage_config(
     Ok((storage_json, out))
 }
 
+pub(crate) async fn add_user(
+    pool: &sqlx::Pool<sqlx::Postgres>,
+    name: &str,
+    api_key: &str,
+) -> Result<uuid::Uuid, IgniError> {
+    let user_id = uuid::Uuid::new_v4();
+    sqlx::query("INSERT INTO \"user\" (id, name, api_key) VALUES ($1, $2, $3)")
+        .bind(user_id)
+        .bind(name)
+        .bind(api_key)
+        .execute(pool)
+        .await?;
+
+    Ok(user_id)
+}
+
 pub(crate) async fn profile_and_add_source(
     pool: &sqlx::Pool<sqlx::Postgres>,
+    user_id: &uuid::Uuid,
     source_name: String,
     stream_idx: usize,
     storage_service: &str,
@@ -75,8 +92,9 @@ pub(crate) async fn profile_and_add_source(
         .expect("Failed joining blocking thread")?;
     let mut transaction = pool.begin().await?;
     let source_id = uuid::Uuid::new_v4();
-    sqlx::query("INSERT INTO source (id, name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height, file_size) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)")
+    sqlx::query("INSERT INTO source (id, user_id, name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height, file_size) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)")
         .bind(source_id)
+        .bind(user_id)
         .bind(&source_name2)
         .bind(stream_idx as i32)
         .bind(storage_service)
@@ -119,6 +137,7 @@ pub(crate) async fn profile_and_add_source(
 
 pub(crate) async fn add_spec(
     pool: &sqlx::Pool<sqlx::Postgres>,
+    user_id: &uuid::Uuid,
     segment_length: (i32, i32),
     frame_rate: (i32, i32),
     height: i32,
@@ -129,8 +148,9 @@ pub(crate) async fn add_spec(
 ) -> Result<uuid::Uuid, IgniError> {
     let spec_id = uuid::Uuid::new_v4();
 
-    sqlx::query("INSERT INTO spec (id, width, height, pix_fmt, vod_segment_length_num, vod_segment_length_denom, frame_rate_num, frame_rate_denom, pos_discontinuity, closed, ready_hook, steer_hook) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)")
+    sqlx::query("INSERT INTO spec (id, user_id, width, height, pix_fmt, vod_segment_length_num, vod_segment_length_denom, frame_rate_num, frame_rate_denom, pos_discontinuity, closed, ready_hook, steer_hook) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)")
         .bind(spec_id)
+        .bind(user_id)
         .bind(width)
         .bind(height)
         .bind(pix_fmt)

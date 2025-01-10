@@ -1,6 +1,14 @@
+#[derive(sqlx::FromRow)]
+pub struct UserRow {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub api_key: String,
+}
+
 #[derive(sqlx::FromRow, Debug)]
 pub struct SpecRow {
     pub id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
     pub width: i32,
     pub height: i32,
     pub pix_fmt: String,
@@ -18,6 +26,7 @@ pub struct SpecRow {
 #[derive(sqlx::FromRow)]
 pub struct SourceRow {
     pub id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
     pub name: String,
     pub stream_idx: i32,
     pub storage_service: String,

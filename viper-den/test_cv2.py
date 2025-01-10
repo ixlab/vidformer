@@ -3,10 +3,11 @@ import vidformer.igni as vf_igni
 from fractions import Fraction
 
 ENDPOINT = "http://localhost:8080"
+API_KEY = "test"
 
 
 def test_connect():
-    server = vf_igni.IgniServer(ENDPOINT)
+    server = vf_igni.IgniServer(ENDPOINT, API_KEY)
     cv2.set_cv2_server(server)
 
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
@@ -24,7 +25,7 @@ def test_connect():
 
 
 def test_write_video():
-    server = vf_igni.IgniServer(ENDPOINT)
+    server = vf_igni.IgniServer(ENDPOINT, API_KEY)
     cv2.set_cv2_server(server)
 
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
@@ -57,7 +58,7 @@ def test_write_video():
 
 
 def test_write_video_with_text():
-    server = vf_igni.IgniServer(ENDPOINT)
+    server = vf_igni.IgniServer(ENDPOINT, API_KEY)
     cv2.set_cv2_server(server)
 
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})

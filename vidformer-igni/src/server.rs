@@ -1,3 +1,5 @@
+use crate::schema;
+
 use super::IgniError;
 use super::ServerOpt;
 use log::*;
@@ -9,6 +11,10 @@ mod vod;
 struct IgniServerGlobal {
     config: ServerConfig,
     pool: sqlx::Pool<sqlx::Postgres>,
+}
+
+struct UserAuth {
+    user_id: uuid::Uuid,
 }
 
 fn load_config(path: &String) -> Result<ServerConfig, IgniError> {
@@ -161,6 +167,11 @@ async fn igni_http_req(
             let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
             vod::get_status(req, global, spec_id).await
         }
+        (_, uri) if {
+            uri.starts_with("/v2/")
+        } => {
+            igni_http_req_api(req, global).await
+        }
         (hyper::Method::GET, _) // segment-$n.ts
             if {
                 Regex::new(r"^/vod/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/segment-[0-9]+.ts$").unwrap().is_match(req.uri().path())
@@ -174,9 +185,73 @@ async fn igni_http_req(
             let segment_number = matches.get(2).unwrap().as_str().parse().unwrap();
             vod::get_segment(req, global, spec_id, segment_number).await
         }
+        (method, uri) => {
+            warn!("404 Not found: {} {}", method, uri);
+            let mut res = hyper::Response::new(http_body_util::Full::new(
+                hyper::body::Bytes::from("Not found"),
+            ));
+            *res.status_mut() = hyper::StatusCode::NOT_FOUND;
+            Ok(res)
+        }
+    }
+}
+
+async fn igni_http_req_api(
+    req: hyper::Request<impl hyper::body::Body>,
+    global: std::sync::Arc<IgniServerGlobal>,
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
+    let uri = req.uri().path().to_string();
+    let method = req.method().clone();
+
+    let api_key = req
+        .headers()
+        .get("Authorization")
+        .and_then(|header| header.to_str().ok())
+        .and_then(|header| {
+            if header.starts_with("Bearer ") {
+                Some(header[7..].to_string())
+            } else {
+                None
+            }
+        });
+
+    let api_key = match api_key {
+        Some(api_key) => api_key,
+        None => {
+            let mut res = hyper::Response::new(http_body_util::Full::new(
+                hyper::body::Bytes::from("Unauthorized"),
+            ));
+            *res.status_mut() = hyper::StatusCode::UNAUTHORIZED;
+            return Ok(res);
+        }
+    };
+
+    let user: Option<schema::UserRow> = sqlx::query_as("SELECT * FROM \"user\" WHERE api_key = $1")
+        .bind(&api_key)
+        .fetch_optional(&global.pool)
+        .await?;
+
+    let user = match user {
+        Some(user) => user,
+        None => {
+            let mut res = hyper::Response::new(http_body_util::Full::new(
+                hyper::body::Bytes::from("Unauthorized"),
+            ));
+            *res.status_mut() = hyper::StatusCode::UNAUTHORIZED;
+            return Ok(res);
+        }
+    };
+
+    let user_auth = UserAuth { user_id: user.id };
+
+    match (method, uri.as_str()) {
+        (hyper::Method::GET, "/v2/auth") // /v2/auth (for checking auth success)
+        => {
+            api::auth(req, global, &user_auth).await
+        }
         (hyper::Method::GET, "/v2/source") // /v2/source (list)
         => {
-            api::list_sources(req, global).await
+            api::list_sources(req, global, &user_auth).await
         }
         (hyper::Method::GET, _) // /v2/source/<uuid>
             if {
@@ -188,11 +263,11 @@ async fn igni_http_req(
             );
             let uri = req.uri().path().to_string();
             let source_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
-            api::get_source(req, global, source_id).await
+            api::get_source(req, global, source_id, &user_auth).await
         }
         (hyper::Method::POST, "/v2/source") // /v2/source
         => {
-            api::push_source(req, global).await
+            api::push_source(req, global, &user_auth).await
         }
         (hyper::Method::DELETE, _) // /v2/source/<uuid>
             if {
@@ -204,11 +279,11 @@ async fn igni_http_req(
             );
             let uri = req.uri().path().to_string();
             let source_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
-            api::delete_source(req, global, source_id).await
+            api::delete_source(req, global, source_id, &user_auth).await
         }
         (hyper::Method::GET, "/v2/spec") // /v2/spec (list)
         => {
-            api::list_specs(req, global).await
+            api::list_specs(req, global, &user_auth).await
         }
         (hyper::Method::GET, _) // /v2/spec/<uuid>
             if {
@@ -220,7 +295,7 @@ async fn igni_http_req(
             );
             let uri = req.uri().path().to_string();
             let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
-            api::get_spec(req, global, spec_id).await
+            api::get_spec(req, global, spec_id, &user_auth).await
         }
         (hyper::Method::DELETE, _) // /v2/spec/<uuid>
             if {
@@ -232,11 +307,11 @@ async fn igni_http_req(
             );
             let uri = req.uri().path().to_string();
             let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
-            api::delete_spec(req, global, spec_id).await
+            api::delete_spec(req, global, spec_id, &user_auth).await
         }
         (hyper::Method::POST, "/v2/spec") // /v2/spec
         => {
-            api::push_spec(req, global).await
+            api::push_spec(req, global, &user_auth).await
         }
         (hyper::Method::POST, _) // /v2/spec/<uuid>/part
             if {
@@ -248,7 +323,7 @@ async fn igni_http_req(
             );
             let uri = req.uri().path().to_string();
             let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
-            api::push_part(req, global, spec_id).await
+            api::push_part(req, global, spec_id, &user_auth).await
         }
         (method, uri) => {
             warn!("404 Not found: {} {}", method, uri);
