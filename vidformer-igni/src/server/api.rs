@@ -779,7 +779,7 @@ WHERE cte.pos <> cte.rn) END AS first_missing_pos
             .collect::<Vec<_>>();
         if !dependent_source_ids.is_empty() {
             sqlx::query("INSERT INTO spec_source_dependency (spec_id, source_id) VALUES (UNNEST($1::UUID[]), UNNEST($2::UUID[])) ON CONFLICT (spec_id, source_id) DO NOTHING")
-            .bind(&vec![spec_id; dependent_source_ids.len()])
+            .bind(vec![spec_id; dependent_source_ids.len()])
             .bind(&dependent_source_ids)
             .execute(&mut *transaction)
             .await?;

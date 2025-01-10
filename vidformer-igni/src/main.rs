@@ -306,7 +306,7 @@ async fn cmd_source_del(
 
         let conflicting_spec: Option<uuid::Uuid> =
             sqlx::query_scalar("SELECT spec_id FROM spec_source_dependency WHERE source_id = $1")
-                .bind(&source_id)
+                .bind(source_id)
                 .fetch_optional(&pool)
                 .await?;
 
@@ -382,13 +382,10 @@ async fn cmd_spec_ls(pool: sqlx::Pool<sqlx::Postgres>) -> Result<(), IgniError> 
             ),
             frame_rate: format!("{}/{}", row.frame_rate_num, row.frame_rate_denom),
             pos_discontinuity: row.pos_discontinuity,
-            pos_terminal: row
-                .pos_terminal
-                .map(|t| t.to_string())
-                .unwrap_or_else(|| "".to_string()),
+            pos_terminal: row.pos_terminal.map(|t| t.to_string()).unwrap_or_default(),
             closed: row.closed,
-            ready_hook: row.ready_hook.clone().unwrap_or_else(|| "".to_string()),
-            steer_hook: row.steer_hook.clone().unwrap_or_else(|| "".to_string()),
+            ready_hook: row.ready_hook.clone().unwrap_or_default(),
+            steer_hook: row.steer_hook.clone().unwrap_or_default(),
         })
         .collect::<Vec<_>>();
 
