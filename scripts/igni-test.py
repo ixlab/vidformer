@@ -23,9 +23,57 @@ sp.run(["docker-compose", "-f", igni_docker_compose, "up", "-d"], check=True)
 
 time.sleep(10)  # Give the database time to apply the init scripts
 
-# Igni
-print("Starting Igni...")
+# Igni admin cli
+# These just make sure the binary runs without crashin and can talk to the server
+# Mostly a canary to make sure a schema change didn't break the admin cli
+print("Running Igni admin cli checks")
 vidformer_igni_bin = os.path.join(project_dir, "target", "debug", "vidformer-igni")
+
+source = sp.run(
+    [
+        vidformer_igni_bin,
+        "source",
+        "add",
+        "--name",
+        "../tos_720p.mp4",
+        "--stream-idx",
+        "0",    
+        "--storage-service",
+        "fs",
+        "--storage-config",
+        '{"root":"."}',
+    ],
+    capture_output=True,
+    cwd=igni_dir,
+    check=True
+)
+source_id = source.stdout.decode().strip()
+sp.run([vidformer_igni_bin, "source", "ls"], check=True)
+sp.run([vidformer_igni_bin, "source", "rm", source_id], check=True)
+
+spec = sp.run(
+    [
+        vidformer_igni_bin,
+        "spec",
+        "add",
+        "--width",
+        "1280",
+        "--height",
+        "720",
+        "--pix-fmt",
+        "yuv420p",
+        "--segment-length",
+        "2/1",
+    ],
+    capture_output=True,
+    check=True
+)
+spec_id = spec.stdout.decode().strip()
+sp.run([vidformer_igni_bin, "spec", "ls"], check=True)
+sp.run([vidformer_igni_bin, "spec", "rm", spec_id], check=True)
+
+# Igni server
+print("Starting Igni...")
 igni_env = {**os.environ, "RUST_LOG": "warn"}
 igni_proc = sp.Popen(
     [
