@@ -156,9 +156,19 @@ async fn db_connect() -> Result<sqlx::Pool<sqlx::Postgres>, IgniError> {
     let timeout = std::time::Duration::from_secs(10);
     let start_time = std::time::Instant::now();
     loop {
+        // Pull connection string from environment
+        let conn_str = match std::env::var("IGNI_DB") {
+            Ok(s) => s,
+            Err(_) => {
+                return Err(IgniError::General(
+                    "Environment variable IGNI_DB not set".to_string(),
+                ));
+            }
+        };
+
         match PgPoolOptions::new()
             .max_connections(10)
-            .connect("postgres://igni:igni@localhost/igni")
+            .connect(&conn_str)
             .await
         {
             Ok(pool) => {

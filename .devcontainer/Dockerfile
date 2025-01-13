@@ -32,6 +32,7 @@ RUN sed -i -e's/ main/ main contrib non-free/g' /etc/apt/sources.list.d/debian.s
   libopencv-dev \
   python3 \
   python3-pip \
+  wait-for-it \
   && rm -rf /var/lib/apt/lists/*
 
 USER vscode

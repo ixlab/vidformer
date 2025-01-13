@@ -56,7 +56,7 @@ pub(crate) async fn cmd_server(
         .await
         .map_err(|e| IgniError::General(format!("Failed to bind to {}: {}", addr, e)))?;
 
-    info!("Opened server on {}", addr);
+    println!("Opened igni server on {}", addr);
 
     loop {
         let (stream, client_addr) = match listener.accept().await {
