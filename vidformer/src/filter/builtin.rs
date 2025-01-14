@@ -794,10 +794,31 @@ impl super::Filter for InlineMat {
             _ => panic!("Expected int"),
         };
 
-        let data = match &args[0] {
+        let compression = match kwargs.get("compression") {
+            Some(Val::String(s)) => Option::Some(s),
+            _ => Option::None,
+        };
+
+        let mut data = match &args[0] {
             Val::Bytes(b) => b,
             _ => panic!("Expected bytes"),
         };
+
+        let mut decompressed: Vec<u8> = Vec::new();
+        if let Some(compression) = compression {
+            assert_eq!(compression, "zlib");
+
+            let mut decoder = flate2::read::ZlibDecoder::new(&data[..]);
+            use std::io::Read;
+            decoder.read_to_end(&mut decompressed).unwrap();
+            data = &decompressed;
+            if data.len() != width as usize * height as usize * 3 {
+                return Err(Error::InvalidFilterArgValue(
+                    format!("{:?}", data.len()),
+                    "Invalid data length".to_string(),
+                ));
+            }
+        }
 
         let f = unsafe { ffi::av_frame_alloc() };
         if f.is_null() {
@@ -858,6 +879,20 @@ impl super::Filter for InlineMat {
             _ => return Err(Error::MissingFilterArg),
         };
 
+        let compression = match kwargs.get("compression") {
+            Some(Val::String(s)) => Option::Some(s),
+            _ => Option::None,
+        };
+
+        if let Some(compression) = compression {
+            if compression != "zlib" {
+                return Err(Error::InvalidFilterArgValue(
+                    compression.clone(),
+                    "Invalid compression".to_string(),
+                ));
+            }
+        }
+
         if pix_fmt != "rgb24" {
             return Err(Error::InvalidFilterArgValue(
                 pix_fmt.clone(),
@@ -882,7 +917,7 @@ impl super::Filter for InlineMat {
         };
 
         // check if data length matches width, height, and pix_fmt
-        if data.len() != width as usize * height as usize * 3 {
+        if compression.is_none() && data.len() != width as usize * height as usize * 3 {
             return Err(Error::InvalidFilterArgValue(
                 format!("{:?}", data.len()),
                 "Invalid data length".to_string(),

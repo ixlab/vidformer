@@ -23,6 +23,7 @@ import numpy as np
 import uuid
 from fractions import Fraction
 from bisect import bisect_right
+import zlib
 
 CAP_PROP_POS_MSEC = 0
 CAP_PROP_POS_FRAMES = 1
@@ -218,15 +219,22 @@ def _inline_frame(arr):
     if arr.shape[2] != 3:
         raise Exception("To inline a frame, the array must have 3 channels")
 
-    # convert BGR to RGB
     arr = arr[:, :, ::-1]
+    if not arr.flags["C_CONTIGUOUS"]:
+        arr = np.ascontiguousarray(arr)
 
     width = arr.shape[1]
     height = arr.shape[0]
     pix_fmt = "rgb24"
 
-    f = _inline_mat(arr.tobytes(), width=width, height=height, pix_fmt=pix_fmt)
+    data_gzip = zlib.compress(memoryview(arr), level=1)
+
+    f = _inline_mat(
+        data_gzip, width=width, height=height, pix_fmt=pix_fmt, compression="zlib"
+    )
     fmt = {"width": width, "height": height, "pix_fmt": pix_fmt}
+
+    # Return the resulting Frame object
     return Frame(f, fmt)
 
 
