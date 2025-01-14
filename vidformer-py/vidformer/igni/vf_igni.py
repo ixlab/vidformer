@@ -2,6 +2,7 @@ from .. import vf
 
 import requests
 from fractions import Fraction
+from urllib.parse import urlparse
 
 
 class IgniServer:
@@ -12,16 +13,9 @@ class IgniServer:
             raise Exception("Endpoint must not end with /")
         self._endpoint = endpoint
 
-        version = vf._check_hls_link_exists(f"{self._endpoint}/")
-        if version is None:
-            raise Exception("Failed to connect to server")
-
-        if not version.startswith("vidformer-igni"):
-            raise Exception(f"Endpoint not a vidformer-igni server!")
-
         self._api_key = api_key
         response = requests.get(
-            f"{self._endpoint}/v2/auth",
+            f"{self._endpoint}/auth",
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
         if not response.ok:
@@ -32,7 +26,7 @@ class IgniServer:
     def get_source(self, id: str):
         assert type(id) == str
         response = requests.get(
-            f"{self._endpoint}/v2/source/{id}",
+            f"{self._endpoint}/source/{id}",
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
         if not response.ok:
@@ -42,7 +36,7 @@ class IgniServer:
 
     def list_sources(self):
         response = requests.get(
-            f"{self._endpoint}/v2/source",
+            f"{self._endpoint}/source",
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
         if not response.ok:
@@ -53,7 +47,7 @@ class IgniServer:
     def delete_source(self, id: str):
         assert type(id) == str
         response = requests.delete(
-            f"{self._endpoint}/v2/source/{id}",
+            f"{self._endpoint}/source/{id}",
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
         if not response.ok:
@@ -76,7 +70,7 @@ class IgniServer:
             "storage_config": storage_config,
         }
         response = requests.post(
-            f"{self._endpoint}/v2/source",
+            f"{self._endpoint}/source",
             json=req,
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
@@ -90,18 +84,17 @@ class IgniServer:
     def get_spec(self, id: str):
         assert type(id) == str
         response = requests.get(
-            f"{self._endpoint}/v2/spec/{id}",
+            f"{self._endpoint}/spec/{id}",
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
         if not response.ok:
             raise Exception(response.text)
         response = response.json()
-        response["hls_js_url"] = f"{self._endpoint}/hls.js"
         return IgniSpec(response["id"], response)
 
     def list_specs(self):
         response = requests.get(
-            f"{self._endpoint}/v2/spec",
+            f"{self._endpoint}/spec",
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
         if not response.ok:
@@ -140,7 +133,7 @@ class IgniServer:
             "steer_hook": steer_hook,
         }
         response = requests.post(
-            f"{self._endpoint}/v2/spec",
+            f"{self._endpoint}/spec",
             json=req,
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
@@ -153,7 +146,7 @@ class IgniServer:
     def delete_spec(self, id: str):
         assert type(id) == str
         response = requests.delete(
-            f"{self._endpoint}/v2/spec/{id}",
+            f"{self._endpoint}/spec/{id}",
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
         if not response.ok:
@@ -185,7 +178,7 @@ class IgniServer:
             "terminal": terminal,
         }
         response = requests.post(
-            f"{self._endpoint}/v2/spec/{spec_id}/part",
+            f"{self._endpoint}/spec/{spec_id}/part",
             json=req,
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
@@ -233,7 +226,8 @@ class IgniSpec:
             "pix_fmt": src["pix_fmt"],
         }
         self._vod_endpoint = src["vod_endpoint"]
-        self._hls_js_url = src["hls_js_url"]  # We keep this here for convenience
+        parsed_url = urlparse(self._vod_endpoint)
+        self._hls_js_url = f"{parsed_url.scheme}://{parsed_url.netloc}/hls.js"
 
     def id(self):
         return self._id

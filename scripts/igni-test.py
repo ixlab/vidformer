@@ -28,14 +28,21 @@ time.sleep(10)  # Give the database time to apply the init scripts
 # Mostly a canary to make sure a schema change didn't break the admin cli
 print("Running Igni admin cli checks")
 vidformer_igni_bin = os.path.join(project_dir, "target", "debug", "vidformer-igni")
+igni_env = {
+    **os.environ,
+    "IGNI_DB": "postgres://igni:igni@localhost:5432/igni",
+    "RUST_LOG": "warn",
+}
 
-sp.run([vidformer_igni_bin, "ping"], check=True, capture_output=True)
+# Check the cli connects to the server
+sp.run([vidformer_igni_bin, "ping"], check=True, capture_output=True, env=igni_env)
 
 # Add a user for the tests
 test_user = sp.run(
     [vidformer_igni_bin, "user", "add", "--name", "test", "--api-key", "test"],
-    check=True,
     capture_output=True,
+    check=True,
+    env=igni_env,
 )
 test_user_id = test_user.stdout.decode().strip().split("\n")[0]
 
@@ -58,10 +65,18 @@ source = sp.run(
     capture_output=True,
     cwd=igni_dir,
     check=True,
+    env=igni_env,
 )
 source_id = source.stdout.decode().strip()
-sp.run([vidformer_igni_bin, "source", "ls"], check=True, capture_output=True)
-sp.run([vidformer_igni_bin, "source", "rm", source_id], check=True, capture_output=True)
+sp.run(
+    [vidformer_igni_bin, "source", "ls"], check=True, capture_output=True, env=igni_env
+)
+sp.run(
+    [vidformer_igni_bin, "source", "rm", source_id],
+    check=True,
+    capture_output=True,
+    env=igni_env,
+)
 
 spec = sp.run(
     [
@@ -83,9 +98,12 @@ spec = sp.run(
     ],
     capture_output=True,
     check=True,
+    env=igni_env,
 )
 spec_id = spec.stdout.decode().strip()
-sp.run([vidformer_igni_bin, "spec", "ls"], check=True, capture_output=True)
+sp.run(
+    [vidformer_igni_bin, "spec", "ls"], check=True, capture_output=True, env=igni_env
+)
 
 tmp_user = sp.run(
     [
@@ -97,15 +115,22 @@ tmp_user = sp.run(
     ],
     check=True,
     capture_output=True,
+    env=igni_env,
 )
 assert len(tmp_user.stdout.decode().strip().split("\n")) == 2
 user_id = tmp_user.stdout.decode().strip().split("\n")[0]
-sp.run([vidformer_igni_bin, "user", "ls"], check=True, capture_output=True)
-sp.run([vidformer_igni_bin, "user", "rm", user_id], check=True, capture_output=True)
+sp.run(
+    [vidformer_igni_bin, "user", "ls"], check=True, capture_output=True, env=igni_env
+)
+sp.run(
+    [vidformer_igni_bin, "user", "rm", user_id],
+    check=True,
+    capture_output=True,
+    env=igni_env,
+)
 
 # Igni server
 print("Starting Igni...")
-igni_env = {**os.environ, "RUST_LOG": "warn"}
 igni_proc = sp.Popen(
     [
         vidformer_igni_bin,
@@ -117,22 +142,9 @@ igni_proc = sp.Popen(
     env=igni_env,
 )
 
+# wait for it
+sp.run(["wait-for-it", "localhost:8080", "--timeout=15"], check=True)
 
-# Wait for the server to start up, try to GET localhost:8080 until it returns 200
-def wait_for_it(endpoint, timeout):
-    start = time.time()
-    while time.time() - start < timeout:
-        try:
-            response = requests.get(endpoint)
-            if response.status_code == 200:
-                return
-        except requests.exceptions.ConnectionError:
-            pass
-        time.sleep(0.1)
-    raise Exception("Timeout waiting for server to start")
-
-
-wait_for_it("http://localhost:8080/", 10)
 print("Igni server started")
 
 # Run the tests

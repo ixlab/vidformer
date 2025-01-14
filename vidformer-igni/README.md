@@ -6,6 +6,7 @@ The next generation scale-out vidformer server.
 
 ```bash
 docker-compose -f docker-compose-db.yaml up
+export 'IGNI_DB=postgres://igni:igni@localhost:5432/igni'
 cargo run -- user add --name test --api-key test
 cargo run -- server --config igni.toml
 ```

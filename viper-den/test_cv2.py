@@ -2,7 +2,7 @@ import vidformer.cv2 as cv2
 import vidformer.igni as vf_igni
 from fractions import Fraction
 
-ENDPOINT = "http://localhost:8080"
+ENDPOINT = "http://localhost:8080/v2"
 API_KEY = "test"
 
 
