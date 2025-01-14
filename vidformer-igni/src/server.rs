@@ -265,6 +265,9 @@ async fn igni_http_req_api(
             let source_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
             api::get_source(req, global, source_id, &user_auth).await
         }
+        (hyper::Method::POST, "/v2/source/search") => {
+            api::search_source(req, global, &user_auth).await
+        }
         (hyper::Method::POST, "/v2/source") // /v2/source
         => {
             api::push_source(req, global, &user_auth).await

@@ -10,7 +10,7 @@ def test_connect():
     server = igni.IgniServer(ENDPOINT, API_KEY)
 
 
-def test_source():
+def test_create_source():
     server = igni.IgniServer(ENDPOINT, API_KEY)
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
     assert isinstance(tos, igni.IgniSource)
@@ -21,6 +21,34 @@ def test_source():
         assert isinstance(t, Fraction)
 
 
+def test_source():
+    server = igni.IgniServer(ENDPOINT, API_KEY)
+
+    # delete all specs first (since they depend on sources)
+    specs = server.list_specs()
+    for spec in specs:
+        server.delete_spec(spec)
+
+    # delete all sources first
+    sources = server.list_sources()
+    for source in sources:
+        server.delete_source(source)
+
+    # Get a source which doesn't exist
+    tos = server.source("../tos_720p.mp4", 0, "fs", {"root": "."})
+    assert isinstance(tos, igni.IgniSource)
+
+    # Get a source which already exists
+    tos2 = server.source("../tos_720p.mp4", 0, "fs", {"root": "."})
+    assert isinstance(tos2, igni.IgniSource)
+
+    assert tos.id() == tos2.id()
+
+    # check only one source exists
+    sources = server.list_sources()
+    assert len(sources) == 1
+
+
 def test_list_sources():
     server = igni.IgniServer(ENDPOINT, API_KEY)
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
@@ -28,6 +56,16 @@ def test_list_sources():
     for source in sources:
         assert isinstance(source, str)
     assert tos.id() in sources
+
+
+def test_search_source():
+    server = igni.IgniServer(ENDPOINT, API_KEY)
+    tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
+    matching_sources = server.search_source("../tos_720p.mp4", 0, "fs", {"root": "."})
+    assert type(matching_sources) == list
+    for source in matching_sources:
+        assert isinstance(source, str)
+    assert tos.id() in matching_sources
 
 
 def test_delete_source():

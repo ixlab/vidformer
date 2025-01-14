@@ -342,8 +342,14 @@ class _IgniVideoWriter:
 
     def write(self, frame):
         frame = frameify(frame, "frame")
-        assert frame._fmt["width"] == self._spec._fmt["width"]
-        assert frame._fmt["height"] == self._spec._fmt["height"]
+        if frame._fmt["width"] != self._spec._fmt["width"]:
+            raise Exception(
+                f"Frame type error; expected width {self._spec._fmt['width']}, got {frame._fmt['width']}"
+            )
+        if frame._fmt["height"] != self._spec._fmt["height"]:
+            raise Exception(
+                f"Frame type error; expected height {self._spec._fmt['height']}, got {frame._fmt['height']}"
+            )
         if frame._fmt["pix_fmt"] != self._spec._fmt["pix_fmt"]:
             f_obj = _filter_scale(frame._f, pix_fmt=self._spec._fmt["pix_fmt"])
             frame = Frame(f_obj, self._spec._fmt)

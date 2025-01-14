@@ -55,6 +55,30 @@ class IgniServer:
         response = response.json()
         assert response["status"] == "ok"
 
+    def search_source(self, name, stream_idx, storage_service, storage_config):
+        assert type(name) == str
+        assert type(stream_idx) == int
+        assert type(storage_service) == str
+        assert type(storage_config) == dict
+        for k, v in storage_config.items():
+            assert type(k) == str
+            assert type(v) == str
+        req = {
+            "name": name,
+            "stream_idx": stream_idx,
+            "storage_service": storage_service,
+            "storage_config": storage_config,
+        }
+        response = requests.post(
+            f"{self._endpoint}/source/search",
+            json=req,
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
+        if not response.ok:
+            raise Exception(response.text)
+        response = response.json()
+        return response
+
     def create_source(self, name, stream_idx, storage_service, storage_config):
         assert type(name) == str
         assert type(stream_idx) == int
@@ -80,6 +104,18 @@ class IgniServer:
         assert response["status"] == "ok"
         id = response["id"]
         return self.get_source(id)
+
+    def source(self, name, stream_idx, storage_service, storage_config):
+        """Convenience function for accessing sources.
+
+        Tries to find a source with the given name, stream_idx, storage_service, and storage_config.
+        If no source is found, creates a new source with the given parameters.
+        """
+
+        sources = self.search_source(name, stream_idx, storage_service, storage_config)
+        if len(sources) == 0:
+            return self.create_source(name, stream_idx, storage_service, storage_config)
+        return self.get_source(sources[0])
 
     def get_spec(self, id: str):
         assert type(id) == str
@@ -215,6 +251,9 @@ class IgniSource:
         if type(idx) != Fraction:
             raise Exception("Source index must be a Fraction")
         return vf.SourceExpr(self, idx, False)
+
+    def __repr__(self):
+        return f"IgniSource({self._name})"
 
 
 class IgniSpec:

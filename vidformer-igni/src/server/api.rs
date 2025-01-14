@@ -118,6 +118,59 @@ pub(crate) async fn get_source(
         )))?)
 }
 
+pub(crate) async fn search_source(
+    req: hyper::Request<impl hyper::body::Body>,
+    global: std::sync::Arc<IgniServerGlobal>,
+    user: &super::UserAuth,
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
+    #[derive(serde::Deserialize)]
+    struct Request {
+        name: String,
+        stream_idx: i32,
+        storage_service: String,
+        storage_config: serde_json::Value,
+    }
+
+    let req: Request = match req.collect().await {
+        Err(_err) => {
+            error!("Error reading request body");
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::BAD_REQUEST)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    "Error reading request body",
+                )))?);
+        }
+        Ok(req) => match serde_json::from_slice(&req.to_bytes().to_vec()) {
+            Err(err) => {
+                error!("Error parsing request body");
+                return Ok(hyper::Response::builder()
+                    .status(hyper::StatusCode::BAD_REQUEST)
+                    .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                        format!("Bad request: {}", err),
+                    )))?);
+            }
+            Ok(req) => req,
+        },
+    };
+
+    let rows: Vec<(Uuid,)> = sqlx::query_as("SELECT id FROM source WHERE name = $1 AND stream_idx = $2 AND storage_service = $3 AND storage_config = $4 AND user_id = $5")
+        .bind(req.name)
+        .bind(req.stream_idx)
+        .bind(req.storage_service)
+        .bind(req.storage_config)
+        .bind(user.user_id)
+        .fetch_all(&global.pool)
+        .await?;
+
+    let res: Vec<String> = rows.iter().map(|(id,)| id.to_string()).collect();
+
+    Ok(hyper::Response::builder()
+        .header("Content-Type", "application/json")
+        .body(http_body_util::Full::new(hyper::body::Bytes::from(
+            serde_json::to_string(&res).unwrap(),
+        )))?)
+}
+
 pub(crate) async fn delete_source(
     _req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,

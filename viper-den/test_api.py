@@ -113,6 +113,19 @@ def test_list_sources():
     assert source_id in resp
 
 
+def test_search_source():
+    source_id = _create_tos_source()
+    response = requests.post(
+        ENDPOINT + "v2/source/search", headers=AUTH_HEADERS, json=TOS_SOURCE
+    )
+    response.raise_for_status()
+    resp = response.json()
+    assert type(resp) == list
+    for sid in resp:
+        assert type(sid) == str
+    assert source_id in resp
+
+
 def test_delete_source():
     source_id = _create_tos_source()
     response = requests.delete(
