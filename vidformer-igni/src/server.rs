@@ -92,6 +92,56 @@ impl UserPermissions {
         }
     }
 
+    pub fn default_guest() -> UserPermissions {
+        let limits_int = [
+            ("spec:max_width", 1280), // DCI 4K
+            ("spec:max_height", 720), // DCI 4K
+        ]
+        .iter()
+        .map(|(key, value)| (key.to_string(), *value))
+        .collect();
+
+        let limits_frac = [
+            ("spec:max_vod_segment_length", (3, 1)),
+            ("spec:min_vod_segment_legth", (1, 1)),
+            ("spec:max_frame_rate", (30, 1)),
+            ("spec:min_frame_rate", (1, 1)),
+        ]
+        .iter()
+        .map(|(key, value)| (key.to_string(), Rational64::new(value.0, value.1)))
+        .collect();
+
+        let valsets = [("spec:pix_fmt", vec!["yuv420p"])]
+            .iter()
+            .map(|(key, values)| {
+                let values = values.iter().map(|v| v.to_string()).collect();
+                (key.to_string(), values)
+            })
+            .collect();
+
+        let flags = vec![
+            // Source permissions
+            "source:get",
+            "source:list",
+            "source:search",
+            // Spec permissions
+            "spec:create",
+            "spec:get",
+            "spec:push_part",
+            "spec:delete",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+
+        UserPermissions {
+            flags,
+            valsets,
+            limits_int,
+            limits_frac,
+        }
+    }
+
     pub fn default_test() -> UserPermissions {
         let mut out = UserPermissions::default_regular();
         out.valsets

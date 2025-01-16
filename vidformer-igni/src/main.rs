@@ -126,6 +126,7 @@ enum UserCmd {
 enum UserPermissionLevel {
     Regular,
     Test,
+    Guest,
 }
 
 #[derive(Parser, Debug)]
@@ -570,6 +571,7 @@ async fn cmd_user_add(
     let permissions = match add_user.permissions {
         UserPermissionLevel::Regular => server::UserPermissions::default_regular(),
         UserPermissionLevel::Test => server::UserPermissions::default_test(),
+        UserPermissionLevel::Guest => server::UserPermissions::default_guest(),
     };
     let user_id = ops::add_user(&pool, &name, &api_key, &permissions).await?;
     println!("{}", user_id);
