@@ -206,8 +206,13 @@ class IgniServer:
             t = frame[0]
             f = frame[1]
             assert type(t) == Fraction
-            assert type(f) == vf.SourceExpr or type(f) == vf.FilterExpr
-            req_frames.append([[t.numerator, t.denominator], f._to_json_spec()])
+            assert f is None or type(f) == vf.SourceExpr or type(f) == vf.FilterExpr
+            req_frames.append(
+                [
+                    [t.numerator, t.denominator],
+                    f._to_json_spec() if f is not None else None,
+                ]
+            )
 
         req = {
             "pos": pos,
@@ -243,7 +248,7 @@ class IgniSource:
         return {**self._fmt}
 
     def ts(self):
-        return [x for x in self._ts]
+        return self._ts.copy()
 
     def __len__(self):
         return len(self._ts)

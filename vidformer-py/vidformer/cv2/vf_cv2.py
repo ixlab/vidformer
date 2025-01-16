@@ -281,7 +281,7 @@ class VideoCapture:
             raise Exception(f"Unsupported property {prop}")
 
     def read(self):
-        if self._next_frame_idx >= len(self._source.ts()):
+        if self._next_frame_idx >= len(self._source):
             return False, None
         frame = self._source.iloc[self._next_frame_idx]
         self._next_frame_idx += 1
@@ -320,7 +320,7 @@ class _IgniVideoWriter:
         self._spec = spec
         if isinstance(fps, int):
             self._f_time = Fraction(1, fps)
-        elif ininstance(fps, Fraction):
+        elif isinstance(fps, Fraction):
             self._f_time = 1 / fps
         else:
             raise Exception("fps must be an integer or a Fraction")
@@ -349,20 +349,21 @@ class _IgniVideoWriter:
         server.push_spec_part(self._spec._id, self._idx, [], terminal=True)
 
     def write(self, frame):
-        frame = frameify(frame, "frame")
-        if frame._fmt["width"] != self._spec._fmt["width"]:
-            raise Exception(
-                f"Frame type error; expected width {self._spec._fmt['width']}, got {frame._fmt['width']}"
-            )
-        if frame._fmt["height"] != self._spec._fmt["height"]:
-            raise Exception(
-                f"Frame type error; expected height {self._spec._fmt['height']}, got {frame._fmt['height']}"
-            )
-        if frame._fmt["pix_fmt"] != self._spec._fmt["pix_fmt"]:
-            f_obj = _filter_scale(frame._f, pix_fmt=self._spec._fmt["pix_fmt"])
-            frame = Frame(f_obj, self._spec._fmt)
+        if frame is not None:
+            frame = frameify(frame, "frame")
+            if frame._fmt["width"] != self._spec._fmt["width"]:
+                raise Exception(
+                    f"Frame type error; expected width {self._spec._fmt['width']}, got {frame._fmt['width']}"
+                )
+            if frame._fmt["height"] != self._spec._fmt["height"]:
+                raise Exception(
+                    f"Frame type error; expected height {self._spec._fmt['height']}, got {frame._fmt['height']}"
+                )
+            if frame._fmt["pix_fmt"] != self._spec._fmt["pix_fmt"]:
+                f_obj = _filter_scale(frame._f, pix_fmt=self._spec._fmt["pix_fmt"])
+                frame = Frame(f_obj, self._spec._fmt)
         t = self._f_time * self._idx
-        self._frame_buffer.append((t, frame._f))
+        self._frame_buffer.append((t, frame._f if frame is not None else None))
         self._idx += 1
 
         if len(self._frame_buffer) >= self._batch_size:
