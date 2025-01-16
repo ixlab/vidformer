@@ -24,6 +24,21 @@ def test_connect():
     assert count == 17616
 
 
+def test_access_video_by_http_url():
+    server = vf_igni.IgniServer(ENDPOINT, API_KEY)
+    cv2.set_cv2_server(server)
+
+    cap = cv2.VideoCapture("https://f.dominik.win/data/dve2/tos_720p.mp4")
+    assert cap.isOpened()
+    count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        count += 1
+    assert count == 17616
+
+
 def test_write_video():
     server = vf_igni.IgniServer(ENDPOINT, API_KEY)
     cv2.set_cv2_server(server)
@@ -36,13 +51,14 @@ def test_write_video():
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    spec = server.create_spec(width, height, "yuv420p", Fraction(2, 1), Fraction(30, 1))
-    video_url = cv2.vidplay(spec, method="link")
+    out = cv2.VideoWriter(
+        None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height), batch_size=50
+    )
+    video_url = cv2.vidplay(out, method="link")
     assert type(video_url) == str
 
-    out = cv2.VideoWriter(
-        spec, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height), batch_size=50
-    )
+    video_url = cv2.vidplay(out.spec(), method="link")
+    assert type(video_url) == str
 
     count = 0
     while True:
@@ -69,9 +85,8 @@ def test_write_video_with_text():
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    spec = server.create_spec(width, height, "yuv420p", Fraction(2, 1), Fraction(30, 1))
     out = cv2.VideoWriter(
-        spec, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height), batch_size=101
+        None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height), batch_size=101
     )
 
     count = 0

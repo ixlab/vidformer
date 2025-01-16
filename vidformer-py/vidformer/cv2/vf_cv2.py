@@ -24,6 +24,7 @@ import uuid
 from fractions import Fraction
 from bisect import bisect_right
 import zlib
+import re
 
 CAP_PROP_POS_MSEC = 0
 CAP_PROP_POS_FRAMES = 1
@@ -242,9 +243,25 @@ class VideoCapture:
     def __init__(self, path):
         server = _server()
         if type(path) == str:
-            assert isinstance(server, vf.YrdenServer)
-            self._path = path
-            self._source = vf.Source(server, str(uuid.uuid4()), path, 0)
+            if isinstance(server, vf.YrdenServer):
+                self._path = path
+                self._source = vf.Source(server, str(uuid.uuid4()), path, 0)
+            else:
+                assert isinstance(server, igni.IgniServer)
+                match = re.match(r"(http|https)://([^/]+)(.*)", path)
+                if match is not None:
+                    endpoint = f"{match.group(1)}://{match.group(2)}"
+                    path = match.group(3)
+                    if path.startswith("/"):
+                        path = path[1:]
+                    self._path = path
+                    self._source = server.source(
+                        path, 0, "http", {"endpoint": endpoint}
+                    )
+                else:
+                    raise Exception(
+                        "Using a VideoCapture source by name only works with http(s) URLs. You need to pass an IgniSource instead."
+                    )
         elif isinstance(path, igni.IgniSource):
             assert isinstance(server, igni.IgniServer)
             self._path = path._name
@@ -302,6 +319,9 @@ class VideoWriter:
         else:
             raise Exception("Unsupported server type")
 
+    def spec(self):
+        return self._writer.spec()
+
     def write(self, *args, **kwargs):
         return self._writer.write(*args, **kwargs)
 
@@ -313,11 +333,21 @@ class VideoWriter:
 
 
 class _IgniVideoWriter:
-    def __init__(self, spec, _fourcc, fps, size, batch_size=128):
+    def __init__(
+        self,
+        path,
+        _fourcc,
+        fps,
+        size,
+        batch_size=1024,
+        vod_segment_length=Fraction(2, 1),
+    ):
         server = _server()
-        assert isinstance(spec, igni.IgniSpec)
         assert isinstance(server, igni.IgniServer)
-        self._spec = spec
+        if path is not None:
+            raise Exception(
+                "Igni does not support writing to a file. VideoWriter path must be None"
+            )
         if isinstance(fps, int):
             self._f_time = Fraction(1, fps)
         elif isinstance(fps, Fraction):
@@ -327,9 +357,10 @@ class _IgniVideoWriter:
 
         assert isinstance(size, tuple) or isinstance(size, list)
         assert len(size) == 2
-        assert size[0] == spec._fmt["width"]
-        assert size[1] == spec._fmt["height"]
-
+        width, height = size
+        self._spec = server.create_spec(
+            width, height, "yuv420p", vod_segment_length, 1 / self._f_time
+        )
         self._batch_size = batch_size
         self._idx = 0
         self._frame_buffer = []
@@ -347,6 +378,9 @@ class _IgniVideoWriter:
     def _explicit_terminate(self):
         server = _server()
         server.push_spec_part(self._spec._id, self._idx, [], terminal=True)
+
+    def spec(self):
+        return self._spec
 
     def write(self, frame):
         if frame is not None:
@@ -495,13 +529,16 @@ def vidplay(video, *args, **kwargs):
     Args:
         video: one of [vidformer.Spec, vidformer.Source, vidformer.cv2.VideoWriter]
     """
-
     if isinstance(video, vf.Spec):
         return video.play(_server(), *args, **kwargs)
     elif isinstance(video, vf.Source):
         return video.play(_server(), *args, **kwargs)
     elif isinstance(video, VideoWriter):
+        return vidplay(video._writer, *args, **kwargs)
+    elif isinstance(video, _YrdenVideoWriter):
         return video.spec().play(_server(), *args, **kwargs)
+    elif isinstance(video, _IgniVideoWriter):
+        return video._spec.play(*args, **kwargs)
     elif isinstance(video, igni.IgniSpec):
         return video.play(*args, **kwargs)
     else:
