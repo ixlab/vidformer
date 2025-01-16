@@ -3,6 +3,7 @@ use crate::schema;
 use super::IgniError;
 use super::ServerOpt;
 use log::*;
+use num_rational::Rational64;
 use regex::Regex;
 
 mod api;
@@ -15,6 +16,216 @@ struct IgniServerGlobal {
 
 struct UserAuth {
     user_id: uuid::Uuid,
+    permissions: UserPermissions,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct UserPermissions {
+    flags: Vec<String>,
+    valsets: std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
+    limits_int: std::collections::BTreeMap<String, i64>,
+    limits_frac: std::collections::BTreeMap<String, Rational64>,
+}
+
+impl UserPermissions {
+    pub fn json_value(&self) -> serde_json::Value {
+        serde_json::to_value(self).unwrap()
+    }
+}
+
+impl UserPermissions {
+    pub fn default_full() -> UserPermissions {
+        let limits_int = [
+            ("spec:max_width", 4096),  // DCI 4K
+            ("spec:max_height", 2160), // DCI 4K
+        ]
+        .iter()
+        .map(|(key, value)| (key.to_string(), *value))
+        .collect();
+
+        let limits_frac = [
+            ("spec:max_vod_segment_length", (3, 1)),
+            ("spec:min_vod_segment_legth", (1, 1)),
+            ("spec:max_frame_rate", (60, 1)),
+            ("spec:min_frame_rate", (1, 1)),
+        ]
+        .iter()
+        .map(|(key, value)| (key.to_string(), Rational64::new(value.0, value.1)))
+        .collect();
+
+        let valsets = [("spec:pix_fmt", ["yuv420p"])]
+            .iter()
+            .map(|(key, values)| {
+                let values = values.iter().map(|v| v.to_string()).collect();
+                (key.to_string(), values)
+            })
+            .collect();
+
+        let flags = vec![
+            // Source permissions
+            "source:create",
+            "source:get",
+            "source:list",
+            "source:search",
+            "source:delete",
+            // Spec permissions
+            "spec:create",
+            "spec:get",
+            "spec:list",
+            "spec:push_part",
+            "spec:delete",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+
+        UserPermissions {
+            flags,
+            valsets,
+            limits_int,
+            limits_frac,
+        }
+    }
+
+    pub fn flag(&self, flag: &str) -> bool {
+        self.flags.contains(&flag.to_string())
+    }
+
+    pub fn flag_err(
+        &self,
+        flag: &str,
+    ) -> Option<hyper::Response<http_body_util::Full<hyper::body::Bytes>>> {
+        if !self.flag(flag) {
+            let mut res = hyper::Response::new(http_body_util::Full::new(
+                hyper::body::Bytes::from(format!("Permission denied - {}", flag)),
+            ));
+            *res.status_mut() = hyper::StatusCode::FORBIDDEN;
+            Some(res)
+        } else {
+            None
+        }
+    }
+
+    pub fn limit(&self, limit: &str) -> Option<i64> {
+        self.limits_int.get(limit).cloned()
+    }
+
+    pub fn limit_err_max(
+        &self,
+        limit: &str,
+        value: i64,
+    ) -> Option<hyper::Response<http_body_util::Full<hyper::body::Bytes>>> {
+        if let Some(limit_value) = self.limit(limit) {
+            if value > limit_value {
+                let mut res =
+                    hyper::Response::new(http_body_util::Full::new(hyper::body::Bytes::from(
+                        format!("Limit {} exceeded - {} > {}", limit, value, limit_value),
+                    )));
+                *res.status_mut() = hyper::StatusCode::FORBIDDEN;
+                Some(res)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn limit_err_min(
+        &self,
+        limit: &str,
+        value: i64,
+    ) -> Option<hyper::Response<http_body_util::Full<hyper::body::Bytes>>> {
+        if let Some(limit_value) = self.limit(limit) {
+            if value < limit_value {
+                let mut res =
+                    hyper::Response::new(http_body_util::Full::new(hyper::body::Bytes::from(
+                        format!("Limit {} exceeded - {} < {}", limit, value, limit_value),
+                    )));
+                *res.status_mut() = hyper::StatusCode::FORBIDDEN;
+                Some(res)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn limit_frac(&self, limit: &str) -> Option<Rational64> {
+        self.limits_frac.get(limit).cloned()
+    }
+
+    pub fn limit_frac_err_max(
+        &self,
+        limit: &str,
+        value: Rational64,
+    ) -> Option<hyper::Response<http_body_util::Full<hyper::body::Bytes>>> {
+        if let Some(limit_value) = self.limit_frac(limit) {
+            if value > limit_value {
+                let mut res =
+                    hyper::Response::new(http_body_util::Full::new(hyper::body::Bytes::from(
+                        format!("Limit {} exceeded - {} > {}", limit, value, limit_value),
+                    )));
+                *res.status_mut() = hyper::StatusCode::FORBIDDEN;
+                Some(res)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn limit_frac_err_min(
+        &self,
+        limit: &str,
+        value: Rational64,
+    ) -> Option<hyper::Response<http_body_util::Full<hyper::body::Bytes>>> {
+        if let Some(limit_value) = self.limit_frac(limit) {
+            if value < limit_value {
+                let mut res =
+                    hyper::Response::new(http_body_util::Full::new(hyper::body::Bytes::from(
+                        format!("Limit {} exceeded - {} < {}", limit, value, limit_value),
+                    )));
+                *res.status_mut() = hyper::StatusCode::FORBIDDEN;
+                Some(res)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn valset_err(
+        &self,
+        valset: &str,
+        value: &str,
+    ) -> Option<hyper::Response<http_body_util::Full<hyper::body::Bytes>>> {
+        if let Some(allowed_values) = self.valsets.get(valset) {
+            if !allowed_values.contains(value) {
+                let mut res = hyper::Response::new(http_body_util::Full::new(
+                    hyper::body::Bytes::from(format!(
+                        "Invalid value for {} - {} not in {{{}}}",
+                        valset,
+                        value,
+                        allowed_values
+                            .iter()
+                            .cloned()
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    )),
+                ));
+                *res.status_mut() = hyper::StatusCode::FORBIDDEN;
+                Some(res)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
 }
 
 fn load_config(path: &String) -> Result<ServerConfig, IgniError> {
@@ -241,8 +452,17 @@ async fn igni_http_req_api(
             return Ok(res);
         }
     };
-
-    let user_auth = UserAuth { user_id: user.id };
+    let user_permissions: UserPermissions =
+        serde_json::from_value(user.permissions).map_err(|e| {
+            IgniError::General(format!(
+                "Failed to parse user permissions for user {}: {}",
+                user.id, e
+            ))
+        })?;
+    let user_auth = UserAuth {
+        user_id: user.id,
+        permissions: user_permissions,
+    };
 
     match (method, uri.as_str()) {
         (hyper::Method::GET, "/v2/auth") // /v2/auth (for checking auth success)
@@ -251,6 +471,9 @@ async fn igni_http_req_api(
         }
         (hyper::Method::GET, "/v2/source") // /v2/source (list)
         => {
+            if let Some(res) = user_auth.permissions.flag_err("source:list") {
+                return Ok(res);
+            }
             api::list_sources(req, global, &user_auth).await
         }
         (hyper::Method::GET, _) // /v2/source/<uuid>
@@ -258,6 +481,9 @@ async fn igni_http_req_api(
                 Regex::new(r"^/v2/source/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").unwrap().is_match(req.uri().path())
             } =>
         {
+            if let Some(res) = user_auth.permissions.flag_err("source:get") {
+                return Ok(res);
+            }
             let r = Regex::new(
                 r"^/v2/source/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
             );
@@ -266,17 +492,26 @@ async fn igni_http_req_api(
             api::get_source(req, global, source_id, &user_auth).await
         }
         (hyper::Method::POST, "/v2/source/search") => {
+            if let Some(res) = user_auth.permissions.flag_err("source:search") {
+                return Ok(res);
+            }
             api::search_source(req, global, &user_auth).await
         }
         (hyper::Method::POST, "/v2/source") // /v2/source
         => {
-            api::push_source(req, global, &user_auth).await
+            if let Some(res) = user_auth.permissions.flag_err("source:create") {
+                return Ok(res);
+            }
+            api::create_source(req, global, &user_auth).await
         }
         (hyper::Method::DELETE, _) // /v2/source/<uuid>
             if {
                 Regex::new(r"^/v2/source/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").unwrap().is_match(req.uri().path())
             } =>
         {
+            if let Some(res) = user_auth.permissions.flag_err("source:delete") {
+                return Ok(res);
+            }
             let r = Regex::new(
                 r"^/v2/source/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
             );
@@ -286,6 +521,9 @@ async fn igni_http_req_api(
         }
         (hyper::Method::GET, "/v2/spec") // /v2/spec (list)
         => {
+            if let Some(res) = user_auth.permissions.flag_err("spec:list") {
+                return Ok(res);
+            }
             api::list_specs(req, global, &user_auth).await
         }
         (hyper::Method::GET, _) // /v2/spec/<uuid>
@@ -293,6 +531,9 @@ async fn igni_http_req_api(
                 Regex::new(r"^/v2/spec/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").unwrap().is_match(req.uri().path())
             } =>
         {
+            if let Some(res) = user_auth.permissions.flag_err("spec:get") {
+                return Ok(res);
+            }
             let r = Regex::new(
                 r"^/v2/spec/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
             );
@@ -305,6 +546,9 @@ async fn igni_http_req_api(
                 Regex::new(r"^/v2/spec/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").unwrap().is_match(req.uri().path())
             } =>
         {
+            if let Some(res) = user_auth.permissions.flag_err("spec:delete") {
+                return Ok(res);
+            }
             let r = Regex::new(
                 r"^/v2/spec/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
             );
@@ -314,6 +558,9 @@ async fn igni_http_req_api(
         }
         (hyper::Method::POST, "/v2/spec") // /v2/spec
         => {
+            if let Some(res) = user_auth.permissions.flag_err("spec:create") {
+                return Ok(res);
+            }
             api::push_spec(req, global, &user_auth).await
         }
         (hyper::Method::POST, _) // /v2/spec/<uuid>/part
@@ -321,6 +568,9 @@ async fn igni_http_req_api(
                 Regex::new(r"^/v2/spec/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/part$").unwrap().is_match(req.uri().path())
             } =>
         {
+            if let Some(res) = user_auth.permissions.flag_err("spec:push_part") {
+                return Ok(res);
+            }
             let r = Regex::new(
                 r"^/v2/spec/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/part$",
             );

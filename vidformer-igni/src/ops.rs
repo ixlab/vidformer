@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use crate::server;
+
 use super::IgniError;
 
 pub(crate) async fn ping(pool: &sqlx::Pool<sqlx::Postgres>) -> Result<(), IgniError> {
@@ -54,15 +56,17 @@ pub(crate) async fn add_user(
     pool: &sqlx::Pool<sqlx::Postgres>,
     name: &str,
     api_key: &str,
+    permissions: &server::UserPermissions,
 ) -> Result<uuid::Uuid, IgniError> {
     let user_id = uuid::Uuid::new_v4();
-    sqlx::query("INSERT INTO \"user\" (id, name, api_key) VALUES ($1, $2, $3)")
+    let permissions = permissions.json_value();
+    sqlx::query("INSERT INTO \"user\" (id, name, api_key, permissions) VALUES ($1, $2, $3, $4)")
         .bind(user_id)
         .bind(name)
         .bind(api_key)
+        .bind(permissions)
         .execute(pool)
         .await?;
-
     Ok(user_id)
 }
 
@@ -90,6 +94,7 @@ pub(crate) async fn profile_and_add_source(
         })
         .await
         .expect("Failed joining blocking thread")?;
+
     let mut transaction = pool.begin().await?;
     let source_id = uuid::Uuid::new_v4();
     sqlx::query("INSERT INTO source (id, user_id, name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height, file_size) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)")

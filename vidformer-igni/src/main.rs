@@ -122,12 +122,19 @@ enum UserCmd {
     Rm(UserRmOpt),
 }
 
+#[derive(clap::ValueEnum, Debug, Clone)]
+enum UserPermissionLevel {
+    Full,
+}
+
 #[derive(Parser, Debug)]
 struct UserAddOpt {
     #[clap(long)]
     name: String,
     #[clap(long)]
     api_key: Option<String>,
+    #[clap(long)]
+    permissions: UserPermissionLevel,
 }
 
 #[derive(Parser, Debug)]
@@ -511,7 +518,10 @@ async fn cmd_user_add(
             .map(char::from)
             .collect(),
     };
-    let user_id = ops::add_user(&pool, &name, &api_key).await?;
+    let permissions = match add_user.permissions {
+        UserPermissionLevel::Full => server::UserPermissions::default_full(),
+    };
+    let user_id = ops::add_user(&pool, &name, &api_key, &permissions).await?;
     println!("{}", user_id);
     if add_user.api_key.is_none() {
         println!("{}", api_key);

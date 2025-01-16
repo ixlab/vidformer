@@ -39,7 +39,17 @@ sp.run([vidformer_igni_bin, "ping"], check=True, capture_output=True, env=igni_e
 
 # Add a user for the tests
 test_user = sp.run(
-    [vidformer_igni_bin, "user", "add", "--name", "test", "--api-key", "test"],
+    [
+        vidformer_igni_bin,
+        "user",
+        "add",
+        "--name",
+        "test",
+        "--api-key",
+        "test",
+        "--permissions",
+        "full",
+    ],
     capture_output=True,
     check=True,
     env=igni_env,
@@ -106,13 +116,7 @@ sp.run(
 )
 
 tmp_user = sp.run(
-    [
-        vidformer_igni_bin,
-        "user",
-        "add",
-        "--name",
-        "tmp_user",
-    ],
+    [vidformer_igni_bin, "user", "add", "--name", "tmp_user", "--permissions", "full"],
     check=True,
     capture_output=True,
     env=igni_env,

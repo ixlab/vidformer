@@ -4,6 +4,7 @@ use super::super::IgniError;
 use crate::schema;
 use http_body_util::BodyExt;
 use log::*;
+use num_rational::Rational64;
 use uuid::Uuid;
 
 use super::IgniServerGlobal;
@@ -234,7 +235,7 @@ pub(crate) async fn delete_source(
         )))?)
 }
 
-pub(crate) async fn push_source(
+pub(crate) async fn create_source(
     req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
     user: &super::UserAuth,
@@ -468,6 +469,51 @@ pub(crate) async fn push_spec(
         }
         Ok(req) => req,
     };
+
+    if let Some(err) = user
+        .permissions
+        .limit_err_max("spec:max_width", req.width as i64)
+    {
+        return Ok(err);
+    }
+    if let Some(err) = user
+        .permissions
+        .limit_err_max("spec:max_height", req.height as i64)
+    {
+        return Ok(err);
+    }
+    if let Some(err) = user.permissions.valset_err("spec:pix_fmt", &req.pix_fmt) {
+        return Ok(err);
+    };
+    let vod_segment_length: Rational64 = Rational64::new(
+        req.vod_segment_length[0] as i64,
+        req.vod_segment_length[1] as i64,
+    );
+    if let Some(err) = user
+        .permissions
+        .limit_frac_err_max("spec:max_vod_segment_length", vod_segment_length)
+    {
+        return Ok(err);
+    }
+    if let Some(err) = user
+        .permissions
+        .limit_frac_err_min("spec:min_vod_segment_length", vod_segment_length)
+    {
+        return Ok(err);
+    }
+    let frame_rate = Rational64::new(req.frame_rate[0] as i64, req.frame_rate[1] as i64);
+    if let Some(err) = user
+        .permissions
+        .limit_frac_err_max("spec:max_frame_rate", frame_rate)
+    {
+        return Ok(err);
+    }
+    if let Some(err) = user
+        .permissions
+        .limit_frac_err_min("spec:min_frame_rate", frame_rate)
+    {
+        return Ok(err);
+    }
 
     let spec = crate::ops::add_spec(
         &global.pool,

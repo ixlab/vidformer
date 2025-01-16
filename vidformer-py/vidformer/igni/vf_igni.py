@@ -1,7 +1,6 @@
 from .. import vf
 
 import requests
-import json
 from fractions import Fraction
 from urllib.parse import urlparse
 

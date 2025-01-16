@@ -3,6 +3,7 @@ pub struct UserRow {
     pub id: uuid::Uuid,
     pub name: String,
     pub api_key: String,
+    pub permissions: serde_json::Value,
 }
 
 #[derive(sqlx::FromRow, Debug)]
