@@ -72,8 +72,6 @@ def test_get_source():
     assert source["id"] == source_id
     assert source["name"] == "../tos_720p.mp4"
     assert source["stream_idx"] == 0
-    assert source["storage_service"] == "fs"
-    assert source["storage_config"]["root"] == "."
     assert source["width"] == 1280
     assert source["height"] == 720
     assert source["pix_fmt"] == "yuv420p"

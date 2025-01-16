@@ -70,18 +70,16 @@ pub(crate) async fn add_user(
     Ok(user_id)
 }
 
-pub(crate) async fn profile_and_add_source(
-    pool: &sqlx::Pool<sqlx::Postgres>,
-    user_id: &uuid::Uuid,
-    source_name: String,
+pub(crate) async fn profile_source(
+    source_name: &str,
     stream_idx: usize,
     storage_service: &str,
     storage_config_json: &str,
-) -> Result<uuid::Uuid, IgniError> {
+) -> Result<vidformer::source::SourceVideoStreamMeta, IgniError> {
     let storage: (serde_json::Value, HashMap<String, String>) =
         parse_storage_config(storage_config_json)?;
     let service = vidformer::service::Service::new(storage_service.to_string(), storage.1);
-    let source_name2 = source_name.clone();
+    let source_name = source_name.to_string();
     // run profile in a blocking thread
     let profile: vidformer::source::SourceVideoStreamMeta =
         tokio::task::spawn_blocking(move || {
@@ -93,51 +91,9 @@ pub(crate) async fn profile_and_add_source(
             )
         })
         .await
-        .expect("Failed joining blocking thread")?;
+        .map_err(|e| IgniError::General(format!("Failed to join blocking thread: {}", e)))??;
 
-    let mut transaction = pool.begin().await?;
-    let source_id = uuid::Uuid::new_v4();
-    sqlx::query("INSERT INTO source (id, user_id, name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height, file_size) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)")
-        .bind(source_id)
-        .bind(user_id)
-        .bind(&source_name2)
-        .bind(stream_idx as i32)
-        .bind(storage_service)
-        .bind(storage.0)
-        .bind(profile.codec)
-        .bind(profile.pix_fmt)
-        .bind(profile.resolution.0 as i32)
-        .bind(profile.resolution.1 as i32)
-        .bind(profile.file_size as i64)
-        .execute(&mut *transaction)
-        .await?;
-    let source_ids = vec![source_id; profile.ts.len()];
-    let pos = (0..profile.ts.len()).map(|i| i as i32).collect::<Vec<_>>();
-    let keys = profile
-        .ts
-        .iter()
-        .map(|t| profile.keys.binary_search(t).is_ok())
-        .collect::<Vec<_>>();
-    let t_num = profile
-        .ts
-        .iter()
-        .map(|t| *t.numer() as i32)
-        .collect::<Vec<_>>();
-    let t_denom = profile
-        .ts
-        .iter()
-        .map(|t| *t.denom() as i32)
-        .collect::<Vec<_>>();
-    sqlx::query("INSERT INTO source_t (source_id, pos, key, t_num, t_denom) SELECT * FROM UNNEST($1::UUID[], $2::INT[], $3::BOOLEAN[], $4::INT[], $5::INT[])")
-        .bind(&source_ids)
-        .bind(&pos)
-        .bind(&keys)
-        .bind(&t_num)
-        .bind(&t_denom)
-        .execute(&mut *transaction)
-        .await?;
-    transaction.commit().await?;
-    Ok(source_id)
+    Ok(profile)
 }
 
 pub(crate) async fn add_spec(

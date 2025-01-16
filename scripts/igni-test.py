@@ -48,7 +48,7 @@ test_user = sp.run(
         "--api-key",
         "test",
         "--permissions",
-        "full",
+        "test",
     ],
     capture_output=True,
     check=True,
@@ -116,7 +116,15 @@ sp.run(
 )
 
 tmp_user = sp.run(
-    [vidformer_igni_bin, "user", "add", "--name", "tmp_user", "--permissions", "full"],
+    [
+        vidformer_igni_bin,
+        "user",
+        "add",
+        "--name",
+        "tmp_user",
+        "--permissions",
+        "regular",
+    ],
     check=True,
     capture_output=True,
     env=igni_env,

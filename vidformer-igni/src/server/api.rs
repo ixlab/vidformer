@@ -52,32 +52,24 @@ pub(crate) async fn get_source(
     let source_id = Uuid::parse_str(source_id).unwrap();
 
     let mut transaction = global.pool.begin().await?;
-    let row: Option<(String, i32, String, serde_json::Value, String, String, i32, i32)> =
-        sqlx::query_as("SELECT name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height FROM source WHERE id = $1 AND user_id = $2")
+    let row: Option<schema::SourceRow> =
+        sqlx::query_as("SELECT * FROM source WHERE id = $1 AND user_id = $2")
             .bind(source_id)
             .bind(user.user_id)
             .fetch_optional(&mut *transaction)
-            .await
-            ?;
+            .await?;
 
-    if row.is_none() {
-        transaction.commit().await?;
-        return Ok(hyper::Response::builder()
-            .status(hyper::StatusCode::NOT_FOUND)
-            .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                "Not found",
-            )))?);
-    }
-
-    let row = row.unwrap();
-    let name = row.0;
-    let stream_idx = row.1;
-    let storage_service = row.2;
-    let storage_config = row.3;
-    let codec = row.4;
-    let pix_fmt = row.5;
-    let width = row.6;
-    let height = row.7;
+    let source = match row {
+        Some(source) => source,
+        None => {
+            transaction.commit().await?;
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::NOT_FOUND)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    "Not found",
+                )))?);
+        }
+    };
 
     let row: Vec<(i64, i64, bool)> = sqlx::query_as(
         "SELECT t_num, t_denom, key FROM source_t WHERE source_id = $1 ORDER BY pos",
@@ -85,7 +77,6 @@ pub(crate) async fn get_source(
     .bind(source_id)
     .fetch_all(&mut *transaction)
     .await?;
-
     transaction.commit().await?;
 
     let ts: Vec<Vec<serde_json::Value>> = row
@@ -99,18 +90,19 @@ pub(crate) async fn get_source(
         })
         .collect();
 
-    let res = serde_json::json!({
-        "id": source_id,
-        "name": name,
-        "stream_idx": stream_idx,
-        "storage_service": storage_service,
-        "storage_config": storage_config,
-        "codec": codec,
-        "pix_fmt": pix_fmt,
-        "width": width,
-        "height": height,
-        "ts": ts,
-    });
+    // Important, do not ever respond back to a user with a storage_confg!
+    let res = serde_json::json!(
+        {
+            "id": source.id,
+            "name": source.name,
+            "stream_idx": source.stream_idx,
+            "codec": source.codec,
+            "pix_fmt": source.pix_fmt,
+            "width": source.width,
+            "height": source.height,
+            "ts": ts,
+        }
+    );
 
     Ok(hyper::Response::builder()
         .header("Content-Type", "application/json")
@@ -277,39 +269,103 @@ pub(crate) async fn create_source(
     let storage_service = req.storage_service;
     let storage_config_json = serde_json::to_string(&req.storage_config).unwrap();
 
-    let uuid = crate::ops::profile_and_add_source(
-        &global.pool,
-        &user.user_id,
-        name,
+    if let Some(err) = user
+        .permissions
+        .valset_err("source:storage_service", &storage_service)
+    {
+        return Ok(err);
+    }
+
+    let profile = crate::ops::profile_source(
+        &name,
         stream_idx as usize,
         &storage_service,
         &storage_config_json,
     )
     .await;
 
-    match uuid {
-        Ok(uuid) => {
-            let res = serde_json::json!({
-                "status": "ok",
-                "id": uuid,
-            });
-
-            Ok(hyper::Response::builder()
-                .header("Content-Type", "application/json")
-                .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                    serde_json::to_string(&res).unwrap(),
-                )))?)
-        }
+    let profile = match profile {
+        Ok(profile) => profile,
         Err(err) => {
-            // TODO: This should have a more specific error message
-            error!("Error profiling and adding source: {:?}", err);
-            Ok(hyper::Response::builder()
+            error!("Error profiling source: {:?}", err);
+            return Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::INTERNAL_SERVER_ERROR)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                    "Internal server error",
-                )))?)
+                    "Error profiling source",
+                )))?);
         }
+    };
+
+    if let Some(err) = user
+        .permissions
+        .limit_err_max("source:max_width", profile.resolution.0 as i64)
+    {
+        return Ok(err);
     }
+    if let Some(err) = user
+        .permissions
+        .limit_err_max("source:max_height", profile.resolution.1 as i64)
+    {
+        return Ok(err);
+    }
+
+    let source_id = {
+        let mut transaction = global.pool.begin().await?;
+        let source_id = uuid::Uuid::new_v4();
+        sqlx::query("INSERT INTO source (id, user_id, name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height, file_size) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)")
+        .bind(source_id)
+        .bind(user.user_id)
+        .bind(&name)
+        .bind(stream_idx as i32)
+        .bind(storage_service)
+        .bind(req.storage_config)
+        .bind(profile.codec)
+        .bind(profile.pix_fmt)
+        .bind(profile.resolution.0 as i32)
+        .bind(profile.resolution.1 as i32)
+        .bind(profile.file_size as i64)
+        .execute(&mut *transaction)
+        .await?;
+        let source_ids = vec![source_id; profile.ts.len()];
+        let pos = (0..profile.ts.len()).map(|i| i as i32).collect::<Vec<_>>();
+        let keys = profile
+            .ts
+            .iter()
+            .map(|t| profile.keys.binary_search(t).is_ok())
+            .collect::<Vec<_>>();
+        let t_num = profile
+            .ts
+            .iter()
+            .map(|t| *t.numer() as i32)
+            .collect::<Vec<_>>();
+        let t_denom = profile
+            .ts
+            .iter()
+            .map(|t| *t.denom() as i32)
+            .collect::<Vec<_>>();
+        sqlx::query("INSERT INTO source_t (source_id, pos, key, t_num, t_denom) SELECT * FROM UNNEST($1::UUID[], $2::INT[], $3::BOOLEAN[], $4::INT[], $5::INT[])")
+        .bind(&source_ids)
+        .bind(&pos)
+        .bind(&keys)
+        .bind(&t_num)
+        .bind(&t_denom)
+        .execute(&mut *transaction)
+        .await?;
+        transaction.commit().await?;
+
+        source_id
+    };
+
+    let res = serde_json::json!({
+        "status": "ok",
+        "id": source_id,
+    });
+
+    Ok(hyper::Response::builder()
+        .header("Content-Type", "application/json")
+        .body(http_body_util::Full::new(hyper::body::Bytes::from(
+            serde_json::to_string(&res).unwrap(),
+        )))?)
 }
 
 pub(crate) async fn list_specs(

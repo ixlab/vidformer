@@ -124,7 +124,8 @@ enum UserCmd {
 
 #[derive(clap::ValueEnum, Debug, Clone)]
 enum UserPermissionLevel {
-    Full,
+    Regular,
+    Test,
 }
 
 #[derive(Parser, Debug)]
@@ -295,15 +296,63 @@ async fn cmd_source_add(
             return Err(IgniError::General(format!("Invalid user id: {}", e)));
         }
     };
-    let source_id = ops::profile_and_add_source(
-        &pool,
-        &user_id,
-        add_source.name.to_string(),
+    let profile = ops::profile_source(
+        &add_source.name,
         add_source.stream_idx,
         &add_source.storage_service,
         &add_source.storage_config,
     )
     .await?;
+
+    let storage_config_json_value: serde_json::Value =
+        serde_json::from_str(&add_source.storage_config).unwrap();
+
+    let source_id = {
+        let mut transaction = pool.begin().await?;
+        let source_id = uuid::Uuid::new_v4();
+        sqlx::query("INSERT INTO source (id, user_id, name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height, file_size) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)")
+        .bind(source_id)
+        .bind(user_id)
+        .bind(&add_source.name)
+        .bind(add_source.stream_idx as i32)
+        .bind(&add_source.storage_service)
+        .bind(&storage_config_json_value)
+        .bind(profile.codec)
+        .bind(profile.pix_fmt)
+        .bind(profile.resolution.0 as i32)
+        .bind(profile.resolution.1 as i32)
+        .bind(profile.file_size as i64)
+        .execute(&mut *transaction)
+        .await?;
+        let source_ids = vec![source_id; profile.ts.len()];
+        let pos = (0..profile.ts.len()).map(|i| i as i32).collect::<Vec<_>>();
+        let keys = profile
+            .ts
+            .iter()
+            .map(|t| profile.keys.binary_search(t).is_ok())
+            .collect::<Vec<_>>();
+        let t_num = profile
+            .ts
+            .iter()
+            .map(|t| *t.numer() as i32)
+            .collect::<Vec<_>>();
+        let t_denom = profile
+            .ts
+            .iter()
+            .map(|t| *t.denom() as i32)
+            .collect::<Vec<_>>();
+        sqlx::query("INSERT INTO source_t (source_id, pos, key, t_num, t_denom) SELECT * FROM UNNEST($1::UUID[], $2::INT[], $3::BOOLEAN[], $4::INT[], $5::INT[])")
+        .bind(&source_ids)
+        .bind(&pos)
+        .bind(&keys)
+        .bind(&t_num)
+        .bind(&t_denom)
+        .execute(&mut *transaction)
+        .await?;
+        transaction.commit().await?;
+
+        source_id
+    };
 
     println!("{}", source_id);
     Ok(())
@@ -519,7 +568,8 @@ async fn cmd_user_add(
             .collect(),
     };
     let permissions = match add_user.permissions {
-        UserPermissionLevel::Full => server::UserPermissions::default_full(),
+        UserPermissionLevel::Regular => server::UserPermissions::default_regular(),
+        UserPermissionLevel::Test => server::UserPermissions::default_test(),
     };
     let user_id = ops::add_user(&pool, &name, &api_key, &permissions).await?;
     println!("{}", user_id);

@@ -34,10 +34,12 @@ impl UserPermissions {
 }
 
 impl UserPermissions {
-    pub fn default_full() -> UserPermissions {
+    pub fn default_regular() -> UserPermissions {
         let limits_int = [
             ("spec:max_width", 4096),  // DCI 4K
             ("spec:max_height", 2160), // DCI 4K
+            ("source:max_width", 4096),
+            ("source:max_height", 2160),
         ]
         .iter()
         .map(|(key, value)| (key.to_string(), *value))
@@ -53,13 +55,16 @@ impl UserPermissions {
         .map(|(key, value)| (key.to_string(), Rational64::new(value.0, value.1)))
         .collect();
 
-        let valsets = [("spec:pix_fmt", ["yuv420p"])]
-            .iter()
-            .map(|(key, values)| {
-                let values = values.iter().map(|v| v.to_string()).collect();
-                (key.to_string(), values)
-            })
-            .collect();
+        let valsets = [
+            ("spec:pix_fmt", vec!["yuv420p"]),
+            ("source:storage_service", vec!["http", "s3"]),
+        ]
+        .iter()
+        .map(|(key, values)| {
+            let values = values.iter().map(|v| v.to_string()).collect();
+            (key.to_string(), values)
+        })
+        .collect();
 
         let flags = vec![
             // Source permissions
@@ -85,6 +90,15 @@ impl UserPermissions {
             limits_int,
             limits_frac,
         }
+    }
+
+    pub fn default_test() -> UserPermissions {
+        let mut out = UserPermissions::default_regular();
+        out.valsets
+            .get_mut("source:storage_service")
+            .unwrap()
+            .insert("fs".to_string());
+        out
     }
 
     pub fn flag(&self, flag: &str) -> bool {
