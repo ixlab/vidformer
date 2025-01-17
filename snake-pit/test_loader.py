@@ -5,7 +5,7 @@ import numpy as np
 
 def test_loader_rgb24():
     server = vf.YrdenServer()
-    tos = vf.Source(server, "tos_720p", "tos_720p.mp4", 0)
+    tos = vf.YrdenSource(server, "tos_720p", "tos_720p.mp4", 0)
 
     domain = tos.ts()[:10]
 
@@ -16,7 +16,7 @@ def test_loader_rgb24():
 
     fmt = tos.fmt()
     fmt["pix_fmt"] = "rgb24"
-    spec = vf.Spec(domain, render, fmt)
+    spec = vf.YrdenSpec(domain, render, fmt)
 
     loader = spec.load(server)
     width = fmt["width"]
@@ -57,7 +57,7 @@ def test_loader_rgb24():
 
 def test_loader_yuv420p():
     server = vf.YrdenServer()
-    tos = vf.Source(server, "tos_720p", "tos_720p.mp4", 0)
+    tos = vf.YrdenSource(server, "tos_720p", "tos_720p.mp4", 0)
 
     domain = tos.ts()[:10]
 
@@ -66,7 +66,7 @@ def test_loader_yuv420p():
 
     fmt = tos.fmt()
     assert fmt["pix_fmt"] == "yuv420p"
-    spec = vf.Spec(domain, render, fmt)
+    spec = vf.YrdenSpec(domain, render, fmt)
 
     loader = spec.load(server)
     width = fmt["width"]

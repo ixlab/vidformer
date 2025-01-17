@@ -11,7 +11,7 @@ def test_http_path():
     from fractions import Fraction
 
     server = vf.YrdenServer()
-    tos = vidformer.Source(
+    tos = vidformer.YrdenSource(
         server, "tos_720p-XYZ", "https://f.dominik.win/data/dve2/tos_720p.mp4", 0
     )
 
@@ -19,7 +19,7 @@ def test_http_path():
     assert tos._name == "tos_720p-XYZ"
     assert tos._path == "data/dve2/tos_720p.mp4"
     assert tos._stream == 0
-    assert type(tos._service) == vf.StorageService
+    assert type(tos._service) == vf.YrdenStorageService
     assert tos._service._service == "http"
     assert type(tos._service._config) == dict
     assert len(tos._service._config) == 1

@@ -8,7 +8,7 @@ import cv2
 
 def test_udf():
     server = vf.YrdenServer()
-    tos = vf.Source(server, "tos_720p", "tos_720p.mp4", 0)
+    tos = vf.YrdenSource(server, "tos_720p", "tos_720p.mp4", 0)
 
     class MyFilter(vf.UDF):
 
@@ -46,7 +46,7 @@ def test_udf():
         f = scale(f, pix_fmt="yuv420p", width=1280, height=720)
         return f
 
-    spec = vf.Spec(domain, render, tos.fmt())
+    spec = vf.YrdenSpec(domain, render, tos.fmt())
     spec.save(server, "udf.mp4")
 
     assert os.path.exists("udf.mp4")

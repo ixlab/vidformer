@@ -11,7 +11,6 @@ vidformer.cv2 is the cv2 frontend for [vidformer](https://github.com/ixlab/vidfo
 """
 
 from .. import vf
-from .. import igni
 
 try:
     import cv2 as _opencv2
@@ -81,10 +80,10 @@ def _server():
     return _global_cv2_server
 
 
-def set_cv2_server(server):
+def set_server(server):
     """Set the server to use for the cv2 frontend."""
     global _global_cv2_server
-    assert isinstance(server, vf.YrdenServer) or isinstance(server, igni.IgniServer)
+    assert isinstance(server, vf.YrdenServer) or isinstance(server, vf.IgniServer)
     _global_cv2_server = server
 
 
@@ -114,7 +113,7 @@ class Frame:
         """
 
         self._mut()
-        spec = vf.Spec([Fraction(0, 1)], lambda t, i: self._f, self._fmt)
+        spec = vf.YrdenSpec([Fraction(0, 1)], lambda t, i: self._f, self._fmt)
         loader = spec.load(_server())
 
         frame_raster_rgb24 = loader[0]
@@ -245,9 +244,9 @@ class VideoCapture:
         if type(path) == str:
             if isinstance(server, vf.YrdenServer):
                 self._path = path
-                self._source = vf.Source(server, str(uuid.uuid4()), path, 0)
+                self._source = vf.YrdenSource(server, str(uuid.uuid4()), path, 0)
             else:
-                assert isinstance(server, igni.IgniServer)
+                assert isinstance(server, vf.IgniServer)
                 match = re.match(r"(http|https)://([^/]+)(.*)", path)
                 if match is not None:
                     endpoint = f"{match.group(1)}://{match.group(2)}"
@@ -262,8 +261,8 @@ class VideoCapture:
                     raise Exception(
                         "Using a VideoCapture source by name only works with http(s) URLs. You need to pass an IgniSource instead."
                     )
-        elif isinstance(path, igni.IgniSource):
-            assert isinstance(server, igni.IgniServer)
+        elif isinstance(path, vf.IgniSource):
+            assert isinstance(server, vf.IgniServer)
             self._path = path._name
             self._source = path
         self._next_frame_idx = 0
@@ -314,7 +313,7 @@ class VideoWriter:
         server = _server()
         if isinstance(server, vf.YrdenServer):
             self._writer = _YrdenVideoWriter(*args, **kwargs)
-        elif isinstance(server, igni.IgniServer):
+        elif isinstance(server, vf.IgniServer):
             self._writer = _IgniVideoWriter(*args, **kwargs)
         else:
             raise Exception("Unsupported server type")
@@ -343,7 +342,7 @@ class _IgniVideoWriter:
         vod_segment_length=Fraction(2, 1),
     ):
         server = _server()
-        assert isinstance(server, igni.IgniServer)
+        assert isinstance(server, vf.IgniServer)
         if path is not None:
             raise Exception(
                 "Igni does not support writing to a file. VideoWriter path must be None"
@@ -440,14 +439,14 @@ class _YrdenVideoWriter:
         server = _server()
         spec.save(server, self._path)
 
-    def spec(self) -> vf.Spec:
+    def spec(self) -> vf.YrdenSpec:
         fmt = {
             "width": self._size[0],
             "height": self._size[1],
             "pix_fmt": self._pix_fmt,
         }
         domain = _fps_to_ts(self._fps, len(self._frames))
-        spec = vf.Spec(domain, lambda t, i: self._frames[i], fmt)
+        spec = vf.YrdenSpec(domain, lambda t, i: self._frames[i], fmt)
         return spec
 
 
@@ -480,7 +479,7 @@ def imread(path, *args):
 
     assert path.lower().endswith((".jpg", ".jpeg", ".png"))
     server = _server()
-    source = vf.Source(server, str(uuid.uuid4()), path, 0)
+    source = vf.YrdenSource(server, str(uuid.uuid4()), path, 0)
     frame = Frame(source.iloc[0], source.fmt())
     return frame
 
@@ -500,7 +499,7 @@ def imwrite(path, img, *args):
 
     if path.lower().endswith(".png"):
         img._mut()  # Make sure it's in rgb24
-        spec = vf.Spec(
+        spec = vf.YrdenSpec(
             domain,
             lambda t, i: img._f,
             {"width": width, "height": height, "pix_fmt": "rgb24"},
@@ -516,7 +515,7 @@ def imwrite(path, img, *args):
                 f = _filter_scale(img._f, pix_fmt="yuvj420p")
                 fmt["pix_fmt"] = "yuvj420p"
 
-        spec = vf.Spec(domain, lambda t, i: f, fmt)
+        spec = vf.YrdenSpec(domain, lambda t, i: f, fmt)
         spec.save(_server(), path, encoder="mjpeg")
     else:
         raise Exception("Unsupported image format")
@@ -529,9 +528,9 @@ def vidplay(video, *args, **kwargs):
     Args:
         video: one of [vidformer.Spec, vidformer.Source, vidformer.cv2.VideoWriter]
     """
-    if isinstance(video, vf.Spec):
+    if isinstance(video, vf.YrdenSpec):
         return video.play(_server(), *args, **kwargs)
-    elif isinstance(video, vf.Source):
+    elif isinstance(video, vf.YrdenSource):
         return video.play(_server(), *args, **kwargs)
     elif isinstance(video, VideoWriter):
         return vidplay(video._writer, *args, **kwargs)
@@ -539,7 +538,7 @@ def vidplay(video, *args, **kwargs):
         return video.spec().play(_server(), *args, **kwargs)
     elif isinstance(video, _IgniVideoWriter):
         return video._spec.play(*args, **kwargs)
-    elif isinstance(video, igni.IgniSpec):
+    elif isinstance(video, vf.IgniSpec):
         return video.play(*args, **kwargs)
     else:
         raise Exception("Unsupported video type to vidplay")

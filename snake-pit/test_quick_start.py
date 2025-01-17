@@ -8,7 +8,7 @@ import pandas as pd
 
 def test_quick_start():
     server = vidformer.YrdenServer()
-    tos = vidformer.Source(server, "tos_720p", "tos_720p.mp4", 0)
+    tos = vidformer.YrdenSource(server, "tos_720p", "tos_720p.mp4", 0)
 
     df = pd.read_csv("https://f.dominik.win/data/dve2/detections-tos.csv")
 
@@ -37,7 +37,7 @@ def test_quick_start():
     def render(t, i):
         return bbox(tos[t], bounds=detections_per_frame[i])
 
-    spec = vidformer.Spec(domain, render, tos.fmt())
+    spec = vidformer.YrdenSpec(domain, render, tos.fmt())
 
     spec.save(server, "tos-bb.mp4")
 
@@ -53,7 +53,7 @@ def test_hello_world():
     from fractions import Fraction
 
     server = vf.YrdenServer()
-    tos = vidformer.Source(
+    tos = vidformer.YrdenSource(
         server, "tos_720p", "https://f.dominik.win/data/dve2/tos_720p.mp4", 0
     )
 
@@ -66,7 +66,7 @@ def test_hello_world():
         clip_start_point = Fraction(5 * 60, 1)
         return tos[t + clip_start_point]
 
-    spec = vf.Spec(domain, render, tos.fmt())
+    spec = vf.YrdenSpec(domain, render, tos.fmt())
     spec.save(server, "quickstart-hello-world.mp4")
 
     assert os.path.exists("quickstart-hello-world.mp4")
@@ -77,7 +77,7 @@ def test_bounding_boxes():
     import vidformer as vf
 
     server = vf.YrdenServer()
-    tos = vidformer.Source(server, "tos_720p", "tos_720p.mp4", 0)
+    tos = vidformer.YrdenSource(server, "tos_720p", "tos_720p.mp4", 0)
 
     # Load some data
     import urllib.request, json
@@ -96,7 +96,7 @@ def test_bounding_boxes():
             tos[t + Fraction(5 * 60)], bounds=detections_per_frame[i + 5 * 60 * 24]
         )
 
-    spec = vf.Spec(domain, render, tos.fmt())
+    spec = vf.YrdenSpec(domain, render, tos.fmt())
     spec.save(server, "quickstart-bounding-box.mp4")
 
     assert os.path.exists("quickstart-bounding-box.mp4")
@@ -107,7 +107,7 @@ def test_composition():
     import vidformer as vf
 
     server = vf.YrdenServer()
-    tos = vidformer.Source(server, "tos_720p", "tos_720p.mp4", 0)
+    tos = vidformer.YrdenSource(server, "tos_720p", "tos_720p.mp4", 0)
 
     hstack = vf.Filter("HStack")
     vstack = vf.Filter("VStack")
@@ -132,7 +132,7 @@ def test_composition():
 
     fmt = {"width": w, "height": h, "pix_fmt": "yuv420p"}
 
-    spec = vf.Spec(domain, render, fmt)
+    spec = vf.YrdenSpec(domain, render, fmt)
     spec.save(server, "quickstart-composition.mp4")
 
     assert os.path.exists("quickstart-composition.mp4")

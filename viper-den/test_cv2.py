@@ -1,5 +1,5 @@
+import vidformer as vf
 import vidformer.cv2 as cv2
-import vidformer.igni as vf_igni
 from fractions import Fraction
 
 ENDPOINT = "http://localhost:8080/v2"
@@ -7,8 +7,8 @@ API_KEY = "test"
 
 
 def test_connect():
-    server = vf_igni.IgniServer(ENDPOINT, API_KEY)
-    cv2.set_cv2_server(server)
+    server = vf.IgniServer(ENDPOINT, API_KEY)
+    cv2.set_server(server)
 
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
     cap = cv2.VideoCapture(tos)
@@ -25,8 +25,8 @@ def test_connect():
 
 
 def test_access_video_by_http_url():
-    server = vf_igni.IgniServer(ENDPOINT, API_KEY)
-    cv2.set_cv2_server(server)
+    server = vf.IgniServer(ENDPOINT, API_KEY)
+    cv2.set_server(server)
 
     cap = cv2.VideoCapture("https://f.dominik.win/data/dve2/tos_720p.mp4")
     assert cap.isOpened()
@@ -40,8 +40,8 @@ def test_access_video_by_http_url():
 
 
 def test_write_video():
-    server = vf_igni.IgniServer(ENDPOINT, API_KEY)
-    cv2.set_cv2_server(server)
+    server = vf.IgniServer(ENDPOINT, API_KEY)
+    cv2.set_server(server)
 
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
     cap = cv2.VideoCapture(tos)
@@ -74,8 +74,8 @@ def test_write_video():
 
 
 def test_write_video_with_text():
-    server = vf_igni.IgniServer(ENDPOINT, API_KEY)
-    cv2.set_cv2_server(server)
+    server = vf.IgniServer(ENDPOINT, API_KEY)
+    cv2.set_server(server)
 
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
     cap = cv2.VideoCapture(tos)

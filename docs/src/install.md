@@ -26,7 +26,7 @@ server = vf.YrdenServer(domain="localhost", port=8000)
 
 # or for cv2
 import vidformer.cv2 as cv2
-cv2.set_cv2_server(server)
+cv2.set_server(server)
 ```
 
 ### Precompiled binary:

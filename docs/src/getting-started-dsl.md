@@ -8,7 +8,7 @@ See [Installation guide](./install.md)
 
 ## Hello, world!
 
-> ⚠️ We assume this is in a Jupyter notebook. If not then [`.play()`](https://ixlab.github.io/vidformer/vidformer-py/vidformer.html#Spec.play) won't work and you have to use [`.save()`](https://ixlab.github.io/vidformer/vidformer-py/vidformer.html#Spec.save) instead.
+> ⚠️ We assume this is in a Jupyter notebook. If not then [`.play()`](https://ixlab.github.io/vidformer/vidformer-py/vidformer.html#YrdenSpec.play) won't work and you have to use [`.save()`](https://ixlab.github.io/vidformer/vidformer-py/vidformer.html#YrdenSpec.save) instead.
 
 We start by connecting to a server and registering a source:
 ```python
@@ -54,7 +54,7 @@ We used timestamp-based indexing here, but you can also use integer indexing (`t
 Now we can create a spec and play it in the browser.
 We create a spec from the resulting video's frame timestamps (`domain`), a function to construct each output frame (`render`), and the output videos format (matching `tos.fmt()`).
 ```python
-spec = vf.Spec(domain, render, tos.fmt())
+spec = vf.YrdenSpec(domain, render, tos.fmt())
 spec.play(server)
 ```
 
@@ -95,7 +95,7 @@ def render(t, i):
         tos[t],
         bounds=detections_per_frame[i])
 
-spec = vf.Spec(domain, render, tos.fmt())
+spec = vf.YrdenSpec(domain, render, tos.fmt())
 spec.play(server)
 ```
 
@@ -135,7 +135,7 @@ def render(t, i):
 
 fmt = {'width': w, 'height': h, 'pix_fmt': 'yuv420p'}
 
-spec = vf.Spec(domain, render, fmt)
+spec = vf.YrdenSpec(domain, render, fmt)
 spec.play(server)
 ```
 
