@@ -9,9 +9,9 @@ Our [getting started guide](https://ixlab.github.io/vidformer/getting-started.ht
 
 **Quick links:**
 * [📦 PyPI](https://pypi.org/project/vidformer/)
-* [📘 Documentation - vidformer-py](https://ixlab.github.io/vidformer/vidformer-py/)
-* [📘 Documentation - vidformer.cv2](https://ixlab.github.io/vidformer/vidformer-py-cv2/)
-* [📘 Documentation - vidformer.supervision](https://ixlab.github.io/vidformer/vidformer-py-supervision/)
+* [📘 Documentation - vidformer-py](https://ixlab.github.io/vidformer/vidformer-py/pdoc/)
+* [📘 Documentation - vidformer.cv2](https://ixlab.github.io/vidformer/vidformer-py/pdoc/vidformer/cv2.html)
+* [📘 Documentation - vidformer.supervision](https://ixlab.github.io/vidformer/vidformer-py/pdoc/vidformer/supervision.html)
 * [🧑‍💻 Source Code](https://github.com/ixlab/vidformer/tree/main/vidformer-py/)
 
 **Publish:**
