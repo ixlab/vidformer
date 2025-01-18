@@ -225,8 +225,8 @@ pub(crate) fn mat_to_frame_rgb24(
             let mut dst = (*f).data[0];
             for _ in 0..height {
                 std::ptr::copy_nonoverlapping(src, dst, width as usize * 3);
-                src = src.add((*f).linesize[0] as usize);
-                dst = dst.add(width as usize * 3);
+                src = src.add(width as usize * 3);
+                dst = dst.add((*f).linesize[0] as usize);
             }
         }
     }
