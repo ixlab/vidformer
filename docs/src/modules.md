@@ -1,4 +1,4 @@
-# The vidformer Tools
+# The vidformer modules
 
 vidformer is a highly modular suite of tools that work together:
 
@@ -13,17 +13,17 @@ vidformer is a highly modular suite of tools that work together:
   - **You should use if:** You are building a VDBMS or other multimodal data-system *infrastructure*.
   - **You should *not* use if:** You just want to use vidformer in your workflows or projects.
 
-- *yrden*: A vidformer server for local use
-  - Designed for local single-tenant use
-  - Enables broad drop-in `cv2` compatability
-  - Supports basic Video on Demand hosting
-
-- *igni*: A vidformer server for the cloud
-  - An *in progress* multi-tenant scale-out server
+- [*vidformer-igni*](./vidformer-igni.md): A vidformer server for the cloud
+  - A multi-tenant scale-out server
   - Designed for Video on Demand *only*
     - Does not support full-video exports
     - All video sources must be over the network, not local
   - Enables live streaming and waiting on external dependencies for even lower time-to-playback latency
+
+- *yrden*: A vidformer server for local use
+  - Designed for local single-tenant use
+  - Enables broad drop-in `cv2` compatability (i.e., local fs access, `imread`/`imwrite`, etc.)
+  - Supports basic Video on Demand hosting
 
 **Client libraries in other languages:**
 Writing a vidformer client library for other languages is simple.

@@ -15,7 +15,7 @@ vidformer-cli codecs
 
 Yes, vidformer uses [Apache OpenDAL](https://opendal.apache.org/) for I/O, so most common data/storage access protocols are supported.
 However, not all storage services are enabled in distributed binaries.
-We guarantee that HTTP, S3, and the local filesystem always work.
+We guarantee that HTTP, S3, and the local filesystem are always available.
 
 ### How does vidformer compare to FFmpeg?
 

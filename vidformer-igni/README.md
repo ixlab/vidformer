@@ -1,6 +1,9 @@
 # vidformer-igni
 
-The next generation scale-out vidformer server.
+The vidformer server for the cloud.
+
+**Quick links:**
+* [🧑‍💻 Source Code](https://github.com/ixlab/vidformer/tree/main/vidformer-igni/)
 
 ## Development Setup
 

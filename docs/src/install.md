@@ -1,4 +1,4 @@
-# Install
+# Local Install
 
 Using vidformer requires the Python client library, vidformer-py, and a yrden server which is distributed through `vidformer-cli`.
 

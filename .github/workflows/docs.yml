@@ -35,7 +35,7 @@ jobs:
     - name: Install pdoc
       run: pip3 install pdoc
     - name: Build pdoc
-      run: pushd vidformer-py/vidformer && pdoc vf.py -o ../../target/doc/vidformer-py && pdoc cv2/vf_cv2.py -o ../../target/doc/vidformer-py-cv2 && popd
+      run: pushd vidformer-py/vidformer && pdoc vf.py -o ../../target/doc/vidformer-py && pdoc cv2/vf_cv2.py -o ../../target/doc/vidformer-py-cv2 && pdoc supervision/vf_sv.py -o ../../target/doc/vidformer-py-supervision && popd
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
       with:

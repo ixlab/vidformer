@@ -3,13 +3,15 @@
 [![PyPI version](https://img.shields.io/pypi/v/vidformer.svg)](https://pypi.org/project/vidformer/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/ixlab/vidformer/blob/main/LICENSE)
 
-vidformer-py is a Python 🐍 interface for [vidformer](https://github.com/ixlab/vidformer).
+vidformer-py is a Python 🐍 frontend for [vidformer](https://github.com/ixlab/vidformer).
+It has an API compatability layer with OpenCV cv2, as well as some [supervision](https://github.com/roboflow/supervision) annotators.
 Our [getting started guide](https://ixlab.github.io/vidformer/getting-started.html) explains how to use it.
 
 **Quick links:**
 * [📦 PyPI](https://pypi.org/project/vidformer/)
 * [📘 Documentation - vidformer-py](https://ixlab.github.io/vidformer/vidformer-py/)
 * [📘 Documentation - vidformer.cv2](https://ixlab.github.io/vidformer/vidformer-py-cv2/)
+* [📘 Documentation - vidformer.supervision](https://ixlab.github.io/vidformer/vidformer-py-supervision/)
 * [🧑‍💻 Source Code](https://github.com/ixlab/vidformer/tree/main/vidformer-py/)
 
 **Publish:**
