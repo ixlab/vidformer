@@ -59,6 +59,7 @@ _filter_arrowedLine = vf.Filter("cv2.arrowedLine")
 _filter_line = vf.Filter("cv2.line")
 _filter_circle = vf.Filter("cv2.circle")
 _filter_addWeighted = vf.Filter("cv2.addWeighted")
+_filter_ellipse = vf.Filter("cv2.ellipse")
 
 
 def _ts_to_fps(timestamps):
@@ -106,6 +107,9 @@ class Frame:
         if self._fmt["pix_fmt"] != "rgb24":
             self._f = _filter_scale(self._f, pix_fmt="rgb24")
             self._fmt["pix_fmt"] = "rgb24"
+
+    def copy(self):
+        return Frame(self._f, self._fmt.copy())
 
     def numpy(self):
         """
@@ -554,8 +558,8 @@ def rectangle(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
 
     assert len(pt1) == 2
     assert len(pt2) == 2
-    assert all(isinstance(x, int) for x in pt1)
-    assert all(isinstance(x, int) for x in pt2)
+    pt1 = [int(x) for x in pt1]
+    pt2 = [int(x) for x in pt2]
 
     assert len(color) == 3 or len(color) == 4
     color = [float(x) for x in color]
@@ -671,8 +675,8 @@ def line(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
 
     assert len(pt1) == 2
     assert len(pt2) == 2
-    assert all(isinstance(x, int) for x in pt1)
-    assert all(isinstance(x, int) for x in pt2)
+    pt1 = [int(x) for x in pt1]
+    pt2 = [int(x) for x in pt2]
 
     assert len(color) == 3 or len(color) == 4
     color = [float(x) for x in color]
@@ -700,7 +704,7 @@ def circle(img, center, radius, color, thickness=None, lineType=None, shift=None
     img._mut()
 
     assert len(center) == 2
-    assert all(isinstance(x, int) for x in center)
+    center = [int(x) for x in center]
 
     assert isinstance(radius, int)
 
@@ -772,6 +776,57 @@ def addWeighted(src1, alpha, src2, beta, gamma, dst=None, dtype=-1):
     return dst
 
 
+def ellipse(
+    img,
+    center,
+    axes,
+    angle,
+    startAngle,
+    endAngle,
+    color,
+    thickness=1,
+    lineType=LINE_8,
+    shift=0,
+):
+    img = frameify(img)
+    img._mut()
+
+    assert len(center) == 2
+    center = [int(x) for x in center]
+
+    assert len(axes) == 2
+    axes = [int(x) for x in axes]
+
+    assert isinstance(angle, float) or isinstance(angle, int)
+    assert isinstance(startAngle, float) or isinstance(startAngle, int)
+    assert isinstance(endAngle, float) or isinstance(endAngle, int)
+    angle = float(angle)
+    startAngle = float(startAngle)
+    endAngle = float(endAngle)
+
+    assert len(color) == 3 or len(color) == 4
+    color = [float(x) for x in color]
+    if len(color) == 3:
+        color.append(255.0)
+
+    assert isinstance(thickness, int)
+    assert isinstance(lineType, int)
+    assert isinstance(shift, int)
+
+    img._f = _filter_ellipse(
+        img._f,
+        center,
+        axes,
+        angle,
+        startAngle,
+        endAngle,
+        color,
+        thickness,
+        lineType,
+        shift,
+    )
+
+
 # Stubs for unimplemented functions
 
 
@@ -785,10 +840,6 @@ def drawContours(*args, **kwargs):
 
 def drawMarker(*args, **kwargs):
     raise NotImplementedError("drawMarker is not yet implemented in the cv2 frontend")
-
-
-def ellipse(*args, **kwargs):
-    raise NotImplementedError("ellipse is not yet implemented in the cv2 frontend")
 
 
 def ellipse2Poly(*args, **kwargs):

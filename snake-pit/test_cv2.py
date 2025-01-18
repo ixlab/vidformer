@@ -488,6 +488,53 @@ def test_circle_vf():
     circle(vf_cv2)
 
 
+def ellipse(cv2):
+    cap = cv2.VideoCapture(VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    out = cv2.VideoWriter(
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+    )
+
+    count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret or count > 100:
+            break
+
+        cv2.ellipse(
+            frame,
+            (150, 150),
+            (50, 50),
+            0,
+            0,
+            360,
+            (0, 255, 0, 255),
+            3,
+        )
+
+        out.write(frame)
+        count += 1
+
+    cap.release()
+    out.release()
+
+    assert os.path.exists(TMP_PATH)
+    os.remove(TMP_PATH)
+
+
+def test_ellipse_ocv():
+    ellipse(ocv_cv2)
+
+
+def test_ellipse_vf():
+    ellipse(vf_cv2)
+
+
 def test_circle_numpy():
     width, height = 300, 200
 

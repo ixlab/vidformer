@@ -19,6 +19,7 @@ pub fn filters() -> BTreeMap<String, Box<dyn filter::Filter>> {
     filters.insert("cv2.arrowedLine".to_string(), Box::new(ArrowedLine {}));
     filters.insert("cv2.line".to_string(), Box::new(Line {}));
     filters.insert("cv2.circle".to_string(), Box::new(Circle {}));
+    filters.insert("cv2.ellipse".to_string(), Box::new(Ellipse {}));
     filters.insert("cv2.setTo".to_string(), Box::new(SetTo {}));
     filters.insert("cv2.addWeighted".to_string(), Box::new(AddWeighted {}));
     filters
@@ -807,6 +808,200 @@ impl filter::Filter for Circle {
 
         if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
             return Err(dve::Error::AVError("Expected RGB24 frame".into()));
+        }
+
+        Ok(opts.img.unwrap_frame_type())
+    }
+}
+
+/*
+void cv::ellipse 	( 	InputOutputArray 	img,
+        Point 	center,
+        Size 	axes,
+        double 	angle,
+        double 	startAngle,
+        double 	endAngle,
+        const Scalar & 	color,
+        int 	thickness = 1,
+        int 	lineType = LINE_8,
+        int 	shift = 0 )
+Python:
+    cv.ellipse(	img, center, axes, angle, startAngle, endAngle, color[, thickness[, lineType[, shift]]]	) -> 	img
+*/
+pub struct Ellipse {}
+
+struct EllipseArgs {
+    img: filter_utils::FrameArg,
+    center: (i32, i32),
+    axes: (i32, i32),
+    angle: f64,
+    start_angle: f64,
+    end_angle: f64,
+    color: [f64; 4],
+    thickness: i32,
+    linetype: i32,
+    shift: i32,
+}
+
+impl Ellipse {
+    fn args(
+        args: &[Val],
+        kwargs: &BTreeMap<std::string::String, Val>,
+    ) -> Result<EllipseArgs, String> {
+        let signature = filter_utils::FunctionSignature {
+            parameters: vec![
+                Parameter::Positional { name: "img" },
+                Parameter::Positional { name: "center" },
+                Parameter::Positional { name: "axes" },
+                Parameter::Positional { name: "angle" },
+                Parameter::Positional { name: "startAngle" },
+                Parameter::Positional { name: "endAngle" },
+                Parameter::Positional { name: "color" },
+                Parameter::PositionalOptional {
+                    name: "thickness",
+                    default_value: Val::Int(1),
+                },
+                Parameter::PositionalOptional {
+                    name: "lineType",
+                    default_value: Val::Int(8),
+                },
+                Parameter::PositionalOptional {
+                    name: "shift",
+                    default_value: Val::Int(0),
+                },
+            ],
+        };
+
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
+
+        let img = match parsed_args.get("img") {
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
+            x => {
+                dbg! {x};
+                return Err("Expected 'img' to be a Frame".into());
+            }
+        };
+
+        // center is a list of two integers
+        let center = filter_utils::get_point(&parsed_args, "center")?;
+
+        // axes is a list of two integers
+        let axes = filter_utils::get_point(&parsed_args, "axes")?;
+
+        // angle is a float
+        let angle = match parsed_args.get("angle") {
+            Some(Val::Float(value)) => *value,
+            _ => return Err("Expected 'angle' to be a float".into()),
+        };
+
+        // startAngle is a float
+        let start_angle = match parsed_args.get("startAngle") {
+            Some(Val::Float(value)) => *value,
+            _ => return Err("Expected 'startAngle' to be a float".into()),
+        };
+
+        // endAngle is a float
+        let end_angle = match parsed_args.get("endAngle") {
+            Some(Val::Float(value)) => *value,
+            _ => return Err("Expected 'endAngle' to be a float".into()),
+        };
+
+        // color is a list of four floats
+        let color = filter_utils::get_color(&parsed_args)?;
+
+        let thickness = match parsed_args.get("thickness") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'thickness' to be an integer".into()),
+        };
+
+        let linetype = match parsed_args.get("lineType") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'lineType' to be an integer".into()),
+        };
+
+        let shift = match parsed_args.get("shift") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'shift' to be an integer".into()),
+        };
+
+        Ok(EllipseArgs {
+            img,
+            center,
+            axes,
+            angle,
+            start_angle,
+            end_angle,
+            color,
+            thickness,
+            linetype,
+            shift,
+        })
+    }
+}
+
+impl Filter for Ellipse {
+    fn filter(
+        &self,
+        args: &[Val],
+        kwargs: &BTreeMap<std::string::String, Val>,
+    ) -> std::result::Result<Frame, crate::dve::Error> {
+        let opts: EllipseArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(crate::dve::Error::AVError(err)),
+        };
+
+        let img = opts.img.unwrap_frame();
+        let (width, height) = (img.width, img.height);
+        debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+
+        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
+
+        let center = opencv::core::Point::new(opts.center.0, opts.center.1);
+        let axes = opencv::core::Size::new(opts.axes.0, opts.axes.1);
+        let color =
+            opencv::core::Scalar::new(opts.color[0], opts.color[1], opts.color[2], opts.color[3]);
+
+        imgproc::ellipse(
+            &mut mat,
+            center,
+            axes,
+            opts.angle,
+            opts.start_angle,
+            opts.end_angle,
+            color,
+            opts.thickness,
+            opts.linetype,
+            opts.shift,
+        )
+        .unwrap();
+
+        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        Ok(Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[Val],
+        kwargs: &BTreeMap<std::string::String, Val>,
+    ) -> std::result::Result<FrameType, crate::dve::Error> {
+        let opts: EllipseArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(crate::dve::Error::AVError(err)),
+        };
+
+        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(crate::dve::Error::FilterInternalError(
+                "Expected RGB24 frame".into(),
+            ));
         }
 
         Ok(opts.img.unwrap_frame_type())
