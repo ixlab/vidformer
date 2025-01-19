@@ -8,7 +8,7 @@ import supervision as _sv
 from supervision import Color, ColorPalette, ColorLookup, Detections
 from supervision.annotators.utils import resolve_color
 from math import sqrt
-from supervision.geometry.core import Point, Position, Rect
+from supervision.geometry.core import Position
 
 
 class BoxAnnotator:

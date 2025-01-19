@@ -14,7 +14,7 @@ import vidformer as vf
 
 try:
     import cv2 as _opencv2
-except:
+except Exception:
     _opencv2 = None
 
 import numpy as np
@@ -67,7 +67,7 @@ def _ts_to_fps(timestamps):
 
 
 def _fps_to_ts(fps, n_frames):
-    assert type(fps) == int
+    assert type(fps) is int
     return [Fraction(i, fps) for i in range(n_frames)]
 
 
@@ -121,7 +121,7 @@ class Frame:
         loader = spec.load(_server())
 
         frame_raster_rgb24 = loader[0]
-        assert type(frame_raster_rgb24) == bytes
+        assert type(frame_raster_rgb24) is bytes
         assert len(frame_raster_rgb24) == self.shape[0] * self.shape[1] * 3
         raw_data_array = np.frombuffer(frame_raster_rgb24, dtype=np.uint8)
         frame = raw_data_array.reshape(self.shape)
@@ -243,9 +243,9 @@ def _inline_frame(arr):
 
 
 class VideoCapture:
-    def __init__(self, path):
+    def __init__(self, path: str):
         server = _server()
-        if type(path) == str:
+        if type(path) is str:
             if isinstance(server, vf.YrdenServer):
                 self._path = path
                 self._source = vf.YrdenSource(server, str(uuid.uuid4()), path, 0)
@@ -271,7 +271,7 @@ class VideoCapture:
             self._source = path
         self._next_frame_idx = 0
 
-    def isOpened(self):
+    def isOpened(self) -> bool:
         return True
 
     def get(self, prop):
@@ -322,9 +322,6 @@ class VideoWriter:
         else:
             raise Exception("Unsupported server type")
 
-    def spec(self):
-        return self._writer.spec()
-
     def write(self, *args, **kwargs):
         return self._writer.write(*args, **kwargs)
 
@@ -339,7 +336,7 @@ class _IgniVideoWriter:
     def __init__(
         self,
         path,
-        _fourcc,
+        fourcc,
         fps,
         size,
         batch_size=1024,

@@ -18,7 +18,6 @@ import time
 import json
 import socket
 import os
-import sys
 import multiprocessing
 import uuid
 import threading
@@ -31,15 +30,13 @@ import requests
 import msgpack
 import numpy as np
 
-from . import __version__
-
 _in_notebook = False
 try:
     from IPython import get_ipython
 
     if "IPKernelApp" in get_ipython().config:
         _in_notebook = True
-except:
+except Exception:
     pass
 
 
@@ -51,7 +48,7 @@ def _wait_for_url(url, max_attempts=150, delay=0.1):
                 return response.text.strip()
             else:
                 time.sleep(delay)
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             time.sleep(delay)
     return None
 
@@ -184,6 +181,60 @@ def _play(namespace, hls_video_url, hls_js_url, method="html", status_url=None):
         raise ValueError("Invalid method")
 
 
+class IgniSource:
+    def __init__(self, id: str, src):
+        self._name = id
+        self._fmt = {
+            "width": src["width"],
+            "height": src["height"],
+            "pix_fmt": src["pix_fmt"],
+        }
+        self._ts = [Fraction(x[0], x[1]) for x in src["ts"]]
+        self.iloc = _SourceILoc(self)
+
+    def id(self) -> str:
+        return self._name
+
+    def fmt(self):
+        return {**self._fmt}
+
+    def ts(self) -> list[Fraction]:
+        return self._ts.copy()
+
+    def __len__(self):
+        return len(self._ts)
+
+    def __getitem__(self, idx):
+        if type(idx) is not Fraction:
+            raise Exception("Source index must be a Fraction")
+        return SourceExpr(self, idx, False)
+
+    def __repr__(self):
+        return f"IgniSource({self._name})"
+
+
+class IgniSpec:
+    def __init__(self, id: str, src):
+        self._id = id
+        self._fmt = {
+            "width": src["width"],
+            "height": src["height"],
+            "pix_fmt": src["pix_fmt"],
+        }
+        self._vod_endpoint = src["vod_endpoint"]
+        parsed_url = urlparse(self._vod_endpoint)
+        self._hls_js_url = f"{parsed_url.scheme}://{parsed_url.netloc}/hls.js"
+
+    def id(self) -> str:
+        return self._id
+
+    def play(self, *args, **kwargs):
+        url = f"{self._vod_endpoint}playlist.m3u8"
+        status_url = f"{self._vod_endpoint}status"
+        hls_js_url = self._hls_js_url
+        return _play(self._id, url, hls_js_url, *args, **kwargs, status_url=status_url)
+
+
 class IgniServer:
     def __init__(self, endpoint: str, api_key: str):
         if not endpoint.startswith("http://") and not endpoint.startswith("https://"):
@@ -202,8 +253,8 @@ class IgniServer:
         response = response.json()
         assert response["status"] == "ok"
 
-    def get_source(self, id: str):
-        assert type(id) == str
+    def get_source(self, id: str) -> IgniSource:
+        assert type(id) is str
         response = requests.get(
             f"{self._endpoint}/source/{id}",
             headers={"Authorization": f"Bearer {self._api_key}"},
@@ -213,7 +264,7 @@ class IgniServer:
         response = response.json()
         return IgniSource(response["id"], response)
 
-    def list_sources(self):
+    def list_sources(self) -> list[str]:
         response = requests.get(
             f"{self._endpoint}/source",
             headers={"Authorization": f"Bearer {self._api_key}"},
@@ -224,7 +275,7 @@ class IgniServer:
         return response
 
     def delete_source(self, id: str):
-        assert type(id) == str
+        assert type(id) is str
         response = requests.delete(
             f"{self._endpoint}/source/{id}",
             headers={"Authorization": f"Bearer {self._api_key}"},
@@ -234,14 +285,16 @@ class IgniServer:
         response = response.json()
         assert response["status"] == "ok"
 
-    def search_source(self, name, stream_idx, storage_service, storage_config):
-        assert type(name) == str
-        assert type(stream_idx) == int
-        assert type(storage_service) == str
-        assert type(storage_config) == dict
+    def search_source(
+        self, name, stream_idx, storage_service, storage_config
+    ) -> list[str]:
+        assert type(name) is str
+        assert type(stream_idx) is int
+        assert type(storage_service) is str
+        assert type(storage_config) is dict
         for k, v in storage_config.items():
-            assert type(k) == str
-            assert type(v) == str
+            assert type(k) is str
+            assert type(v) is str
         req = {
             "name": name,
             "stream_idx": stream_idx,
@@ -258,14 +311,16 @@ class IgniServer:
         response = response.json()
         return response
 
-    def create_source(self, name, stream_idx, storage_service, storage_config):
-        assert type(name) == str
-        assert type(stream_idx) == int
-        assert type(storage_service) == str
-        assert type(storage_config) == dict
+    def create_source(
+        self, name, stream_idx, storage_service, storage_config
+    ) -> IgniSource:
+        assert type(name) is str
+        assert type(stream_idx) is int
+        assert type(storage_service) is str
+        assert type(storage_config) is dict
         for k, v in storage_config.items():
-            assert type(k) == str
-            assert type(v) == str
+            assert type(k) is str
+            assert type(v) is str
         req = {
             "name": name,
             "stream_idx": stream_idx,
@@ -284,7 +339,7 @@ class IgniServer:
         id = response["id"]
         return self.get_source(id)
 
-    def source(self, name, stream_idx, storage_service, storage_config):
+    def source(self, name, stream_idx, storage_service, storage_config) -> IgniSource:
         """Convenience function for accessing sources.
 
         Tries to find a source with the given name, stream_idx, storage_service, and storage_config.
@@ -296,8 +351,8 @@ class IgniServer:
             return self.create_source(name, stream_idx, storage_service, storage_config)
         return self.get_source(sources[0])
 
-    def get_spec(self, id: str):
-        assert type(id) == str
+    def get_spec(self, id: str) -> IgniSpec:
+        assert type(id) is str
         response = requests.get(
             f"{self._endpoint}/spec/{id}",
             headers={"Authorization": f"Bearer {self._api_key}"},
@@ -307,7 +362,7 @@ class IgniServer:
         response = response.json()
         return IgniSpec(response["id"], response)
 
-    def list_specs(self):
+    def list_specs(self) -> list[str]:
         response = requests.get(
             f"{self._endpoint}/spec",
             headers={"Authorization": f"Bearer {self._api_key}"},
@@ -326,14 +381,14 @@ class IgniServer:
         frame_rate,
         ready_hook=None,
         steer_hook=None,
-    ):
-        assert type(width) == int
-        assert type(height) == int
-        assert type(pix_fmt) == str
-        assert type(vod_segment_length) == Fraction
-        assert type(frame_rate) == Fraction
-        assert type(ready_hook) == str or ready_hook is None
-        assert type(steer_hook) == str or steer_hook is None
+    ) -> IgniSpec:
+        assert type(width) is int
+        assert type(height) is int
+        assert type(pix_fmt) is str
+        assert type(vod_segment_length) is Fraction
+        assert type(frame_rate) is Fraction
+        assert type(ready_hook) is str or ready_hook is None
+        assert type(steer_hook) is str or steer_hook is None
 
         req = {
             "width": width,
@@ -359,7 +414,7 @@ class IgniServer:
         return self.get_spec(response["id"])
 
     def delete_spec(self, id: str):
-        assert type(id) == str
+        assert type(id) is str
         response = requests.delete(
             f"{self._endpoint}/spec/{id}",
             headers={"Authorization": f"Bearer {self._api_key}"},
@@ -370,21 +425,21 @@ class IgniServer:
         assert response["status"] == "ok"
 
     def push_spec_part(self, spec_id, pos, frames, terminal):
-        if type(spec_id) == IgniSpec:
+        if type(spec_id) is IgniSpec:
             spec_id = spec_id._id
-        assert type(spec_id) == str
-        assert type(pos) == int
-        assert type(frames) == list
-        assert type(terminal) == bool
+        assert type(spec_id) is str
+        assert type(pos) is int
+        assert type(frames) is list
+        assert type(terminal) is bool
 
         req_frames = []
         for frame in frames:
-            assert type(frame) == tuple
+            assert type(frame) is tuple
             assert len(frame) == 2
             t = frame[0]
             f = frame[1]
-            assert type(t) == Fraction
-            assert f is None or type(f) == SourceExpr or type(f) == FilterExpr
+            assert type(t) is Fraction
+            assert f is None or type(f) is SourceExpr or type(f) is FilterExpr
             req_frames.append(
                 [
                     [t.numerator, t.denominator],
@@ -406,60 +461,6 @@ class IgniServer:
             raise Exception(response.text)
         response = response.json()
         assert response["status"] == "ok"
-
-
-class IgniSource:
-    def __init__(self, id, src):
-        self._name = id
-        self._fmt = {
-            "width": src["width"],
-            "height": src["height"],
-            "pix_fmt": src["pix_fmt"],
-        }
-        self._ts = [Fraction(x[0], x[1]) for x in src["ts"]]
-        self.iloc = _SourceILoc(self)
-
-    def id(self):
-        return self._name
-
-    def fmt(self):
-        return {**self._fmt}
-
-    def ts(self):
-        return self._ts.copy()
-
-    def __len__(self):
-        return len(self._ts)
-
-    def __getitem__(self, idx):
-        if type(idx) != Fraction:
-            raise Exception("Source index must be a Fraction")
-        return SourceExpr(self, idx, False)
-
-    def __repr__(self):
-        return f"IgniSource({self._name})"
-
-
-class IgniSpec:
-    def __init__(self, id, src):
-        self._id = id
-        self._fmt = {
-            "width": src["width"],
-            "height": src["height"],
-            "pix_fmt": src["pix_fmt"],
-        }
-        self._vod_endpoint = src["vod_endpoint"]
-        parsed_url = urlparse(self._vod_endpoint)
-        self._hls_js_url = f"{parsed_url.scheme}://{parsed_url.netloc}/hls.js"
-
-    def id(self):
-        return self._id
-
-    def play(self, *args, **kwargs):
-        url = f"{self._vod_endpoint}playlist.m3u8"
-        status_url = f"{self._vod_endpoint}status"
-        hls_js_url = self._hls_js_url
-        return _play(self._id, url, hls_js_url, *args, **kwargs, status_url=status_url)
 
 
 class YrdenSpec:
@@ -623,11 +624,11 @@ class YrdenSpec:
     def save(self, server, pth, encoder=None, encoder_opts=None, format=None):
         """Save the video to a file."""
 
-        assert encoder is None or type(encoder) == str
-        assert encoder_opts is None or type(encoder_opts) == dict
+        assert encoder is None or type(encoder) is str
+        assert encoder_opts is None or type(encoder_opts) is dict
         if encoder_opts is not None:
             for k, v in encoder_opts.items():
-                assert type(k) == str and type(v) == str
+                assert type(k) is str and type(v) is str
 
         spec, sources, filters = self._to_json_spec()
         spec_json_bytes = json.dumps(spec).encode("utf-8")
@@ -739,6 +740,7 @@ class YrdenSpec:
 
         start = time.time()
         resp = server._export(pth, sources, filters, arrays, self._fmt, None, None)
+        resp.raise_for_status()
         end = time.time()
         out["dve2_exec"] = end - start
         return out
@@ -825,7 +827,7 @@ class YrdenServer:
                 cmd += ["--print-url"]
 
             if hls_prefix is not None:
-                if not type(hls_prefix) == str:
+                if type(hls_prefix) is not str:
                     raise Exception("hls_prefix must be a string")
                 cmd += ["--hls-prefix", hls_prefix]
 
@@ -962,7 +964,7 @@ class YrdenSource:
         return len(self._src["ts"])
 
     def __getitem__(self, idx):
-        if type(idx) != Fraction:
+        if type(idx) is not Fraction:
             raise Exception("Source index must be a Fraction")
         return SourceExpr(self, idx, False)
 
@@ -970,18 +972,21 @@ class YrdenSource:
         """Play the video live in the notebook."""
 
         domain = self.ts()
-        render = lambda t, i: self[t]
+
+        def render(t, _i):
+            return self[t]
+
         spec = YrdenSpec(domain, render, self.fmt())
         return spec.play(*args, **kwargs)
 
 
 class YrdenStorageService:
     def __init__(self, service: str, **kwargs):
-        if type(service) != str:
+        if type(service) is not str:
             raise Exception("Service name must be a string")
         self._service = service
         for k, v in kwargs.items():
-            if type(v) != str:
+            if type(v) is not str:
                 raise Exception(f"Value of {k} must be a string")
         self._config = kwargs
 
@@ -1032,36 +1037,36 @@ class _SourceILoc:
         self._source = source
 
     def __getitem__(self, idx):
-        if type(idx) != int:
+        if type(idx) is not int:
             raise Exception(f"Source iloc index must be an integer, got a {type(idx)}")
         return SourceExpr(self._source, idx, True)
 
 
 def _json_arg(arg, skip_data_anot=False):
-    if type(arg) == FilterExpr or type(arg) == SourceExpr:
+    if type(arg) is FilterExpr or type(arg) is SourceExpr:
         return {"Frame": arg._to_json_spec()}
-    elif type(arg) == int:
+    elif type(arg) is int:
         if skip_data_anot:
             return {"Int": arg}
         return {"Data": {"Int": arg}}
-    elif type(arg) == str:
+    elif type(arg) is str:
         if skip_data_anot:
             return {"String": arg}
         return {"Data": {"String": arg}}
-    elif type(arg) == bytes:
+    elif type(arg) is bytes:
         arg = list(arg)
         if skip_data_anot:
             return {"Bytes": arg}
         return {"Data": {"Bytes": arg}}
-    elif type(arg) == float:
+    elif type(arg) is float:
         if skip_data_anot:
             return {"Float": arg}
         return {"Data": {"Float": arg}}
-    elif type(arg) == bool:
+    elif type(arg) is bool:
         if skip_data_anot:
             return {"Bool": arg}
         return {"Data": {"Bool": arg}}
-    elif type(arg) == tuple or type(arg) == list:
+    elif type(arg) is tuple or type(arg) is list:
         if skip_data_anot:
             return {"List": [_json_arg(x, True) for x in list(arg)]}
         return {"Data": {"List": [_json_arg(x, True) for x in list(arg)]}}
@@ -1083,7 +1088,7 @@ class Filter:
 
         # filter infra args, not invocation args
         for k, v in kwargs.items():
-            if type(v) != str:
+            if type(v) is not str:
                 raise Exception(f"Value of {k} must be a string")
         self._kwargs = kwargs
 
@@ -1100,10 +1105,10 @@ class FilterExpr:
     def __repr__(self):
         args = []
         for arg in self._args:
-            val = f'"{arg}"' if type(arg) == str else str(arg)
+            val = f'"{arg}"' if type(arg) is str else str(arg)
             args.append(str(val))
         for k, v in self._kwargs.items():
-            val = f'"{v}"' if type(v) == str else str(v)
+            val = f'"{v}"' if type(v) is str else str(v)
             args.append(f"{k}={val}")
         return f"{self._filter._name}({', '.join(args)})"
 
@@ -1119,20 +1124,20 @@ class FilterExpr:
     def _sources(self):
         s = set()
         for arg in self._args:
-            if type(arg) == FilterExpr or type(arg) == SourceExpr:
+            if type(arg) is FilterExpr or type(arg) is SourceExpr:
                 s = s.union(arg._sources())
         for arg in self._kwargs.values():
-            if type(arg) == FilterExpr or type(arg) == SourceExpr:
+            if type(arg) is FilterExpr or type(arg) is SourceExpr:
                 s = s.union(arg._sources())
         return s
 
     def _filters(self):
         f = {self._filter._name: self._filter}
         for arg in self._args:
-            if type(arg) == FilterExpr:
+            if type(arg) is FilterExpr:
                 f = {**f, **arg._filters()}
         for arg in self._kwargs.values():
-            if type(arg) == FilterExpr:
+            if type(arg) is FilterExpr:
                 f = {**f, **arg._filters()}
         return f
 
@@ -1180,8 +1185,7 @@ class UDF:
                     data += new_data
 
                 obj = msgpack.unpackb(data, raw=False)
-                f_func, f_op, f_args, f_kwargs = (
-                    obj["func"],
+                f_op, f_args, f_kwargs = (
                     obj["op"],
                     obj["args"],
                     obj["kwargs"],
@@ -1192,7 +1196,7 @@ class UDF:
                     f_args = [self._deser_filter(x) for x in f_args]
                     f_kwargs = {k: self._deser_filter(v) for k, v in f_kwargs}
                     response = self.filter(*f_args, **f_kwargs)
-                    if type(response) != UDFFrame:
+                    if type(response) is not UDFFrame:
                         raise Exception(
                             f"filter must return a UDFFrame, got {type(response)}"
                         )
@@ -1206,7 +1210,7 @@ class UDF:
                     f_args = [self._deser_filter_type(x) for x in f_args]
                     f_kwargs = {k: self._deser_filter_type(v) for k, v in f_kwargs}
                     response = self.filter_type(*f_args, **f_kwargs)
-                    if type(response) != UDFFrameType:
+                    if type(response) is not UDFFrameType:
                         raise Exception(
                             f"filter_type must return a UDFFrameType, got {type(response)}"
                         )
@@ -1226,7 +1230,7 @@ class UDF:
             connection.close()
 
     def _deser_filter_type(self, obj):
-        assert type(obj) == dict
+        assert type(obj) is dict
         keys = list(obj.keys())
         assert len(keys) == 1
         type_key = keys[0]
@@ -1234,28 +1238,28 @@ class UDF:
 
         if type_key == "FrameType":
             frame = obj[type_key]
-            assert type(frame) == dict
+            assert type(frame) is dict
             assert "width" in frame
             assert "height" in frame
             assert "format" in frame
-            assert type(frame["width"]) == int
-            assert type(frame["height"]) == int
+            assert type(frame["width"]) is int
+            assert type(frame["height"]) is int
             assert frame["format"] == 2  # AV_PIX_FMT_RGB24
             return UDFFrameType(frame["width"], frame["height"], "rgb24")
         elif type_key == "String":
-            assert type(obj[type_key]) == str
+            assert type(obj[type_key]) is str
             return obj[type_key]
         elif type_key == "Int":
-            assert type(obj[type_key]) == int
+            assert type(obj[type_key]) is int
             return obj[type_key]
         elif type_key == "Bool":
-            assert type(obj[type_key]) == bool
+            assert type(obj[type_key]) is bool
             return obj[type_key]
         else:
             assert False, f"Unknown type: {type_key}"
 
     def _deser_filter(self, obj):
-        assert type(obj) == dict
+        assert type(obj) is dict
         keys = list(obj.keys())
         assert len(keys) == 1
         type_key = keys[0]
@@ -1263,15 +1267,15 @@ class UDF:
 
         if type_key == "Frame":
             frame = obj[type_key]
-            assert type(frame) == dict
+            assert type(frame) is dict
             assert "data" in frame
             assert "width" in frame
             assert "height" in frame
             assert "format" in frame
-            assert type(frame["width"]) == int
-            assert type(frame["height"]) == int
+            assert type(frame["width"]) is int
+            assert type(frame["height"]) is int
             assert frame["format"] == "rgb24"
-            assert type(frame["data"]) == bytes
+            assert type(frame["data"]) is bytes
 
             data = np.frombuffer(frame["data"], dtype=np.uint8)
             data = data.reshape(frame["height"], frame["width"], 3)
@@ -1279,13 +1283,13 @@ class UDF:
                 data, UDFFrameType(frame["width"], frame["height"], "rgb24")
             )
         elif type_key == "String":
-            assert type(obj[type_key]) == str
+            assert type(obj[type_key]) is str
             return obj[type_key]
         elif type_key == "Int":
-            assert type(obj[type_key]) == int
+            assert type(obj[type_key]) is int
             return obj[type_key]
         elif type_key == "Bool":
-            assert type(obj[type_key]) == bool
+            assert type(obj[type_key]) is bool
             return obj[type_key]
         else:
             assert False, f"Unknown type: {type_key}"
@@ -1321,9 +1325,9 @@ class UDFFrameType:
     """
 
     def __init__(self, width: int, height: int, pix_fmt: str):
-        assert type(width) == int
-        assert type(height) == int
-        assert type(pix_fmt) == str
+        assert type(width) is int
+        assert type(height) is int
+        assert type(pix_fmt) is str
 
         self._width = width
         self._height = height
@@ -1355,8 +1359,8 @@ class UDFFrame:
     """A symbolic reference to a frame for use in UDFs."""
 
     def __init__(self, data: np.ndarray, f_type: UDFFrameType):
-        assert type(data) == np.ndarray
-        assert type(f_type) == UDFFrameType
+        assert type(data) is np.ndarray
+        assert type(f_type) is UDFFrameType
 
         # We only support RGB24 for now
         assert data.dtype == np.uint8
