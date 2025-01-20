@@ -5,10 +5,15 @@ vidformer.supervision is the supervision frontend for [vidformer](https://github
 import vidformer.cv2 as vf_cv2
 
 import supervision as _sv
+import numpy as np
 from supervision import Color, ColorPalette, ColorLookup, Detections
-from supervision.annotators.utils import resolve_color
+from supervision.annotators.utils import resolve_color, resolve_text_background_xyxy
+from supervision.detection.utils import spread_out_boxes
+from supervision.config import CLASS_NAME_DATA_FIELD
 from math import sqrt
 from supervision.geometry.core import Position
+
+CV2_FONT = vf_cv2.FONT_HERSHEY_SIMPLEX
 
 
 class BoxAnnotator:
@@ -313,4 +318,212 @@ class DotAnnotator:
                     outline_color.as_bgr(),
                     self.outline_thickness,
                 )
+        return scene
+
+
+class LabelAnnotator:
+    def __init__(
+        self,
+        color=ColorPalette.DEFAULT,
+        text_color=Color.WHITE,
+        text_scale: float = 0.5,
+        text_thickness: int = 1,
+        text_padding: int = 10,
+        text_position: Position = Position.TOP_LEFT,
+        color_lookup: ColorLookup = ColorLookup.CLASS,
+        border_radius: int = 0,
+        smart_position: bool = False,
+    ):
+        self.border_radius: int = border_radius
+        self.color = color
+        self.text_color = text_color
+        self.text_scale: float = text_scale
+        self.text_thickness: int = text_thickness
+        self.text_padding: int = text_padding
+        self.text_anchor: Position = text_position
+        self.color_lookup: ColorLookup = color_lookup
+        self.smart_position = smart_position
+
+    def annotate(
+        self,
+        scene,
+        detections: Detections,
+        labels,
+        custom_color_lookup=None,
+    ):
+        self._validate_labels(labels, detections)
+
+        labels = self._get_labels_text(detections, labels)
+        label_properties = self._get_label_properties(detections, labels)
+
+        if self.smart_position:
+            xyxy = label_properties[:, :4]
+            xyxy = spread_out_boxes(xyxy)
+            label_properties[:, :4] = xyxy
+
+        self._draw_labels(
+            scene=scene,
+            labels=labels,
+            label_properties=label_properties,
+            detections=detections,
+            custom_color_lookup=custom_color_lookup,
+        )
+
+        return scene
+
+    def _validate_labels(self, labels, detections: Detections):
+        if labels is not None and len(labels) != len(detections):
+            raise ValueError(
+                f"The number of labels ({len(labels)}) does not match the "
+                f"number of detections ({len(detections)}). Each detection "
+                f"should have exactly 1 label."
+            )
+
+    def _get_label_properties(
+        self,
+        detections: Detections,
+        labels,
+    ):
+        label_properties = []
+        anchors_coordinates = detections.get_anchors_coordinates(
+            anchor=self.text_anchor
+        ).astype(int)
+
+        for label, center_coords in zip(labels, anchors_coordinates):
+            (text_w, text_h) = vf_cv2.getTextSize(
+                text=label,
+                fontFace=CV2_FONT,
+                fontScale=self.text_scale,
+                thickness=self.text_thickness,
+            )[0]
+
+            width_padded = text_w + 2 * self.text_padding
+            height_padded = text_h + 2 * self.text_padding
+
+            text_background_xyxy = resolve_text_background_xyxy(
+                center_coordinates=tuple(center_coords),
+                text_wh=(width_padded, height_padded),
+                position=self.text_anchor,
+            )
+
+            label_properties.append(
+                [
+                    *text_background_xyxy,
+                    text_h,
+                ]
+            )
+
+        return np.array(label_properties).reshape(-1, 5)
+
+    @staticmethod
+    def _get_labels_text(detections: Detections, custom_labels):
+        if custom_labels is not None:
+            return custom_labels
+
+        labels = []
+        for idx in range(len(detections)):
+            if CLASS_NAME_DATA_FIELD in detections.data:
+                labels.append(detections.data[CLASS_NAME_DATA_FIELD][idx])
+            elif detections.class_id is not None:
+                labels.append(str(detections.class_id[idx]))
+            else:
+                labels.append(str(idx))
+        return labels
+
+    def _draw_labels(
+        self,
+        scene,
+        labels,
+        label_properties,
+        detections,
+        custom_color_lookup,
+    ) -> None:
+        assert len(labels) == len(label_properties) == len(detections), (
+            f"Number of label properties ({len(label_properties)}), "
+            f"labels ({len(labels)}) and detections ({len(detections)}) "
+            "do not match."
+        )
+
+        color_lookup = (
+            custom_color_lookup
+            if custom_color_lookup is not None
+            else self.color_lookup
+        )
+
+        for idx, label_property in enumerate(label_properties):
+            background_color = resolve_color(
+                color=self.color,
+                detections=detections,
+                detection_idx=idx,
+                color_lookup=color_lookup,
+            )
+            text_color = resolve_color(
+                color=self.text_color,
+                detections=detections,
+                detection_idx=idx,
+                color_lookup=color_lookup,
+            )
+
+            box_xyxy = label_property[:4]
+            text_height_padded = label_property[4]
+            self.draw_rounded_rectangle(
+                scene=scene,
+                xyxy=box_xyxy,
+                color=background_color.as_bgr(),
+                border_radius=self.border_radius,
+            )
+
+            text_x = box_xyxy[0] + self.text_padding
+            text_y = box_xyxy[1] + self.text_padding + text_height_padded
+            vf_cv2.putText(
+                img=scene,
+                text=labels[idx],
+                org=(text_x, text_y),
+                fontFace=CV2_FONT,
+                fontScale=self.text_scale,
+                color=text_color.as_bgr(),
+                thickness=self.text_thickness,
+                lineType=vf_cv2.LINE_AA,
+            )
+
+    @staticmethod
+    def draw_rounded_rectangle(
+        scene: np.ndarray,
+        xyxy,
+        color,
+        border_radius: int,
+    ) -> np.ndarray:
+        x1, y1, x2, y2 = xyxy
+        width = x2 - x1
+        height = y2 - y1
+
+        border_radius = min(border_radius, min(width, height) // 2)
+
+        rectangle_coordinates = [
+            ((x1 + border_radius, y1), (x2 - border_radius, y2)),
+            ((x1, y1 + border_radius), (x2, y2 - border_radius)),
+        ]
+        circle_centers = [
+            (x1 + border_radius, y1 + border_radius),
+            (x2 - border_radius, y1 + border_radius),
+            (x1 + border_radius, y2 - border_radius),
+            (x2 - border_radius, y2 - border_radius),
+        ]
+
+        for coordinates in rectangle_coordinates:
+            vf_cv2.rectangle(
+                img=scene,
+                pt1=coordinates[0],
+                pt2=coordinates[1],
+                color=color,
+                thickness=-1,
+            )
+        for center in circle_centers:
+            vf_cv2.circle(
+                img=scene,
+                center=center,
+                radius=border_radius,
+                color=color,
+                thickness=-1,
+            )
         return scene

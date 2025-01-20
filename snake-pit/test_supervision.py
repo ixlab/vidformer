@@ -191,3 +191,64 @@ def test_dot_annotator(dot_annotator_kwargs):
     vf_cv2.imwrite(TMP_PATH, annotated_img)
     assert os.path.exists(TMP_PATH)
     os.remove(TMP_PATH)
+
+
+"""
+class LabelAnnotator:
+    def __init__(
+        self,
+        color: ColorPalette.DEFAULT,
+        text_color= Color.WHITE,
+        text_scale: float = 0.5,
+        text_thickness: int = 1,
+        text_padding: int = 10,
+        text_position: Position = Position.TOP_LEFT,
+        color_lookup: ColorLookup = ColorLookup.CLASS,
+        border_radius: int = 0,
+        smart_position: bool = False,
+    )
+    """
+
+
+@pytest.mark.parametrize(
+    "label_annotator_kwargs",
+    [
+        {},
+        {"color": sv.ColorPalette.ROBOFLOW},
+        {"text_color": sv.Color.WHITE},
+        {"text_scale": 1.5},
+        {"text_thickness": 2},
+        {"text_padding": 20},
+        {"text_position": sv.Position.BOTTOM_RIGHT},
+        {"color_lookup": sv.ColorLookup.INDEX},
+        {"border_radius": 10},
+        {"smart_position": True},
+        {
+            "color": sv.ColorPalette.ROBOFLOW,
+            "text_color": sv.Color.WHITE,
+            "text_scale": 1.5,
+            "text_thickness": 2,
+            "text_padding": 20,
+            "text_position": sv.Position.BOTTOM_RIGHT,
+            "color_lookup": sv.ColorLookup.INDEX,
+            "border_radius": 10,
+            "smart_position": True,
+        },
+    ],
+)
+def test_label_annotator(label_annotator_kwargs):
+    detections = apollo_detections()
+    img = vf_cv2.imread("apollo.jpg")
+
+    label_annotator = vf_sv.LabelAnnotator(**label_annotator_kwargs)
+    labels = [
+        f"{class_name} {confidence:.2f}"
+        for class_name, confidence in zip(
+            detections["class_name"], detections.confidence
+        )
+    ]
+    annotated_img = label_annotator.annotate(img.copy(), detections, labels)
+
+    vf_cv2.imwrite(TMP_PATH, annotated_img)
+    assert os.path.exists(TMP_PATH)
+    os.remove(TMP_PATH)

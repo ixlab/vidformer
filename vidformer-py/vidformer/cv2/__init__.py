@@ -600,7 +600,7 @@ def putText(
     assert isinstance(text, str)
 
     assert len(org) == 2
-    assert all(isinstance(x, int) for x in org)
+    org = [int(x) for x in org]
 
     assert isinstance(fontFace, int)
     assert isinstance(fontScale, float) or isinstance(fontScale, int)
