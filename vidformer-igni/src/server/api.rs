@@ -658,6 +658,14 @@ pub(crate) async fn push_part(
     let pos = req.pos as i32;
     let n_frames = req.frames.len();
 
+    // Check if we're pushing too many frames
+    if let Some(err) = user
+        .permissions
+        .limit_err_max("spec:max_frames", pos as i64 + n_frames as i64)
+    {
+        return Ok(err);
+    }
+
     // stage inserted rows before beginning transaction
     let insert_spec_ids = vec![spec_id; req.frames.len()];
     let mut insert_pos: Vec<i32> = Vec::with_capacity(req.frames.len());
@@ -671,6 +679,10 @@ pub(crate) async fn push_part(
         if let Some(expr) = frame {
             insert_frames.push(Some(serde_json::to_string(expr).unwrap()));
         } else {
+            if let Some(err) = user.permissions.flag_err("spec:deferred_frames") {
+                // Block deferred frames unless explicitly allowed
+                return Ok(err);
+            }
             insert_frames.push(None);
         }
 

@@ -36,8 +36,9 @@ impl UserPermissions {
 impl UserPermissions {
     pub fn default_regular() -> UserPermissions {
         let limits_int = [
-            ("spec:max_width", 4096),  // DCI 4K
-            ("spec:max_height", 2160), // DCI 4K
+            ("spec:max_width", 4096),    // DCI 4K
+            ("spec:max_height", 2160),   // DCI 4K
+            ("spec:max_frames", 432000), // 4 hours @ 30 fps / 5 hours @ 24 fps
             ("source:max_width", 4096),
             ("source:max_height", 2160),
         ]
@@ -79,6 +80,7 @@ impl UserPermissions {
             "spec:list",
             "spec:push_part",
             "spec:delete",
+            // "spec:deferred_frames" - do not enable until stable
         ]
         .into_iter()
         .map(String::from)
@@ -94,8 +96,9 @@ impl UserPermissions {
 
     pub fn default_guest() -> UserPermissions {
         let limits_int = [
-            ("spec:max_width", 1280), // DCI 4K
-            ("spec:max_height", 720), // DCI 4K
+            ("spec:max_width", 1280),
+            ("spec:max_height", 720),
+            ("spec:max_frames", 162000), // 90 minutes @ 30 fps
         ]
         .iter()
         .map(|(key, value)| (key.to_string(), *value))
@@ -152,7 +155,7 @@ impl UserPermissions {
     }
 
     pub fn flag(&self, flag: &str) -> bool {
-        self.flags.contains(&flag.to_string())
+        self.flags.iter().any(|f| f == flag)
     }
 
     pub fn flag_err(
