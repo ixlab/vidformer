@@ -1,6 +1,6 @@
 [package]
 name = "vidformer"
-version = "0.9.0"
+version = "0.10.0"
 description = "Video Data Transformation Library."
 authors = ["Dominik Winecki <dominikwinecki@gmail.com>"]
 edition = "2021"
