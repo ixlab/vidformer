@@ -1,10 +1,11 @@
 import os
 import re
-import pytest
 
 import cv2 as ocv_cv2
-import vidformer.cv2 as vf_cv2
 import numpy as np
+import pytest
+
+import vidformer.cv2 as vf_cv2
 
 VID_PATH = "../tos_720p.mp4"
 TMP_PATH = "tmp.mp4"
@@ -41,7 +42,6 @@ def test_cap_all_frames():
     cap = cv2.VideoCapture(VID_PATH)
     assert cap.isOpened()
 
-    fps = cap.get(cv2.CAP_PROP_FPS)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
@@ -125,8 +125,9 @@ def test_videowriter_numpy_vf():
 
 
 def test_numpy():
-    import vidformer.cv2 as vf_cv2
     import numpy as np
+
+    import vidformer.cv2 as vf_cv2
 
     img = vf_cv2.imread("apollo.jpg")
     assert isinstance(img, vf_cv2.Frame)
@@ -155,7 +156,6 @@ def test_numpy():
 
 
 def test_vidplay():
-    import vidformer as vf
     import vidformer.cv2 as cv2
 
     cap = cv2.VideoCapture(VID_PATH)
@@ -606,8 +606,9 @@ def test_seek_vf():
 
 
 def test_getFontScaleFromHeight():
-    import vidformer.cv2 as vf_cv2
     import cv2 as ocv_cv2
+
+    import vidformer.cv2 as vf_cv2
 
     fonts = [
         ocv_cv2.FONT_HERSHEY_SIMPLEX,
@@ -631,8 +632,9 @@ def test_getFontScaleFromHeight():
 
 
 def test_getTextSize():
-    import vidformer.cv2 as vf_cv2
     import cv2 as ocv_cv2
+
+    import vidformer.cv2 as vf_cv2
 
     texts = ["", "hello", "hello, world!", "123456890+-3", "a" * 1000]
     fonts = [

@@ -1,14 +1,9 @@
-from fractions import Fraction
-import os
-import json
-
 import vidformer
-import pandas as pd
 
 
 def test_http_path():
+
     import vidformer as vf
-    from fractions import Fraction
 
     server = vf.YrdenServer()
     tos = vidformer.YrdenSource(
@@ -19,9 +14,9 @@ def test_http_path():
     assert tos._name == "tos_720p-XYZ"
     assert tos._path == "data/dve2/tos_720p.mp4"
     assert tos._stream == 0
-    assert type(tos._service) == vf.YrdenStorageService
+    assert type(tos._service) is vf.YrdenStorageService
     assert tos._service._service == "http"
-    assert type(tos._service._config) == dict
+    assert type(tos._service._config) is dict
     assert len(tos._service._config) == 1
     assert tos._service._config["endpoint"] == "https://f.dominik.win"
 

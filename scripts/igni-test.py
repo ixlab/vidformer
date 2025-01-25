@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import subprocess as sp
 import os
-import requests
+import subprocess as sp
 import time
+
+import requests
 
 current_dir = os.path.dirname(os.path.realpath(__file__))
 project_dir = os.path.join(current_dir, "..")

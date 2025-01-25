@@ -1,11 +1,9 @@
-from fractions import Fraction
 import os
-import json
 import subprocess as sp
 
 import pytest
+
 import vidformer as vf
-import cv2
 
 
 def get_codec(pth):

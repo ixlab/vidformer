@@ -1,6 +1,5 @@
 import vidformer as vf
 import vidformer.cv2 as cv2
-from fractions import Fraction
 
 ENDPOINT = "http://localhost:8080/v2"
 API_KEY = "test"
@@ -55,10 +54,10 @@ def test_write_video():
         None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height), batch_size=50
     )
     video_url = cv2.vidplay(out, method="link")
-    assert type(video_url) == str
+    assert type(video_url) is str
 
     video_url = cv2.vidplay(out.spec(), method="link")
-    assert type(video_url) == str
+    assert type(video_url) is str
 
     count = 0
     while True:

@@ -12,26 +12,25 @@ vidformer-py is a Python 🐍 interface for [vidformer](https://github.com/ixlab
 __version__ = "0.10.1"
 
 
-import subprocess
-from fractions import Fraction
-import random
-import time
-import json
-import socket
-import os
-import multiprocessing
-import uuid
-import threading
+import base64
 import gzip
-import base64
+import json
+import multiprocessing
+import os
+import random
 import re
+import socket
 import struct
-import base64
+import subprocess
+import threading
+import time
+import uuid
+from fractions import Fraction
 from urllib.parse import urlparse
 
-import requests
 import msgpack
 import numpy as np
+import requests
 
 _in_notebook = False
 try:

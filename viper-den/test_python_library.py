@@ -1,12 +1,13 @@
-import vidformer as vf
 from fractions import Fraction
+
+import vidformer as vf
 
 ENDPOINT = "http://localhost:8080/v2"
 API_KEY = "test"
 
 
 def test_connect():
-    server = vf.IgniServer(ENDPOINT, API_KEY)
+    _server = vf.IgniServer(ENDPOINT, API_KEY)
 
 
 def test_create_source():
@@ -61,7 +62,7 @@ def test_search_source():
     server = vf.IgniServer(ENDPOINT, API_KEY)
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
     matching_sources = server.search_source("../tos_720p.mp4", 0, "fs", {"root": "."})
-    assert type(matching_sources) == list
+    assert type(matching_sources) is list
     for source in matching_sources:
         assert isinstance(source, str)
     assert tos.id() in matching_sources

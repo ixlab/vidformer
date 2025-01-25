@@ -1,8 +1,9 @@
-from fractions import Fraction
 import os
+from fractions import Fraction
+
+import pytest
 
 import vidformer
-import pytest
 
 
 def test_source_ts():
@@ -32,7 +33,7 @@ def test_short_clip():
 def test_source_not_exists():
     server = vidformer.YrdenServer()
     with pytest.raises(Exception) as exception:
-        tos = vidformer.YrdenSource(server, "fake", "fake.mp4", 0)
+        vidformer.YrdenSource(server, "fake", "fake.mp4", 0)
 
     # We want to make sure the most common user error has a clear error message
     assert (

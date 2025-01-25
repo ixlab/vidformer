@@ -2,16 +2,17 @@
 vidformer.supervision is the [supervision](https://supervision.roboflow.com/) frontend for [vidformer](https://github.com/ixlab/vidformer).
 """
 
-import vidformer.cv2 as vf_cv2
-
-import supervision as _sv
-import numpy as np
-from supervision import Color, ColorPalette, ColorLookup, Detections
-from supervision.annotators.utils import resolve_color, resolve_text_background_xyxy
-from supervision.detection.utils import spread_out_boxes
-from supervision.config import CLASS_NAME_DATA_FIELD
 from math import sqrt
+
+import numpy as np
+import supervision as _sv
+from supervision import Color, ColorLookup, ColorPalette, Detections
+from supervision.annotators.utils import resolve_color, resolve_text_background_xyxy
+from supervision.config import CLASS_NAME_DATA_FIELD
+from supervision.detection.utils import spread_out_boxes
 from supervision.geometry.core import Position
+
+import vidformer.cv2 as vf_cv2
 
 CV2_FONT = vf_cv2.FONT_HERSHEY_SIMPLEX
 

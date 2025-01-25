@@ -18,13 +18,13 @@ try:
 except Exception:
     _opencv2 = None
 
-import numpy as np
-
-import uuid
-from fractions import Fraction
-from bisect import bisect_right
-import zlib
 import re
+import uuid
+import zlib
+from bisect import bisect_right
+from fractions import Fraction
+
+import numpy as np
 
 CAP_PROP_POS_MSEC = 0
 CAP_PROP_POS_FRAMES = 1

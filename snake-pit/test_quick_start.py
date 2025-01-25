@@ -1,9 +1,10 @@
-from fractions import Fraction
-import os
 import json
+import os
+from fractions import Fraction
+
+import pandas as pd
 
 import vidformer
-import pandas as pd
 
 
 def test_quick_start():
@@ -49,8 +50,9 @@ def test_quick_start():
 
 
 def test_hello_world():
-    import vidformer as vf
     from fractions import Fraction
+
+    import vidformer as vf
 
     server = vf.YrdenServer()
     tos = vidformer.YrdenSource(
@@ -80,7 +82,8 @@ def test_bounding_boxes():
     tos = vidformer.YrdenSource(server, "tos_720p", "tos_720p.mp4", 0)
 
     # Load some data
-    import urllib.request, json
+    import json
+    import urllib.request
 
     with urllib.request.urlopen(
         "https://f.dominik.win/data/dve2/tos_720p-objects.json"

@@ -1,10 +1,11 @@
+import os
+
+import numpy as np
+import pytest
+import supervision as sv
+
 import vidformer.cv2 as vf_cv2
 import vidformer.supervision as vf_sv
-import supervision as sv
-import numpy as np
-import os
-import pytest
-
 
 IMG_PATH = "apollo.jpg"
 TMP_PATH = "tmp.png"

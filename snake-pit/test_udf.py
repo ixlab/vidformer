@@ -1,9 +1,9 @@
-from fractions import Fraction
 import os
-import json
+from fractions import Fraction
+
+import cv2
 
 import vidformer as vf
-import cv2
 
 
 def test_udf():

@@ -1,11 +1,12 @@
-import requests
-import re
-import pytest
-import random
-import os
-import subprocess as sp
-import json
 import base64
+import json
+import os
+import random
+import re
+import subprocess as sp
+
+import pytest
+import requests
 
 ENDPOINT = "http://localhost:8080/"
 AUTH_HEADERS = {"Authorization": "Bearer test"}
@@ -107,9 +108,9 @@ def test_list_sources():
     response = requests.get(ENDPOINT + "v2/source", headers=AUTH_HEADERS)
     response.raise_for_status()
     resp = response.json()
-    assert type(resp) == list
+    assert type(resp) is list
     for sid in resp:
-        assert type(sid) == str
+        assert type(sid) is str
     assert source_id in resp
 
 
@@ -120,9 +121,9 @@ def test_search_source():
     )
     response.raise_for_status()
     resp = response.json()
-    assert type(resp) == list
+    assert type(resp) is list
     for sid in resp:
-        assert type(sid) == str
+        assert type(sid) is str
     assert source_id in resp
 
 
@@ -168,10 +169,10 @@ def test_get_spec():
     assert spec["height"] == 720
     assert spec["pix_fmt"] == "yuv420p"
     assert spec["vod_segment_length"] == [2, 1]
-    assert spec["ready_hook"] == None
-    assert spec["steer_hook"] == None
-    assert spec["terminated"] == False
-    assert spec["closed"] == False
+    assert spec["ready_hook"] is None
+    assert spec["steer_hook"] is None
+    assert spec["terminated"] is False
+    assert spec["closed"] is False
     assert spec["vod_endpoint"] == ENDPOINT + "vod/" + spec_id + "/"
 
 
@@ -196,9 +197,9 @@ def test_list_specs():
     response = requests.get(ENDPOINT + "v2/spec", headers=AUTH_HEADERS)
     response.raise_for_status()
     resp = response.json()
-    assert type(resp) == list
+    assert type(resp) is list
     for sid in resp:
-        assert type(sid) == str
+        assert type(sid) is str
     assert spec_id in resp
 
 
@@ -297,7 +298,7 @@ def test_push_part():
 
     spec = _get_spec(spec_id)
     assert spec["frames_applied"] == 1
-    assert spec["terminated"] == False
+    assert spec["terminated"] is False
 
 
 def test_error_push_part_empty():
@@ -374,13 +375,13 @@ def test_push_two_parts_backwards():
     _push_frames(spec_id, source_id, ts, 3, False)
     spec = _get_spec(spec_id)
     assert spec["frames_applied"] == 0
-    assert spec["terminated"] == False
+    assert spec["terminated"] is False
 
     ts = [[0, 30], [1, 30], [2, 30]]
     _push_frames(spec_id, source_id, ts, 0, False)
     spec = _get_spec(spec_id)
     assert spec["frames_applied"] == 6
-    assert spec["terminated"] == False
+    assert spec["terminated"] is False
 
 
 def test_terminate():
@@ -390,7 +391,7 @@ def test_terminate():
     _push_frames(spec_id, source_id, ts, 0, True)
     spec = _get_spec(spec_id)
     assert spec["frames_applied"] == 3
-    assert spec["terminated"] == True
+    assert spec["terminated"] is True
 
 
 def test_terminate_delayed():
@@ -417,9 +418,9 @@ def test_status_endpoint():
     response = requests.get(status_url)
     response.raise_for_status()
     response = response.json()
-    assert response["closed"] == False
-    assert response["terminated"] == False
-    assert response["ready"] == False
+    assert response["closed"] is False
+    assert response["terminated"] is False
+    assert response["ready"] is False
 
     # Push 60 frames (enough for 1 segment)
     source_id = _create_tos_source()
@@ -429,9 +430,9 @@ def test_status_endpoint():
     response = requests.get(status_url)
     response.raise_for_status()
     response = response.json()
-    assert response["closed"] == False
-    assert response["terminated"] == False
-    assert response["ready"] == True
+    assert response["closed"] is False
+    assert response["terminated"] is False
+    assert response["ready"] is True
 
     # Terminate
     ts = []
@@ -440,9 +441,9 @@ def test_status_endpoint():
     response = requests.get(status_url)
     response.raise_for_status()
     response = response.json()
-    assert response["closed"] == False
-    assert response["terminated"] == True
-    assert response["ready"] == True
+    assert response["closed"] is False
+    assert response["terminated"] is True
+    assert response["ready"] is True
 
 
 def test_empty_playlist_endpoint():
@@ -469,7 +470,7 @@ def test_empty_stream_endpoint():
     response.raise_for_status()
     assert (
         response.text
-        == f"""#EXTM3U
+        == """#EXTM3U
 #EXT-X-PLAYLIST-TYPE:EVENT
 #EXT-X-TARGETDURATION:2
 #EXT-X-VERSION:4
@@ -555,7 +556,7 @@ def test_multiple_segments_in_order(fps):
         _push_frames(spec_id, source_id, ts, i, False)
         print(_count_segments(spec_id)[0])
         assert _count_segments(spec_id)[0] == (i + 1) // (fps * 2)
-        assert _count_segments(spec_id)[1] == False
+        assert _count_segments(spec_id)[1] is False
 
     # Terminate
     ts = []
@@ -564,7 +565,7 @@ def test_multiple_segments_in_order(fps):
     if 250 % (fps * 2) > 0:
         expected += 1
     assert _count_segments(spec_id)[0] == expected
-    assert _count_segments(spec_id)[1] == True
+    assert _count_segments(spec_id)[1] is True
 
 
 @pytest.mark.parametrize("fps", [25, 30])
@@ -591,12 +592,12 @@ def test_multiple_segments_random_order(fps):
             if 250 % (fps * 2) > 0:
                 expected += 1
             assert _count_segments(spec_id)[0] == expected
-            assert _count_segments(spec_id)[1] == True
+            assert _count_segments(spec_id)[1] is True
         else:
             lowest_contiguous = max(1, min(not_pushed_i)) - 1
             expected = (lowest_contiguous + 1) // (fps * 2)
             assert _count_segments(spec_id)[0] == expected
-            assert _count_segments(spec_id)[1] == False
+            assert _count_segments(spec_id)[1] is False
 
 
 def test_ffmpeg_two_segment_terminal():
@@ -610,7 +611,7 @@ def test_ffmpeg_two_segment_terminal():
 
     spec = _get_spec(spec_id)
     assert spec["frames_applied"] == 95
-    assert spec["terminated"] == True
+    assert spec["terminated"] is True
 
     endpoint_url = spec["vod_endpoint"]
     playlist_url = f"{endpoint_url}playlist.m3u8"
@@ -666,7 +667,7 @@ def test_push_part_block():
 
     spec = _get_spec(spec_id)
     assert spec["frames_applied"] == 1
-    assert spec["terminated"] == False
+    assert spec["terminated"] is False
 
     # Push another frame
     req = {"pos": 1, "terminal": True, "blocks": [block]}
@@ -678,4 +679,4 @@ def test_push_part_block():
 
     spec = _get_spec(spec_id)
     assert spec["frames_applied"] == 2
-    assert spec["terminated"] == True
+    assert spec["terminated"] is True

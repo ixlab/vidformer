@@ -1,6 +1,6 @@
-from fractions import Fraction
-import vidformer as vf
 import numpy as np
+
+import vidformer as vf
 
 
 def test_loader_rgb24():
@@ -26,7 +26,7 @@ def test_loader_rgb24():
 
     # Test single frame
     frame_raster_rgb24 = loader[0]
-    assert type(frame_raster_rgb24) == bytes
+    assert type(frame_raster_rgb24) is bytes
     assert len(frame_raster_rgb24) == width * height * 3
     raw_data_array = np.frombuffer(frame_raster_rgb24, dtype=np.uint8)
     frame = raw_data_array.reshape((height, width, 3))
@@ -34,10 +34,10 @@ def test_loader_rgb24():
 
     # Test multiple frames
     multiple_frames = loader[1:9]
-    assert type(multiple_frames) == list
+    assert type(multiple_frames) is list
     assert len(multiple_frames) == 8
     for i in range(8):
-        assert type(multiple_frames[i]) == bytes
+        assert type(multiple_frames[i]) is bytes
         assert len(multiple_frames[i]) == width * height * 3
         raw_data_array = np.frombuffer(multiple_frames[i], dtype=np.uint8)
         frame = raw_data_array.reshape((height, width, 3))
@@ -45,10 +45,10 @@ def test_loader_rgb24():
 
     # Test all frames
     all_frames = loader[:]
-    assert type(all_frames) == list
+    assert type(all_frames) is list
     assert len(all_frames) == len(domain)
     for i in range(len(domain)):
-        assert type(all_frames[i]) == bytes
+        assert type(all_frames[i]) is bytes
         assert len(all_frames[i]) == width * height * 3
         raw_data_array = np.frombuffer(all_frames[i], dtype=np.uint8)
         frame = raw_data_array.reshape((height, width, 3))
@@ -74,7 +74,7 @@ def test_loader_yuv420p():
 
     # Test single frame
     frame_raster_yuv420p = loader[0]
-    assert type(frame_raster_yuv420p) == bytes
+    assert type(frame_raster_yuv420p) is bytes
     assert len(frame_raster_yuv420p) == width * height * 3 // 2
     raw_data_array = np.frombuffer(frame_raster_yuv420p, dtype=np.uint8)
     frame = raw_data_array.reshape((height + height // 2, width))
@@ -82,10 +82,10 @@ def test_loader_yuv420p():
 
     # Test multiple frames
     multiple_frames = loader[1:9]
-    assert type(multiple_frames) == list
+    assert type(multiple_frames) is list
     assert len(multiple_frames) == 8
     for i in range(8):
-        assert type(multiple_frames[i]) == bytes
+        assert type(multiple_frames[i]) is bytes
         assert len(multiple_frames[i]) == width * height * 3 // 2
         raw_data_array = np.frombuffer(multiple_frames[i], dtype=np.uint8)
         frame = raw_data_array.reshape((height + height // 2, width))
@@ -93,10 +93,10 @@ def test_loader_yuv420p():
 
     # Test all frames
     all_frames = loader[:]
-    assert type(all_frames) == list
+    assert type(all_frames) is list
     assert len(all_frames) == len(domain)
     for i in range(len(domain)):
-        assert type(all_frames[i]) == bytes
+        assert type(all_frames[i]) is bytes
         assert len(all_frames[i]) == width * height * 3 // 2
         raw_data_array = np.frombuffer(all_frames[i], dtype=np.uint8)
         frame = raw_data_array.reshape((height + height // 2, width))
