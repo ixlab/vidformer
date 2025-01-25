@@ -113,15 +113,13 @@ def test_push_spec_part():
     server.push_spec_part(spec_id, 0, frames, True)
 
 
-def test_push_spec_part_multiple():
+def test_push_spec_part_block():
     server = vf.IgniServer(ENDPOINT, API_KEY)
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
     spec_id = server.create_spec(1920, 1080, "yuv420p", Fraction(2, 1), Fraction(30, 1))
 
-    for part in range(10):
-        frames = []
-        for i in range(10):
-            t = Fraction(i, 30) + Fraction(part, 3)
-            f = tos.iloc[i]
-            frames.append((t, f))
-        server.push_spec_part(spec_id, part * 10, frames, part == 9)
+    fb = vf._FrameExpressionBlock()
+    for i in range(100):
+        fb.insert_frame(tos.iloc[i])
+
+    server.push_spec_part_block(spec_id, 0, [fb], True)

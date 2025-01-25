@@ -645,6 +645,21 @@ async fn igni_http_req_api(
             let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
             api::push_part(req, global, spec_id, &user_auth).await
         }
+        (hyper::Method::POST, _) // /v2/spec/<uuid>/part_block
+            if {
+                Regex::new(r"^/v2/spec/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/part_block$").unwrap().is_match(req.uri().path())
+            } =>
+        {
+            if let Some(res) = user_auth.permissions.flag_err("spec:push_part") {
+                return Ok(res);
+            }
+            let r = Regex::new(
+                r"^/v2/spec/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/part_block$",
+            );
+            let uri = req.uri().path().to_string();
+            let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            api::push_part_block(req, global, spec_id, &user_auth).await
+        }
         (method, uri) => {
             warn!("404 Not found: {} {}", method, uri);
             let mut res = hyper::Response::new(http_body_util::Full::new(

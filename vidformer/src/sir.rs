@@ -37,14 +37,14 @@ impl FrameSource {
     }
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone, PartialEq)]
 pub struct FilterExpr {
     pub name: String,
     pub args: Vec<Expr>,
     pub kwargs: BTreeMap<String, Expr>,
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone, PartialEq)]
 pub enum Expr {
     Frame(FrameExpr),
     Data(DataExpr),
@@ -70,7 +70,7 @@ impl Expr {
     }
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone, PartialEq)]
 
 pub enum DataExpr {
     Bool(bool),
@@ -106,7 +106,7 @@ impl Display for DataExpr {
     }
 }
 
-#[derive(Debug, serde::Deserialize, serde::Serialize, Clone)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone, PartialEq)]
 pub enum FrameExpr {
     Source(FrameSource),
     Filter(FilterExpr),

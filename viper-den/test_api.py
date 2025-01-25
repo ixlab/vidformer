@@ -4,6 +4,8 @@ import pytest
 import random
 import os
 import subprocess as sp
+import json
+import base64
 
 ENDPOINT = "http://localhost:8080/"
 AUTH_HEADERS = {"Authorization": "Bearer test"}
@@ -617,3 +619,63 @@ def test_ffmpeg_two_segment_terminal():
     assert p.returncode == 0
     assert os.path.exists("out.mp4")
     os.remove("out.mp4")
+
+
+def _push_frames_block(spec_id, source_id, ts, pos, terminal):
+    frame_expr = _sample_frame_expr(source_id)
+    frames = []
+    for t in ts:
+        frames.append([t, frame_expr])
+    req = {"pos": pos, "terminal": terminal, "frames": frames}
+    response = requests.post(
+        ENDPOINT + "v2/spec/" + spec_id + "/part", json=req, headers=AUTH_HEADERS
+    )
+    response.raise_for_status()
+    resp = response.json()
+    assert len(resp) == 1
+    assert resp["status"] == "ok"
+
+
+def test_push_part_block():
+    source_id = _create_tos_source()
+    spec_id = _create_example_spec()
+
+    frame_block = {
+        "functions": [],
+        "literals": [],
+        "sources": [source_id],
+        "kwarg_keys": [],
+        "source_fracs": [],
+        "exprs": [0x4300 << 48 | 0x0 << 32 | 0x0],
+        "frame_exprs": [0],
+    }
+    block = {
+        "frames": 1,
+        "compression": "none",
+        "body": base64.b64encode(json.dumps(frame_block).encode("utf-8")).decode(
+            "utf-8"
+        ),
+    }
+
+    req = {"pos": 0, "terminal": False, "blocks": [block]}
+    print(req)
+    response = requests.post(
+        ENDPOINT + "v2/spec/" + spec_id + "/part_block", json=req, headers=AUTH_HEADERS
+    )
+    response.raise_for_status()
+
+    spec = _get_spec(spec_id)
+    assert spec["frames_applied"] == 1
+    assert spec["terminated"] == False
+
+    # Push another frame
+    req = {"pos": 1, "terminal": True, "blocks": [block]}
+    print(req)
+    response = requests.post(
+        ENDPOINT + "v2/spec/" + spec_id + "/part_block", json=req, headers=AUTH_HEADERS
+    )
+    response.raise_for_status()
+
+    spec = _get_spec(spec_id)
+    assert spec["frames_applied"] == 2
+    assert spec["terminated"] == True

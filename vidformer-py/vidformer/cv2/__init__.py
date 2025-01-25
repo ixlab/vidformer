@@ -364,21 +364,25 @@ class _IgniVideoWriter:
         )
         self._batch_size = batch_size
         self._idx = 0
-        self._frame_buffer = []
+        self._feb = vf._FrameExpressionBlock()
 
     def _flush(self, terminal=False):
         server = _server()
-        server.push_spec_part(
-            self._spec,
-            self._idx - len(self._frame_buffer),
-            self._frame_buffer,
-            terminal=terminal,
-        )
-        self._frame_buffer = []
-
-    def _explicit_terminate(self):
-        server = _server()
-        server.push_spec_part(self._spec._id, self._idx, [], terminal=True)
+        if len(self._feb) > 0:
+            server.push_spec_part_block(
+                self._spec,
+                self._idx - len(self._feb),
+                [self._feb],
+                terminal=terminal,
+            )
+            self._feb = vf._FrameExpressionBlock()
+        else:
+            server.push_spec_part_block(
+                self._spec,
+                self._idx - len(self._feb),
+                [],
+                terminal=terminal,
+            )
 
     def spec(self):
         return self._spec
@@ -397,18 +401,14 @@ class _IgniVideoWriter:
             if frame._fmt["pix_fmt"] != self._spec._fmt["pix_fmt"]:
                 f_obj = _filter_scale(frame._f, pix_fmt=self._spec._fmt["pix_fmt"])
                 frame = Frame(f_obj, self._spec._fmt)
-        t = self._f_time * self._idx
-        self._frame_buffer.append((t, frame._f if frame is not None else None))
+        self._feb.insert_frame(frame._f if frame is not None else None)
         self._idx += 1
 
-        if len(self._frame_buffer) >= self._batch_size:
+        if len(self._feb) >= self._batch_size:
             self._flush()
 
     def release(self):
-        if len(self._frame_buffer) > 0:
-            self._flush(True)
-        else:
-            self._explicit_terminate()
+        self._flush(True)
 
 
 class _YrdenVideoWriter:

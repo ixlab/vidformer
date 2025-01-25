@@ -6,6 +6,7 @@ use http_body_util::BodyExt;
 use log::*;
 use num_rational::Rational64;
 use uuid::Uuid;
+use base64::prelude::*;
 
 use super::IgniServerGlobal;
 
@@ -647,7 +648,156 @@ pub(crate) async fn push_part(
         Ok(req) => req,
     };
 
-    if req.frames.is_empty() && !req.terminal {
+    push_frame_req(global, user, spec_id, (req.pos, req.terminal, req.frames)).await
+}
+
+pub(crate) async fn push_part_block(
+    req: hyper::Request<impl hyper::body::Body>,
+    global: std::sync::Arc<IgniServerGlobal>,
+    spec_id: &str,
+    user: &super::UserAuth,
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
+    let spec_id = Uuid::parse_str(spec_id).unwrap();
+
+    let req: Vec<u8> = match req.collect().await {
+        Err(_err) => {
+            error!("Error reading request body");
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::BAD_REQUEST)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    "Bad request",
+                )))?);
+        }
+        Ok(req) => req.to_bytes().to_vec(),
+    };
+
+    #[derive(serde::Deserialize, serde::Serialize)]
+    struct RequestBlock {
+        frames: i32,
+        compression: String,
+        body: String,
+    }
+
+    #[derive(serde::Deserialize, serde::Serialize)]
+    struct RequestContent {
+        pos: i32,
+        terminal: bool,
+        blocks: Vec<RequestBlock>,
+    }
+
+    let req: RequestContent = match serde_json::from_slice(&req) {
+        Err(err) => {
+            error!("Error parsing request body: {}", err);
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::BAD_REQUEST)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    format!("Bad request: {}", err),
+                )))?);
+        }
+        Ok(req) => req,
+    };
+
+    let pos = req.pos;
+    let terminal = req.terminal;
+    let mut n_frames_total = 0;
+    for block in &req.blocks {
+        if block.frames < 1 {
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::BAD_REQUEST)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    "Invalid number of frames",
+                )))?);
+        }
+        n_frames_total += block.frames as usize;
+    }
+    let mut frames = Vec::with_capacity(n_frames_total);
+    for block in req.blocks {
+        let body_bytes = match base64::prelude::BASE64_STANDARD.decode(&block.body) {
+            Err(err) => {
+                return Ok(hyper::Response::builder()
+                    .status(hyper::StatusCode::BAD_REQUEST)
+                    .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                        format!("Error decoding block: {}", err),
+                    )))?);
+            }
+            Ok(body_bytes) => body_bytes,
+        };
+
+        let body_uncompresed = match block.compression.as_str() {
+            "none" => body_bytes,
+            "zstd" => {
+                let reader = std::io::BufReader::new(body_bytes.as_slice());
+                let body_uncompresed = zstd::stream::decode_all(reader);
+                match body_uncompresed {
+                    Ok(body_uncompresed) => body_uncompresed,
+                    Err(err) => {
+                        return Ok(hyper::Response::builder()
+                            .status(hyper::StatusCode::BAD_REQUEST)
+                            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                                format!("Error decompressing block: {}", err),
+                            )))?);
+                    }
+                }
+            }
+            _ => {
+                return Ok(hyper::Response::builder()
+                    .status(hyper::StatusCode::BAD_REQUEST)
+                    .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                        "Invalid block compression algorithm (only 'none' and 'zstd' are supported)",
+                    )))?);
+            }
+        };
+
+        let frame_block: crate::frame_block::FrameBlock =
+            match serde_json::from_slice(&body_uncompresed) {
+                Err(err) => {
+                    return Ok(hyper::Response::builder()
+                        .status(hyper::StatusCode::BAD_REQUEST)
+                        .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                            format!("Error parsing block: {}", err),
+                        )))?);
+                }
+                Ok(frame_block) => frame_block,
+            };
+
+        let block_frames = match frame_block.frames() {
+            Ok(block_frames) => block_frames,
+            Err(err) => {
+                return Ok(hyper::Response::builder()
+                    .status(hyper::StatusCode::BAD_REQUEST)
+                    .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                        format!("Error parsing frame block: {}", err),
+                    )))?);
+            }
+        };
+
+        if block.frames as usize != block_frames.len() {
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::BAD_REQUEST)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    "Invalid number of block frames claimed",
+                )))?);
+        }
+
+        for block_frame in block_frames {
+            frames.push(((0, 0), Some(block_frame)));
+        }
+    }
+
+    push_frame_req(global, user, spec_id, (pos, terminal, frames)).await
+}
+
+async fn push_frame_req(
+    global: std::sync::Arc<IgniServerGlobal>,
+    user: &super::UserAuth,
+    spec_id: Uuid,
+    req: (
+        i32,
+        bool,
+        Vec<((i64, i64), Option<vidformer::sir::FrameExpr>)>,
+    ),
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
+    if req.2.is_empty() && !req.1 {
         return Ok(hyper::Response::builder()
             .status(hyper::StatusCode::BAD_REQUEST)
             .body(http_body_util::Full::new(hyper::body::Bytes::from(
@@ -655,10 +805,10 @@ pub(crate) async fn push_part(
             )))?);
     }
 
-    let pos = req.pos as i32;
-    let n_frames = req.frames.len();
+    let pos = req.0 as i32;
+    let n_frames = req.2.len();
 
-    // Check if we're pushing too many frames
+    // Check if we're pushing too many framesreq
     if let Some(err) = user
         .permissions
         .limit_err_max("spec:max_frames", pos as i64 + n_frames as i64)
@@ -667,12 +817,12 @@ pub(crate) async fn push_part(
     }
 
     // stage inserted rows before beginning transaction
-    let insert_spec_ids = vec![spec_id; req.frames.len()];
-    let mut insert_pos: Vec<i32> = Vec::with_capacity(req.frames.len());
-    let mut insert_frames: Vec<Option<String>> = Vec::with_capacity(req.frames.len());
+    let insert_spec_ids = vec![spec_id; req.2.len()];
+    let mut insert_pos: Vec<i32> = Vec::with_capacity(req.2.len());
+    let mut insert_frames: Vec<Option<String>> = Vec::with_capacity(req.2.len());
 
     let mut referenced_source_frames = BTreeSet::new();
-    for (frame_idx, ((_numer, _denom), frame)) in req.frames.iter().enumerate() {
+    for (frame_idx, ((_numer, _denom), frame)) in req.2.iter().enumerate() {
         // TODO: Check numer and denom are correct?
 
         insert_pos.push(pos + frame_idx as i32);
@@ -739,7 +889,7 @@ pub(crate) async fn push_part(
     let spec = spec.unwrap();
 
     // Check we are not pushing a terminal onto an already terminal spec
-    if req.terminal && spec.pos_terminal.is_some() {
+    if req.1 && spec.pos_terminal.is_some() {
         transaction.commit().await?;
         return Ok(hyper::Response::builder()
             .status(hyper::StatusCode::BAD_REQUEST)
@@ -750,7 +900,7 @@ pub(crate) async fn push_part(
 
     // Check if we are pushing past the terminal
     if let Some(pos_terminal) = spec.pos_terminal {
-        if pos + req.frames.len() as i32 > pos_terminal + 1 {
+        if pos + req.2.len() as i32 > pos_terminal + 1 {
             transaction.commit().await?;
             return Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::BAD_REQUEST)
@@ -853,7 +1003,7 @@ pub(crate) async fn push_part(
         }
     }
 
-    if req.terminal {
+    if req.1 {
         // If the part is terminal, make sure there are no existing values in spec_t with pos > req.pos
         let existing: Option<(i32,)> =
             sqlx::query_as("SELECT pos FROM spec_t WHERE spec_id = $1 AND pos > $2 LIMIT 1")
@@ -910,11 +1060,11 @@ pub(crate) async fn push_part(
         (row_number() OVER (ORDER BY pos) - 1)::INT4 AS rn
     FROM spec_t
     WHERE spec_id = $1
-)
-SELECT CASE WHEN (SELECT MIN(cte.rn) FROM cte
-WHERE cte.pos <> cte.rn) IS NULL THEN (SELECT MAX(pos) + 1 FROM cte) ELSE (SELECT MIN(cte.rn) FROM cte
-WHERE cte.pos <> cte.rn) END AS first_missing_pos
-",
+    )
+    SELECT CASE WHEN (SELECT MIN(cte.rn) FROM cte
+    WHERE cte.pos <> cte.rn) IS NULL THEN (SELECT MAX(pos) + 1 FROM cte) ELSE (SELECT MIN(cte.rn) FROM cte
+    WHERE cte.pos <> cte.rn) END AS first_missing_pos
+    ",
         )
         .bind(spec_id)
         .fetch_one(&mut *transaction)
@@ -953,7 +1103,7 @@ WHERE cte.pos <> cte.rn) END AS first_missing_pos
         }
     }
 
-    if req.terminal {
+    if req.1 {
         sqlx::query("UPDATE spec SET pos_terminal = $1 WHERE id = $2")
             .bind(pos + n_frames as i32 - 1)
             .bind(spec_id)

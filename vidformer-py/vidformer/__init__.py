@@ -25,6 +25,8 @@ import threading
 import gzip
 import base64
 import re
+import struct
+import base64
 from urllib.parse import urlparse
 
 import requests
@@ -180,6 +182,207 @@ def _play(namespace, hls_video_url, hls_js_url, method="html", status_url=None):
         return hls_video_url
     else:
         raise ValueError("Invalid method")
+
+
+def _feb_expr_coded_as_scalar(expr) -> bool:
+    if type(expr) is tuple:
+        expr = list(expr)
+    if type(expr) is FilterExpr:
+        return False
+    if type(expr) is list:
+        if len(expr) > 3:
+            return False
+        else:
+            return all([type(x) is int and x >= -(2**15) and x < 2**15 for x in expr])
+    else:
+        assert type(expr) in [int, float, str, bytes, SourceExpr, bool, list]
+        return True
+
+
+class _FrameExpressionBlock:
+    def __init__(self):
+        self._functions = []
+        self._literals = []
+        self._sources = []
+        self._kwarg_keys = []
+        self._source_fracs = []
+        self._exprs = []
+        self._frame_exprs = []
+
+    def __len__(self):
+        return len(self._frame_exprs)
+
+    def insert_expr(self, expr):
+        if type(expr) is SourceExpr or type(expr) is FilterExpr:
+            return self.insert_frame_expr(expr)
+        else:
+            return self.insert_data_expr(expr)
+
+    def insert_data_expr(self, data):
+        if type(data) is tuple:
+            data = list(data)
+        if type(data) is bool:
+            self._exprs.append(0x01000000_00000000 | int(data))
+            return len(self._exprs) - 1
+        elif type(data) is int:
+            if data >= -(2**31) and data < 2**31:
+                self._exprs.append(data)
+            else:
+                self._literals.append(data)
+                self._exprs.append(0x40000000_00000000 | len(self._literals) - 1)
+            return len(self._exprs) - 1
+        elif type(data) is float:
+            self._exprs.append(
+                0x02000000_00000000 | int.from_bytes(struct.pack("f", data))
+            )
+        elif type(data) is str:
+            self._literals.append(data)
+            self._exprs.append(0x40000000_00000000 | len(self._literals) - 1)
+        elif type(data) is bytes:
+            self._literals.append(data)
+            self._exprs.append(0x40000000_00000000 | len(self._literals) - 1)
+        elif type(data) is list:
+            if len(data) == 0:
+                self._exprs.append(0x03000000_00000000)
+                return len(self._exprs) - 1
+            if (
+                len(data) == 1
+                and type(data[0]) is int
+                and data[0] >= -(2**15)
+                and data[0] < 2**15
+            ):
+                self._exprs.append(0x04000000_00000000 | data[0])
+                return len(self._exprs) - 1
+            if (
+                len(data) == 2
+                and type(data[0]) is int
+                and data[0] >= -(2**15)
+                and data[0] < 2**15
+                and type(data[1]) is int
+                and data[1] >= -(2**15)
+                and data[1] < 2**15
+            ):
+                self._exprs.append(0x05000000_00000000 | (data[0] << 16) | data[1])
+                return len(self._exprs) - 1
+            if (
+                len(data) == 3
+                and type(data[0]) is int
+                and data[0] >= -(2**15)
+                and data[0] < 2**15
+                and type(data[1]) is int
+                and data[1] >= -(2**15)
+                and data[1] < 2**15
+                and type(data[2]) is int
+                and data[2] >= -(2**15)
+                and data[2] < 2**15
+            ):
+                self._exprs.append(
+                    0x06000000_00000000 | (data[0] << 32) | (data[1] << 16) | data[2]
+                )
+                return len(self._exprs) - 1
+            out = len(self._exprs)
+            member_idxs = []
+            for member in data:
+                if _feb_expr_coded_as_scalar(member):
+                    member_idxs.append(self.insert_data_expr(member))
+                else:
+                    member_idxs.append(None)
+
+            self._exprs.append(0x42000000_00000000 | len(data) - 1)
+
+            for i in range(len(data)):
+                if member_idxs[i] is None:
+                    self.insert_data_expr(data[i])
+                else:
+                    self._exprs.append(0x45000000_00000000 | member_idxs[i])
+
+            return out
+        else:
+            raise Exception("Invalid data type")
+
+    def insert_frame_expr(self, frame):
+        if type(frame) is SourceExpr:
+            source = frame._source._name
+            if source in self._sources:
+                source_idx = self._sources.index(source)
+            else:
+                source_idx = len(self._sources)
+                self._sources.append(source)
+            if frame._is_iloc:
+                self._exprs.append(
+                    0x43000000_00000000 | (source_idx << 32) | frame._idx
+                )
+            else:
+                idx = len(self._source_fracs) // 2
+                self._source_fracs.append(frame._idx.numerator)
+                self._source_fracs.append(frame._idx.denominator)
+                self._exprs.append(0x44000000_00000000 | (source_idx << 32) | idx)
+            return len(self._exprs) - 1
+        elif type(frame) is FilterExpr:
+            func = frame._filter._func
+            if func in self._functions:
+                func_idx = self._functions.index(func)
+            else:
+                func_idx = len(self._functions)
+                self._functions.append(func)
+            len_args = len(frame._args)
+            len_kwargs = len(frame._kwargs)
+
+            arg_idxs = []
+            for arg in frame._args:
+                if _feb_expr_coded_as_scalar(arg):
+                    arg_idxs.append(None)
+                else:
+                    arg_idxs.append(self.insert_expr(arg))
+            kwarg_idxs = {}
+            for k, v in frame._kwargs.items():
+                if _feb_expr_coded_as_scalar(v):
+                    kwarg_idxs[k] = None
+                else:
+                    kwarg_idxs[k] = self.insert_expr(v)
+
+            out_idx = len(self._exprs)
+            self._exprs.append(
+                0x41000000_00000000 | (len_args << 24) | (len_kwargs << 16) | func_idx
+            )
+            for i in range(len_args):
+                if arg_idxs[i] is None:
+                    # It's a scalar
+                    self.insert_expr(frame._args[i])
+                else:
+                    # It's an expression pointer
+                    self._exprs.append(0x45000000_00000000 | arg_idxs[i])
+            for k, v in frame._kwargs.items():
+                if k in self._kwarg_keys:
+                    k_idx = self._kwarg_keys.index(k)
+                else:
+                    k_idx = len(self._kwarg_keys)
+                    self._kwarg_keys.append(k)
+                self._exprs.append(0x46000000_00000000 | k_idx)
+                if kwarg_idxs[k] is None:
+                    # It's a scalar
+                    self.insert_expr(v)
+                else:
+                    # It's an expression pointer
+                    self._exprs.append(0x45000000_00000000 | kwarg_idxs[k])
+            return out_idx
+        else:
+            raise Exception("Invalid frame type")
+
+    def insert_frame(self, frame):
+        idx = self.insert_frame_expr(frame)
+        self._frame_exprs.append(idx)
+
+    def as_dict(self):
+        return {
+            "functions": self._functions,
+            "literals": self._literals,
+            "sources": self._sources,
+            "kwarg_keys": self._kwarg_keys,
+            "source_fracs": self._source_fracs,
+            "exprs": self._exprs,
+            "frame_exprs": self._frame_exprs,
+        }
 
 
 class IgniSource:
@@ -455,6 +658,48 @@ class IgniServer:
         }
         response = requests.post(
             f"{self._endpoint}/spec/{spec_id}/part",
+            json=req,
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
+        if not response.ok:
+            raise Exception(response.text)
+        response = response.json()
+        assert response["status"] == "ok"
+
+    def push_spec_part_block(self, spec_id: str, pos, blocks, terminal):
+        if type(spec_id) is IgniSpec:
+            spec_id = spec_id._id
+        assert type(spec_id) is str
+        assert type(pos) is int
+        assert type(blocks) is list
+        assert type(terminal) is bool
+
+        req_blocks = []
+        for block in blocks:
+            assert type(block) is _FrameExpressionBlock
+            block_body = block.as_dict()
+            block_body["literals"] = [
+                _json_arg(lit, skip_data_anot=True) for lit in block_body["literals"]
+            ]
+            block_frames = len(block_body["frame_exprs"])
+            block_body = base64.b64encode(
+                json.dumps(block_body).encode("utf-8")
+            ).decode("utf-8")
+            req_blocks.append(
+                {
+                    "frames": block_frames,
+                    "compression": "none",
+                    "body": block_body,
+                }
+            )
+
+        req = {
+            "pos": pos,
+            "terminal": terminal,
+            "blocks": req_blocks,
+        }
+        response = requests.post(
+            f"{self._endpoint}/spec/{spec_id}/part_block",
             json=req,
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
