@@ -225,20 +225,20 @@ class _FrameExpressionBlock:
             return len(self._exprs) - 1
         elif type(data) is int:
             if data >= -(2**31) and data < 2**31:
-                self._exprs.append(data)
+                self._exprs.append(data & 0xFFFFFFFF)
             else:
-                self._literals.append(data)
+                self._literals.append(_json_arg(data, skip_data_anot=True))
                 self._exprs.append(0x40000000_00000000 | len(self._literals) - 1)
             return len(self._exprs) - 1
         elif type(data) is float:
             self._exprs.append(
-                0x02000000_00000000 | int.from_bytes(struct.pack("f", data))
+                0x02000000_00000000 | int.from_bytes(struct.pack("f", data)[::-1])
             )
         elif type(data) is str:
-            self._literals.append(data)
+            self._literals.append(_json_arg(data, skip_data_anot=True))
             self._exprs.append(0x40000000_00000000 | len(self._literals) - 1)
         elif type(data) is bytes:
-            self._literals.append(data)
+            self._literals.append(_json_arg(data, skip_data_anot=True))
             self._exprs.append(0x40000000_00000000 | len(self._literals) - 1)
         elif type(data) is list:
             if len(data) == 0:
@@ -250,7 +250,7 @@ class _FrameExpressionBlock:
                 and data[0] >= -(2**15)
                 and data[0] < 2**15
             ):
-                self._exprs.append(0x04000000_00000000 | data[0])
+                self._exprs.append(0x04000000_00000000 | (data[0] & 0xFFFF))
                 return len(self._exprs) - 1
             if (
                 len(data) == 2
@@ -261,7 +261,11 @@ class _FrameExpressionBlock:
                 and data[1] >= -(2**15)
                 and data[1] < 2**15
             ):
-                self._exprs.append(0x05000000_00000000 | (data[0] << 16) | data[1])
+                self._exprs.append(
+                    0x05000000_00000000
+                    | ((data[0] & 0xFFFF) << 16)
+                    | (data[1] & 0xFFFF)
+                )
                 return len(self._exprs) - 1
             if (
                 len(data) == 3
@@ -276,18 +280,21 @@ class _FrameExpressionBlock:
                 and data[2] < 2**15
             ):
                 self._exprs.append(
-                    0x06000000_00000000 | (data[0] << 32) | (data[1] << 16) | data[2]
+                    0x06000000_00000000
+                    | ((data[0] & 0xFFFF) << 32)
+                    | ((data[1] & 0xFFFF) << 16)
+                    | (data[2] & 0xFFFF)
                 )
                 return len(self._exprs) - 1
             out = len(self._exprs)
             member_idxs = []
             for member in data:
                 if _feb_expr_coded_as_scalar(member):
-                    member_idxs.append(self.insert_data_expr(member))
-                else:
                     member_idxs.append(None)
+                else:
+                    member_idxs.append(self.insert_data_expr(member))
 
-            self._exprs.append(0x42000000_00000000 | len(data) - 1)
+            self._exprs.append(0x42000000_00000000 | len(data))
 
             for i in range(len(data)):
                 if member_idxs[i] is None:
@@ -665,29 +672,30 @@ class IgniServer:
         response = response.json()
         assert response["status"] == "ok"
 
-    def push_spec_part_block(self, spec_id: str, pos, blocks, terminal):
+    def push_spec_part_block(
+        self, spec_id: str, pos, blocks, terminal, compression="gzip"
+    ):
         if type(spec_id) is IgniSpec:
             spec_id = spec_id._id
         assert type(spec_id) is str
         assert type(pos) is int
         assert type(blocks) is list
         assert type(terminal) is bool
+        assert compression is None or compression == "gzip"
 
         req_blocks = []
         for block in blocks:
             assert type(block) is _FrameExpressionBlock
             block_body = block.as_dict()
-            block_body["literals"] = [
-                _json_arg(lit, skip_data_anot=True) for lit in block_body["literals"]
-            ]
             block_frames = len(block_body["frame_exprs"])
-            block_body = base64.b64encode(
-                json.dumps(block_body).encode("utf-8")
-            ).decode("utf-8")
+            block_body = json.dumps(block_body).encode("utf-8")
+            if compression == "gzip":
+                block_body = gzip.compress(block_body, 1)
+            block_body = base64.b64encode(block_body).decode("utf-8")
             req_blocks.append(
                 {
                     "frames": block_frames,
-                    "compression": "none",
+                    "compression": compression,
                     "body": block_body,
                 }
             )

@@ -341,6 +341,7 @@ class _IgniVideoWriter:
         fps,
         size,
         batch_size=1024,
+        compression="gzip",
         vod_segment_length=Fraction(2, 1),
     ):
         server = _server()
@@ -363,6 +364,8 @@ class _IgniVideoWriter:
             width, height, "yuv420p", vod_segment_length, 1 / self._f_time
         )
         self._batch_size = batch_size
+        assert compression is None or compression in ["gzip"]
+        self._compression = compression
         self._idx = 0
         self._feb = vf._FrameExpressionBlock()
 
@@ -374,6 +377,7 @@ class _IgniVideoWriter:
                 self._idx - len(self._feb),
                 [self._feb],
                 terminal=terminal,
+                compression=self._compression,
             )
             self._feb = vf._FrameExpressionBlock()
         else:

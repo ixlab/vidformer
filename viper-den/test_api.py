@@ -1,4 +1,5 @@
 import base64
+import gzip
 import json
 import os
 import random
@@ -554,7 +555,6 @@ def test_multiple_segments_in_order(fps):
     for i in range(250):
         ts = [[i, fps]]
         _push_frames(spec_id, source_id, ts, i, False)
-        print(_count_segments(spec_id)[0])
         assert _count_segments(spec_id)[0] == (i + 1) // (fps * 2)
         assert _count_segments(spec_id)[1] is False
 
@@ -652,14 +652,13 @@ def test_push_part_block():
     }
     block = {
         "frames": 1,
-        "compression": "none",
+        "compression": None,
         "body": base64.b64encode(json.dumps(frame_block).encode("utf-8")).decode(
             "utf-8"
         ),
     }
 
     req = {"pos": 0, "terminal": False, "blocks": [block]}
-    print(req)
     response = requests.post(
         ENDPOINT + "v2/spec/" + spec_id + "/part_block", json=req, headers=AUTH_HEADERS
     )
@@ -671,7 +670,49 @@ def test_push_part_block():
 
     # Push another frame
     req = {"pos": 1, "terminal": True, "blocks": [block]}
-    print(req)
+    response = requests.post(
+        ENDPOINT + "v2/spec/" + spec_id + "/part_block", json=req, headers=AUTH_HEADERS
+    )
+    response.raise_for_status()
+
+    spec = _get_spec(spec_id)
+    assert spec["frames_applied"] == 2
+    assert spec["terminated"] is True
+
+
+def test_push_part_block_gzip():
+    source_id = _create_tos_source()
+    spec_id = _create_example_spec()
+
+    frame_block = {
+        "functions": [],
+        "literals": [],
+        "sources": [source_id],
+        "kwarg_keys": [],
+        "source_fracs": [],
+        "exprs": [0x4300 << 48 | 0x0 << 32 | 0x0],
+        "frame_exprs": [0],
+    }
+    block = {
+        "frames": 1,
+        "compression": "gzip",
+        "body": base64.b64encode(
+            gzip.compress(json.dumps(frame_block).encode("utf-8"))
+        ).decode("utf-8"),
+    }
+
+    req = {"pos": 0, "terminal": False, "blocks": [block]}
+    response = requests.post(
+        ENDPOINT + "v2/spec/" + spec_id + "/part_block", json=req, headers=AUTH_HEADERS
+    )
+    response.raise_for_status()
+
+    spec = _get_spec(spec_id)
+    assert spec["frames_applied"] == 1
+    assert spec["terminated"] is False
+
+    # Push another frame
+    req = {"pos": 1, "terminal": True, "blocks": [block]}
     response = requests.post(
         ENDPOINT + "v2/spec/" + spec_id + "/part_block", json=req, headers=AUTH_HEADERS
     )

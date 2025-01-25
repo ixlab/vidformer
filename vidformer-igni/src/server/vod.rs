@@ -195,13 +195,7 @@ pub(crate) async fn get_segment(
 ) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
     let spec_id = Uuid::parse_str(spec_id).unwrap();
 
-    // Check that the spec exists, is not closed, and grab the width, height, and pix_fmt
     let mut transaction = global.pool.begin().await?;
-    // let row: Option<(i32, i32, String, bool)> =
-    //     sqlx::query_as("SELECT width, height, pix_fmt, closed FROM spec WHERE id = $1")
-    //         .bind(spec_id)
-    //         .fetch_optional(&mut *transaction)
-    //         .await?;
 
     let row: Option<schema::SpecRow> = sqlx::query_as("SELECT * FROM spec WHERE id = $1")
         .bind(spec_id)
@@ -259,7 +253,7 @@ pub(crate) async fn get_segment(
     let last_t = first_t + segment.n_frames - 1;
 
     // Get the frames from spec_t that are in the segment (pos between first_t and last_t)
-    let rows: Vec<(i32, String)> = sqlx::query_as(
+    let rows: Vec<(i32, Vec<u8>)> = sqlx::query_as(
         "SELECT pos, frame FROM spec_t WHERE spec_id = $1 AND pos BETWEEN $2 AND $3 ORDER BY pos",
     )
     .bind(spec_id)
@@ -278,11 +272,22 @@ pub(crate) async fn get_segment(
     let start = *times.first().unwrap();
     let end = *times.last().unwrap();
 
-    // Map json values to FrameExpr
-    let frames: Vec<vidformer::sir::FrameExpr> = rows
-        .iter()
-        .map(|(_, frame)| serde_json::from_str(frame).unwrap())
-        .collect();
+    let frames = {
+        let mut out = vec![];
+        for (_, frame) in rows {
+            let frame_reader = std::io::Cursor::new(frame);
+            let frame_uncompressed = zstd::stream::decode_all(frame_reader).unwrap();
+            let feb: crate::frame_block::FrameBlock =
+                serde_json::from_slice(&frame_uncompressed).unwrap();
+            let mut f_collection = feb.frames().map_err(|err| {
+                IgniError::General(format!("Error decoding frame block: {:?}", err))
+            })?;
+            assert_eq!(f_collection.len(), 1);
+            let f = f_collection.remove(0);
+            out.push(f);
+        }
+        out
+    };
 
     struct IgniSpec {
         times: Vec<num_rational::Ratio<i64>>,

@@ -369,13 +369,18 @@ async fn igni_http_req_error_handler(
     req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
 ) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, std::convert::Infallible> {
+    let method_copy_for_err = req.method().clone();
+    let uri_copy_for_err = req.uri().clone();
     match igni_http_req(req, global).await {
         Ok(ok) => Ok(ok),
         Err(err) => {
             // An error occured which is not an explicitly handled error
             // Log the error and return a 500 response
             // Do not leak the error to the client
-            error!("Error handling request: {:?}", err);
+            error!(
+                "Error handling request {} {}: {:?}",
+                method_copy_for_err, &uri_copy_for_err, err
+            );
             Ok(hyper::Response::builder()
                 .status(hyper::StatusCode::INTERNAL_SERVER_ERROR)
                 .body(http_body_util::Full::new(hyper::body::Bytes::from(

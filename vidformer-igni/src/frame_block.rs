@@ -19,7 +19,7 @@ impl InlineLiteral {
         match self {
             InlineLiteral::Int(i) => {
                 // Upper byte should be 0x00, lowest 32 bits should be the integer
-                0x00000000_00000000 | (*i as i64)
+                0x00000000_00000000 | (*i as i64 & 0xFFFFFFFF)
             }
             InlineLiteral::Bool(b) => {
                 // Upper byte should be 0x01, lowest bit should be the boolean value
@@ -35,15 +35,18 @@ impl InlineLiteral {
             }
             InlineLiteral::ListIntSingle(i) => {
                 // Upper byte should be 0x04, lowest 16 bits should be the integer
-                0x04000000_00000000 | (*i as i64)
+                0x04000000_00000000 | (*i as i64 & 0xFFFF)
             }
             InlineLiteral::ListIntPair(i1, i2) => {
                 // Upper byte should be 0x05, lowest 32 bits should be the two integers
-                0x05000000_00000000 | (*i1 as i64) << 16 | *i2 as i64
+                0x05000000_00000000 | (*i1 as i64 & 0xFFFF) << 16 | (*i2 as i64 & 0xFFFF)
             }
             InlineLiteral::ListIntTriple(i1, i2, i3) => {
                 // Upper byte should be 0x06, lowest 48 bits should be the three integers
-                0x06000000_00000000 | (*i1 as i64) << 32 | (*i2 as i64) << 16 | *i3 as i64
+                0x06000000_00000000
+                    | (*i1 as i64 & 0xFFFF) << 32
+                    | (*i2 as i64 & 0xFFFF) << 16
+                    | (*i3 as i64 & 0xFFFF)
             }
         }
     }
@@ -229,7 +232,7 @@ fn expr_coded_as_scalar(expr: &vidformer::sir::Expr) -> bool {
         vidformer::sir::Expr::Frame(vidformer::sir::FrameExpr::Source(_)) => true,
         vidformer::sir::Expr::Frame(vidformer::sir::FrameExpr::Filter(_)) => false,
         vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Bool(_)) => true,
-        vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(i)) => true,
+        vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(_)) => true,
         vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Float(_)) => true,
         vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(list)) => {
             if list.len() > 3 {
@@ -267,7 +270,7 @@ pub struct FrameBlock {
 }
 
 impl FrameBlock {
-    fn new() -> Self {
+    pub fn new() -> Self {
         FrameBlock {
             functions: Vec::new(),
             literals: Vec::new(),
@@ -279,7 +282,7 @@ impl FrameBlock {
         }
     }
 
-    fn insert_frame(&mut self, frame: &vidformer::sir::FrameExpr) -> Result<(), String> {
+    pub fn insert_frame(&mut self, frame: &vidformer::sir::FrameExpr) -> Result<(), String> {
         let expr_idx = self.insert_frame_expr(frame)?;
         self.frame_exprs.push(expr_idx as i64);
         Ok(())
@@ -842,6 +845,36 @@ mod test {
             frame_exprs.push(frame_expr);
         }
         assert_eq!(frame_exprs, frame_block.frames().unwrap());
+    }
+
+    #[test]
+    fn test_negative_ints() {
+        let mut frame_block = FrameBlock::new();
+        let frame_expr = vidformer::sir::FrameExpr::Filter(vidformer::sir::FilterExpr {
+            name: "filter".to_string(),
+            args: vec![
+                vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-3)),
+                vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-100_000_000_000)),
+                vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(vec![
+                    vidformer::sir::DataExpr::Int(-8),
+                    vidformer::sir::DataExpr::Int(-1024),
+                ])),
+                vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(vec![
+                    vidformer::sir::DataExpr::Int(-1),
+                    vidformer::sir::DataExpr::Int(-2),
+                    vidformer::sir::DataExpr::Int(-3),
+                ])),
+                vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(vec![
+                    vidformer::sir::DataExpr::Int(-1),
+                    vidformer::sir::DataExpr::Int(-2000),
+                    vidformer::sir::DataExpr::Int(-3),
+                    vidformer::sir::DataExpr::Int(-8192),
+                ])),
+            ],
+            kwargs: std::collections::BTreeMap::new(),
+        });
+        frame_block.insert_frame(&frame_expr).unwrap();
+        assert_eq!(vec![frame_expr], frame_block.frames().unwrap());
     }
 
     #[test]

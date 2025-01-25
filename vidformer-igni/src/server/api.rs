@@ -2,11 +2,12 @@ use std::collections::BTreeSet;
 
 use super::super::IgniError;
 use crate::schema;
+use base64::prelude::*;
 use http_body_util::BodyExt;
 use log::*;
 use num_rational::Rational64;
+use std::io::Read;
 use uuid::Uuid;
-use base64::prelude::*;
 
 use super::IgniServerGlobal;
 
@@ -674,7 +675,7 @@ pub(crate) async fn push_part_block(
     #[derive(serde::Deserialize, serde::Serialize)]
     struct RequestBlock {
         frames: i32,
-        compression: String,
+        compression: Option<String>,
         body: String,
     }
 
@@ -723,10 +724,10 @@ pub(crate) async fn push_part_block(
             Ok(body_bytes) => body_bytes,
         };
 
-        let body_uncompresed = match block.compression.as_str() {
-            "none" => body_bytes,
-            "zstd" => {
-                let reader = std::io::BufReader::new(body_bytes.as_slice());
+        let body_uncompresed = match block.compression.as_deref() {
+            None => body_bytes,
+            Some("zstd") => {
+                let reader = std::io::Cursor::new(body_bytes.as_slice());
                 let body_uncompresed = zstd::stream::decode_all(reader);
                 match body_uncompresed {
                     Ok(body_uncompresed) => body_uncompresed,
@@ -739,11 +740,20 @@ pub(crate) async fn push_part_block(
                     }
                 }
             }
-            _ => {
+            Some("gzip") => {
+                let reader = std::io::Cursor::new(body_bytes.as_slice());
+                let mut decoder = flate2::read::GzDecoder::new(reader);
+                let mut body_uncompresed = Vec::new();
+                decoder.read_to_end(&mut body_uncompresed).map_err(|err| {
+                    IgniError::General(format!("Error decompressing block: {}", err))
+                })?;
+                body_uncompresed
+            }
+            Some(_) => {
                 return Ok(hyper::Response::builder()
                     .status(hyper::StatusCode::BAD_REQUEST)
                     .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                        "Invalid block compression algorithm (only 'none' and 'zstd' are supported)",
+                        "Invalid block compression algorithm (only null, 'gzip' 'zstd' are supported)",
                     )))?);
             }
         };
@@ -819,7 +829,7 @@ async fn push_frame_req(
     // stage inserted rows before beginning transaction
     let insert_spec_ids = vec![spec_id; req.2.len()];
     let mut insert_pos: Vec<i32> = Vec::with_capacity(req.2.len());
-    let mut insert_frames: Vec<Option<String>> = Vec::with_capacity(req.2.len());
+    let mut insert_frames: Vec<Option<Vec<u8>>> = Vec::with_capacity(req.2.len());
 
     let mut referenced_source_frames = BTreeSet::new();
     for (frame_idx, ((_numer, _denom), frame)) in req.2.iter().enumerate() {
@@ -827,7 +837,16 @@ async fn push_frame_req(
 
         insert_pos.push(pos + frame_idx as i32);
         if let Some(expr) = frame {
-            insert_frames.push(Some(serde_json::to_string(expr).unwrap()));
+            let mut feb = crate::frame_block::FrameBlock::new();
+            feb.insert_frame(expr).map_err(|err| {
+                IgniError::General(format!("Error inserting value to FEB: {:?}", err))
+            })?;
+            let feb_json: Vec<u8> = serde_json::to_vec(&feb)
+                .map_err(|err| IgniError::General(format!("Error serializing FEB: {:?}", err)))?;
+            let feb_json_reader = std::io::BufReader::new(feb_json.as_slice());
+            let feb_compressed = zstd::stream::encode_all(feb_json_reader, 0)
+                .map_err(|err| IgniError::General(format!("Error compressing FEB: {:?}", err)))?;
+            insert_frames.push(Some(feb_compressed));
         } else {
             if let Some(err) = user.permissions.flag_err("spec:deferred_frames") {
                 // Block deferred frames unless explicitly allowed
@@ -1044,7 +1063,7 @@ async fn push_frame_req(
 
     if !insert_spec_ids.is_empty() {
         // Only insert if there are frames to insert
-        sqlx::query("INSERT INTO spec_t (spec_id, pos, frame) VALUES (UNNEST($1::UUID[]), UNNEST($2::INT[]), UNNEST($3::TEXT[]))")
+        sqlx::query("INSERT INTO spec_t (spec_id, pos, frame) VALUES (UNNEST($1::UUID[]), UNNEST($2::INT[]), UNNEST($3::BYTEA[]))")
             .bind(&insert_spec_ids)
             .bind(&insert_pos)
             .bind(&insert_frames)

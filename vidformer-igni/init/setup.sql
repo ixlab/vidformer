@@ -56,7 +56,7 @@ CREATE TABLE spec (
 CREATE TABLE spec_t (
     spec_id UUID REFERENCES spec(id) ON DELETE CASCADE,
     pos INT NOT NULL,
-    frame TEXT,
+    frame BYTEA,
     PRIMARY KEY (spec_id, pos)
 );
 
