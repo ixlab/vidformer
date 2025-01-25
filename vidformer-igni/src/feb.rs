@@ -19,7 +19,7 @@ impl InlineLiteral {
         match self {
             InlineLiteral::Int(i) => {
                 // Upper byte should be 0x00, lowest 32 bits should be the integer
-                0x00000000_00000000 | (*i as i64 & 0xFFFFFFFF)
+                *i as i64 & 0xFFFFFFFF
             }
             InlineLiteral::Bool(b) => {
                 // Upper byte should be 0x01, lowest bit should be the boolean value
@@ -110,7 +110,7 @@ impl InlineLiteral {
 }
 
 #[derive(Debug, PartialEq)]
-enum FrameBlockExpr {
+enum FrameExprBlock {
     InlineLiteral(InlineLiteral),
     RefLiteral(u32),
     Func {
@@ -137,15 +137,15 @@ enum FrameBlockExpr {
     },
 }
 
-impl FrameBlockExpr {
+impl FrameExprBlock {
     fn to_int(&self) -> i64 {
         match self {
-            FrameBlockExpr::InlineLiteral(inline_literal) => inline_literal.to_int(),
-            FrameBlockExpr::RefLiteral(i) => {
+            FrameExprBlock::InlineLiteral(inline_literal) => inline_literal.to_int(),
+            FrameExprBlock::RefLiteral(i) => {
                 // Upper byte should be 0x40, lowest 32 bits should be the literal index
                 0x40000000_00000000 | (*i as i64)
             }
-            FrameBlockExpr::Func {
+            FrameExprBlock::Func {
                 len_args,
                 len_kwargs,
                 func_idx,
@@ -156,26 +156,26 @@ impl FrameBlockExpr {
                     | (*len_kwargs as i64) << 16
                     | (*func_idx as i64)
             }
-            FrameBlockExpr::List { len } => {
+            FrameExprBlock::List { len } => {
                 // Upper byte should be 0x42, lowest 32 bits should be the list length
                 0x42000000_00000000 | (*len as i64)
             }
-            FrameBlockExpr::SourceILoc { source_idx, t } => {
+            FrameExprBlock::SourceILoc { source_idx, t } => {
                 // Upper bytes should be 0x4300, next 16 bits should be source_idx, next 32 bits should be t
                 0x43000000_00000000 | (*source_idx as i64) << 32 | (*t as i64)
             }
-            FrameBlockExpr::SourceFrac {
+            FrameExprBlock::SourceFrac {
                 source_idx,
                 source_frac_idx,
             } => {
                 // Upper bytes should be 0x4400, next 16 bits should be source_idx, next 32 bits should be source_frac_idx
                 0x44000000_00000000 | (*source_idx as i64) << 32 | (*source_frac_idx as i64)
             }
-            FrameBlockExpr::Expr { expr_idx } => {
+            FrameExprBlock::Expr { expr_idx } => {
                 // Upper bytes should be 0x4500, lowest 32 bits should be expr_idx
                 0x45000000_00000000 | (*expr_idx as i64)
             }
-            FrameBlockExpr::KwargKey { key_idx } => {
+            FrameExprBlock::KwargKey { key_idx } => {
                 // Upper bytes should be 0x4600, lowest 32 bits should be key_idx
                 0x46000000_00000000 | (*key_idx as i64)
             }
@@ -185,13 +185,13 @@ impl FrameBlockExpr {
     fn from_int(i: i64) -> Result<Self, String> {
         let upper_byte = (i >> 56) as u8;
         match upper_byte {
-            _ if upper_byte < 0x40 => InlineLiteral::from_int(i).map(FrameBlockExpr::InlineLiteral),
-            0x40 => Ok(FrameBlockExpr::RefLiteral((i & 0x00000000_FFFFFFFF) as u32)),
+            _ if upper_byte < 0x40 => InlineLiteral::from_int(i).map(FrameExprBlock::InlineLiteral),
+            0x40 => Ok(FrameExprBlock::RefLiteral((i & 0x00000000_FFFFFFFF) as u32)),
             0x41 => {
                 let len_args = ((i >> 24) & 0x000000FF) as u8;
                 let len_kwargs = ((i >> 16) & 0x000000FF) as u8;
                 let func_idx = (i & 0x0000FFFF) as u16;
-                Ok(FrameBlockExpr::Func {
+                Ok(FrameExprBlock::Func {
                     len_args,
                     len_kwargs,
                     func_idx,
@@ -199,28 +199,28 @@ impl FrameBlockExpr {
             }
             0x42 => {
                 let len = (i & 0x00000000_FFFFFFFF) as u32;
-                Ok(FrameBlockExpr::List { len })
+                Ok(FrameExprBlock::List { len })
             }
             0x43 => {
                 let source_idx = ((i >> 32) & 0x0000FFFF) as u16;
                 let t = (i & 0x00000000_FFFFFFFF) as u32;
-                Ok(FrameBlockExpr::SourceILoc { source_idx, t })
+                Ok(FrameExprBlock::SourceILoc { source_idx, t })
             }
             0x44 => {
                 let source_idx = ((i >> 32) & 0x0000FFFF) as u16;
                 let source_frac_idx = (i & 0x00000000_FFFFFFFF) as u32;
-                Ok(FrameBlockExpr::SourceFrac {
+                Ok(FrameExprBlock::SourceFrac {
                     source_idx,
                     source_frac_idx,
                 })
             }
             0x45 => {
                 let expr_idx = (i & 0x00000000_FFFFFFFF) as u32;
-                Ok(FrameBlockExpr::Expr { expr_idx })
+                Ok(FrameExprBlock::Expr { expr_idx })
             }
             0x46 => {
                 let key_idx = (i & 0x00000000_FFFFFFFF) as u32;
-                Ok(FrameBlockExpr::KwargKey { key_idx })
+                Ok(FrameExprBlock::KwargKey { key_idx })
             }
             _ => Err(format!("Invalid expr upper byte: 0x{:02X}", upper_byte)),
         }
@@ -296,14 +296,14 @@ impl FrameBlock {
             vidformer::sir::FrameExpr::Source(source) => {
                 self.sources.push(source.video().to_string());
                 let source_expr = match source.index() {
-                    vidformer::sir::IndexConst::ILoc(i) => FrameBlockExpr::SourceILoc {
+                    vidformer::sir::IndexConst::ILoc(i) => FrameExprBlock::SourceILoc {
                         source_idx: self.sources.len() as u16 - 1,
                         t: *i as u32,
                     },
                     vidformer::sir::IndexConst::T(t) => {
-                        self.source_fracs.push(*t.numer() as i64);
-                        self.source_fracs.push(*t.denom() as i64);
-                        FrameBlockExpr::SourceFrac {
+                        self.source_fracs.push(*t.numer());
+                        self.source_fracs.push(*t.denom());
+                        FrameExprBlock::SourceFrac {
                             source_idx: self.sources.len() as u16 - 1,
                             source_frac_idx: self.source_fracs.len() as u32 - 2,
                         }
@@ -329,7 +329,7 @@ impl FrameBlock {
                 }
                 let len_args: u8 = filter.args.len() as u8;
                 let len_kwargs = filter.kwargs.len() as u8;
-                let func_expr = FrameBlockExpr::Func {
+                let func_expr = FrameExprBlock::Func {
                     len_args,
                     len_kwargs,
                     func_idx,
@@ -364,7 +364,7 @@ impl FrameBlock {
                         }
                         SubExprValue::OutOfBand(idx) => {
                             self.exprs.push(
-                                FrameBlockExpr::Expr {
+                                FrameExprBlock::Expr {
                                     expr_idx: idx as u32,
                                 }
                                 .to_int(),
@@ -381,7 +381,7 @@ impl FrameBlock {
                             self.kwarg_keys.push(kwkey.to_string());
                             self.kwarg_keys.len() - 1
                         }) as u32;
-                    let kwarg_key = FrameBlockExpr::KwargKey { key_idx };
+                    let kwarg_key = FrameExprBlock::KwargKey { key_idx };
                     self.exprs.push(kwarg_key.to_int());
                     match sub_kwarg {
                         SubExprValue::ScalarCoded(expr) => {
@@ -389,7 +389,7 @@ impl FrameBlock {
                         }
                         SubExprValue::OutOfBand(idx) => {
                             self.exprs.push(
-                                FrameBlockExpr::Expr {
+                                FrameExprBlock::Expr {
                                     expr_idx: idx as u32,
                                 }
                                 .to_int(),
@@ -407,37 +407,37 @@ impl FrameBlock {
             &vidformer::sir::DataExpr::Bool(b) => {
                 let inline_literal = InlineLiteral::Bool(b);
                 self.exprs
-                    .push(FrameBlockExpr::InlineLiteral(inline_literal).to_int());
+                    .push(FrameExprBlock::InlineLiteral(inline_literal).to_int());
                 Ok(self.exprs.len() - 1)
             }
             &vidformer::sir::DataExpr::Int(i) => {
                 if i < i32::MIN as i64 || i > i32::MAX as i64 {
                     self.literals.push(data_expr.clone());
-                    let ref_literal = FrameBlockExpr::RefLiteral(self.literals.len() as u32 - 1);
+                    let ref_literal = FrameExprBlock::RefLiteral(self.literals.len() as u32 - 1);
                     self.exprs.push(ref_literal.to_int());
                 } else {
                     let inline_literal = InlineLiteral::Int(i as i32);
                     self.exprs
-                        .push(FrameBlockExpr::InlineLiteral(inline_literal).to_int());
+                        .push(FrameExprBlock::InlineLiteral(inline_literal).to_int());
                 }
                 Ok(self.exprs.len() - 1)
             }
             &vidformer::sir::DataExpr::Float(f) => {
                 let inline_literal = InlineLiteral::Float(f as f32);
                 self.exprs
-                    .push(FrameBlockExpr::InlineLiteral(inline_literal).to_int());
+                    .push(FrameExprBlock::InlineLiteral(inline_literal).to_int());
                 Ok(self.exprs.len() - 1)
             }
-            &vidformer::sir::DataExpr::List(ref list) => {
+            vidformer::sir::DataExpr::List(list) => {
                 if list.len() > u32::MAX as usize {
                     return Err("List too long".to_string());
                 }
                 let len = list.len() as u32;
-                match (len, list.get(0), list.get(1), list.get(2)) {
+                match (len, list.first(), list.get(1), list.get(2)) {
                     (0, None, None, None) => {
                         let inline_literal = InlineLiteral::ListIntEmpty;
                         self.exprs
-                            .push(FrameBlockExpr::InlineLiteral(inline_literal).to_int());
+                            .push(FrameExprBlock::InlineLiteral(inline_literal).to_int());
                         Ok(self.exprs.len() - 1)
                     }
                     (1, Some(vidformer::sir::DataExpr::Int(i1)), None, None)
@@ -445,7 +445,7 @@ impl FrameBlock {
                     {
                         let inline_literal = InlineLiteral::ListIntSingle(*i1 as i16);
                         self.exprs
-                            .push(FrameBlockExpr::InlineLiteral(inline_literal).to_int());
+                            .push(FrameExprBlock::InlineLiteral(inline_literal).to_int());
                         Ok(self.exprs.len() - 1)
                     }
                     (
@@ -460,7 +460,7 @@ impl FrameBlock {
                     {
                         let inline_literal = InlineLiteral::ListIntPair(*i1 as i16, *i2 as i16);
                         self.exprs
-                            .push(FrameBlockExpr::InlineLiteral(inline_literal).to_int());
+                            .push(FrameExprBlock::InlineLiteral(inline_literal).to_int());
                         Ok(self.exprs.len() - 1)
                     }
                     (
@@ -478,7 +478,7 @@ impl FrameBlock {
                         let inline_literal =
                             InlineLiteral::ListIntTriple(*i1 as i16, *i2 as i16, *i3 as i16);
                         self.exprs
-                            .push(FrameBlockExpr::InlineLiteral(inline_literal).to_int());
+                            .push(FrameExprBlock::InlineLiteral(inline_literal).to_int());
                         Ok(self.exprs.len() - 1)
                     }
                     _ => {
@@ -495,7 +495,7 @@ impl FrameBlock {
                             }
                         }
                         let out_idx = self.exprs.len();
-                        self.exprs.push(FrameBlockExpr::List { len }.to_int());
+                        self.exprs.push(FrameExprBlock::List { len }.to_int());
                         for sub_expr in sub_exprs {
                             match sub_expr {
                                 SubExprValue::ScalarCoded(expr) => {
@@ -503,7 +503,7 @@ impl FrameBlock {
                                 }
                                 SubExprValue::OutOfBand(idx) => {
                                     self.exprs.push(
-                                        FrameBlockExpr::Expr {
+                                        FrameExprBlock::Expr {
                                             expr_idx: idx as u32,
                                         }
                                         .to_int(),
@@ -517,18 +517,18 @@ impl FrameBlock {
             }
             &vidformer::sir::DataExpr::String(_) => {
                 self.literals.push(data_expr.clone());
-                let ref_literal = FrameBlockExpr::RefLiteral(self.literals.len() as u32 - 1);
+                let ref_literal = FrameExprBlock::RefLiteral(self.literals.len() as u32 - 1);
                 self.exprs.push(ref_literal.to_int());
                 Ok(self.exprs.len() - 1)
             }
             &vidformer::sir::DataExpr::Bytes(_) => {
                 self.literals.push(data_expr.clone());
-                let ref_literal = FrameBlockExpr::RefLiteral(self.literals.len() as u32 - 1);
+                let ref_literal = FrameExprBlock::RefLiteral(self.literals.len() as u32 - 1);
                 self.exprs.push(ref_literal.to_int());
                 Ok(self.exprs.len() - 1)
             }
             &vidformer::sir::DataExpr::ArrayRef(_, _) => {
-                return Err("ArrayRef not supported".to_string());
+                Err("ArrayRef not supported".to_string())
             }
         }
     }
@@ -542,26 +542,26 @@ impl FrameBlock {
 
     fn get_expr(&self, idx: usize, member: bool) -> Result<vidformer::sir::Expr, String> {
         let target_expr = self.exprs.get(idx).ok_or("Expr index out of bounds")?;
-        let target_expr = FrameBlockExpr::from_int(*target_expr)?;
+        let target_expr = FrameExprBlock::from_int(*target_expr)?;
         match target_expr {
-            FrameBlockExpr::Expr { expr_idx } if member => self.get_expr(expr_idx as usize, false),
-            FrameBlockExpr::Expr { .. } => {
-                return Err(format!(
+            FrameExprBlock::Expr { expr_idx } if member => self.get_expr(expr_idx as usize, false),
+            FrameExprBlock::Expr { .. } => {
+                Err(format!(
                     "Expr at pos {} is not a Function or List member",
                     idx
-                ));
+                ))
             }
-            FrameBlockExpr::InlineLiteral(inline_literal) => inline_literal.get_expr(),
-            FrameBlockExpr::RefLiteral(i) => Ok(vidformer::sir::Expr::Data(
+            FrameExprBlock::InlineLiteral(inline_literal) => inline_literal.get_expr(),
+            FrameExprBlock::RefLiteral(i) => Ok(vidformer::sir::Expr::Data(
                 self.literals
                     .get(i as usize)
                     .ok_or("Literal index out of bounds")?
                     .clone(),
             )),
-            FrameBlockExpr::List { .. } if member => {
-                return Err(format!("A list can't be a direct member",));
+            FrameExprBlock::List { .. } if member => {
+                Err("A list can't be a direct member".to_string())
             }
-            FrameBlockExpr::List { len } => {
+            FrameExprBlock::List { len } => {
                 let mut list = Vec::with_capacity(len as usize);
                 for i in 0..len {
                     let expr = self.get_expr(idx + 1 + i as usize, true)?;
@@ -578,53 +578,53 @@ impl FrameBlock {
                     list,
                 )))
             }
-            FrameBlockExpr::KwargKey { .. } => {
-                return Err(format!("Pos {} needs to be an expr, not kwarg key", idx));
+            FrameExprBlock::KwargKey { .. } => {
+                Err(format!("Pos {} needs to be an expr, not kwarg key", idx))
             }
-            FrameBlockExpr::SourceILoc { .. } | FrameBlockExpr::SourceFrac { .. } => self
+            FrameExprBlock::SourceILoc { .. } | FrameExprBlock::SourceFrac { .. } => self
                 .get_frame(idx)
-                .map(|frame| vidformer::sir::Expr::Frame(frame)),
-            FrameBlockExpr::Func { .. } if member => {
-                return Err(format!("A function can't be a direct member",));
+                .map(vidformer::sir::Expr::Frame),
+            FrameExprBlock::Func { .. } if member => {
+                Err("A function can't be a direct member".to_string())
             }
-            FrameBlockExpr::Func { .. } => self
+            FrameExprBlock::Func { .. } => self
                 .get_frame(idx)
-                .map(|frame| vidformer::sir::Expr::Frame(frame)),
+                .map(vidformer::sir::Expr::Frame),
         }
     }
 
     fn get_frame(&self, idx: usize) -> Result<vidformer::sir::FrameExpr, String> {
         let target_expr = self.exprs.get(idx).ok_or("Expr index out of bounds")?;
-        let target_expr = FrameBlockExpr::from_int(*target_expr)?;
+        let target_expr = FrameExprBlock::from_int(*target_expr)?;
         match target_expr {
-            FrameBlockExpr::Expr { .. } => {
-                return Err(format!("Pos {} needs to be a Function or Source", idx))
+            FrameExprBlock::Expr { .. } => {
+                Err(format!("Pos {} needs to be a Function or Source", idx))
             }
-            FrameBlockExpr::InlineLiteral(_) => {
-                return Err(format!("Pos {} needs to be a Function or Source", idx))
+            FrameExprBlock::InlineLiteral(_) => {
+                Err(format!("Pos {} needs to be a Function or Source", idx))
             }
-            FrameBlockExpr::RefLiteral(_) => {
-                return Err(format!("Pos {} needs to be a Function or Source", idx))
+            FrameExprBlock::RefLiteral(_) => {
+                Err(format!("Pos {} needs to be a Function or Source", idx))
             }
-            FrameBlockExpr::List { .. } => {
-                return Err(format!("Pos {} needs to be a Function or Source", idx))
+            FrameExprBlock::List { .. } => {
+                Err(format!("Pos {} needs to be a Function or Source", idx))
             }
-            FrameBlockExpr::KwargKey { .. } => {
-                return Err(format!("Pos {} needs to be a Function or Source", idx))
+            FrameExprBlock::KwargKey { .. } => {
+                Err(format!("Pos {} needs to be a Function or Source", idx))
             }
-            FrameBlockExpr::SourceILoc { source_idx, t } => {
+            FrameExprBlock::SourceILoc { source_idx, t } => {
                 let source = self
                     .sources
                     .get(source_idx as usize)
                     .ok_or("Source index out of bounds")?;
-                return Ok(vidformer::sir::FrameExpr::Source(
+                Ok(vidformer::sir::FrameExpr::Source(
                     vidformer::sir::FrameSource::new(
                         source.to_string(),
                         vidformer::sir::IndexConst::ILoc(t as usize),
                     ),
-                ));
+                ))
             }
-            FrameBlockExpr::SourceFrac {
+            FrameExprBlock::SourceFrac {
                 source_idx,
                 source_frac_idx,
             } => {
@@ -633,23 +633,21 @@ impl FrameBlock {
                     .get(source_idx as usize)
                     .ok_or("Source index out of bounds")?;
                 let t = Rational64::new(
-                    self.source_fracs
+                    *self.source_fracs
                         .get(source_frac_idx as usize * 2)
-                        .ok_or("Source frac index out of bounds")?
-                        .clone(),
-                    self.source_fracs
+                        .ok_or("Source frac index out of bounds")?,
+                    *self.source_fracs
                         .get(source_frac_idx as usize * 2 + 1)
-                        .ok_or("Source frac index out of bounds")?
-                        .clone(),
+                        .ok_or("Source frac index out of bounds")?,
                 );
-                return Ok(vidformer::sir::FrameExpr::Source(
+                Ok(vidformer::sir::FrameExpr::Source(
                     vidformer::sir::FrameSource::new(
                         source.to_string(),
                         vidformer::sir::IndexConst::T(t),
                     ),
-                ));
+                ))
             }
-            FrameBlockExpr::Func {
+            FrameExprBlock::Func {
                 len_args,
                 len_kwargs,
                 func_idx,
@@ -664,13 +662,13 @@ impl FrameBlock {
                     args.push(self.get_expr(idx + 1 + i, true)?);
                 }
                 for i in 0..len_kwargs as usize {
-                    let key = match FrameBlockExpr::from_int(
+                    let key = match FrameExprBlock::from_int(
                         *self
                             .exprs
                             .get(idx + 1 + len_args as usize + i * 2)
                             .ok_or("Kwarg key index out of bounds".to_string())?,
                     )? {
-                        FrameBlockExpr::KwargKey { key_idx } => self
+                        FrameExprBlock::KwargKey { key_idx } => self
                             .kwarg_keys
                             .get(key_idx as usize)
                             .ok_or("Kwarg key index out of bounds")?,
@@ -684,13 +682,13 @@ impl FrameBlock {
                     let value = self.get_expr(idx + 1 + len_args as usize + i * 2 + 1, true)?;
                     kwargs.insert(key.to_string(), value);
                 }
-                return Ok(vidformer::sir::FrameExpr::Filter(
+                Ok(vidformer::sir::FrameExpr::Filter(
                     vidformer::sir::FilterExpr {
                         name: func_name.to_string(),
                         args,
                         kwargs,
                     },
-                ));
+                ))
             }
         }
     }

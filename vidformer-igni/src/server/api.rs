@@ -135,7 +135,7 @@ pub(crate) async fn search_source(
                     "Error reading request body",
                 )))?);
         }
-        Ok(req) => match serde_json::from_slice(&req.to_bytes().to_vec()) {
+        Ok(req) => match serde_json::from_slice(&req.to_bytes()) {
             Err(err) => {
                 error!("Error parsing request body");
                 return Ok(hyper::Response::builder()
@@ -758,7 +758,7 @@ pub(crate) async fn push_part_block(
             }
         };
 
-        let frame_block: crate::frame_block::FrameBlock =
+        let frame_block: crate::feb::FrameBlock =
             match serde_json::from_slice(&body_uncompresed) {
                 Err(err) => {
                     return Ok(hyper::Response::builder()
@@ -815,7 +815,7 @@ async fn push_frame_req(
             )))?);
     }
 
-    let pos = req.0 as i32;
+    let pos = req.0;
     let n_frames = req.2.len();
 
     // Check if we're pushing too many framesreq
@@ -837,7 +837,7 @@ async fn push_frame_req(
 
         insert_pos.push(pos + frame_idx as i32);
         if let Some(expr) = frame {
-            let mut feb = crate::frame_block::FrameBlock::new();
+            let mut feb = crate::feb::FrameBlock::new();
             feb.insert_frame(expr).map_err(|err| {
                 IgniError::General(format!("Error inserting value to FEB: {:?}", err))
             })?;

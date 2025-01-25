@@ -3,7 +3,7 @@ use rand::Rng;
 use sqlx::postgres::PgPoolOptions;
 use tabled::{Table, Tabled};
 
-mod frame_block;
+mod feb;
 mod ops;
 mod schema;
 mod segment;

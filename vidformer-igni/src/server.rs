@@ -491,11 +491,7 @@ async fn igni_http_req_api(
         .get("Authorization")
         .and_then(|header| header.to_str().ok())
         .and_then(|header| {
-            if header.starts_with("Bearer ") {
-                Some(header[7..].to_string())
-            } else {
-                None
-            }
+            header.strip_prefix("Bearer ")
         });
 
     let api_key = match api_key {
@@ -510,7 +506,7 @@ async fn igni_http_req_api(
     };
 
     let user: Option<schema::UserRow> = sqlx::query_as("SELECT * FROM \"user\" WHERE api_key = $1")
-        .bind(&api_key)
+        .bind(api_key)
         .fetch_optional(&global.pool)
         .await?;
 
