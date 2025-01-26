@@ -248,7 +248,6 @@ fn expr_coded_as_scalar(expr: &vidformer::sir::Expr) -> bool {
         }
         vidformer::sir::Expr::Data(vidformer::sir::DataExpr::String(_)) => true,
         vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Bytes(_)) => true,
-        vidformer::sir::Expr::Data(vidformer::sir::DataExpr::ArrayRef(_, _)) => unreachable!(),
     }
 }
 
@@ -526,9 +525,6 @@ impl FrameBlock {
                 let ref_literal = FrameExprBlock::RefLiteral(self.literals.len() as u32 - 1);
                 self.exprs.push(ref_literal.to_int());
                 Ok(self.exprs.len() - 1)
-            }
-            &vidformer::sir::DataExpr::ArrayRef(_, _) => {
-                Err("ArrayRef not supported".to_string())
             }
         }
     }

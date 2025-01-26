@@ -285,16 +285,6 @@ impl Val {
             crate::sir::DataExpr::String(s) => Val::String(s.to_string()),
             crate::sir::DataExpr::Bytes(b) => Val::Bytes(b.clone()),
             crate::sir::DataExpr::Float(f) => Val::Float(*f),
-            crate::sir::DataExpr::ArrayRef(name, crate::sir::IndexConst::ILoc(idx)) => {
-                let array = &context.arrays[name];
-                let val = array.index(*idx);
-                Val::from_expr(&val, context)
-            }
-            crate::sir::DataExpr::ArrayRef(name, crate::sir::IndexConst::T(t)) => {
-                let array = &context.arrays[name];
-                let val = array.index_t(*t);
-                Val::from_expr(&val, context)
-            }
             crate::sir::DataExpr::List(list) => {
                 let list = list
                     .iter()

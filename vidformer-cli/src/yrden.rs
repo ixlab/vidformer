@@ -157,7 +157,6 @@ async fn yrden_http_req(
         spec: String,
         sources: Vec<YrdenSource>,
         filters: BTreeMap<String, YrdenFilter>,
-        arrays: Vec<String>,
         width: u32,
         height: u32,
         pix_fmt: String,
@@ -367,25 +366,6 @@ async fn yrden_http_req(
             let end_time = std::time::Instant::now();
             debug!("Loaded sources in {:?}", end_time - start_time);
 
-            let start_time = std::time::Instant::now();
-            let arrays: BTreeMap<String, Box<dyn vidformer::array::Array>> = request
-                .arrays
-                .par_iter()
-                .map(|path| {
-                    let split = path.split(':').collect::<Vec<&str>>();
-                    assert_eq!(2, split.len());
-                    let (name, path) = (split[0], split[1]);
-
-                    let array_file = std::fs::File::open(path).unwrap();
-                    let array: vidformer::array::JsonArary =
-                        serde_json::from_reader(array_file).unwrap();
-                    let array: Box<dyn vidformer::array::Array> = Box::new(array);
-                    (name.to_string(), array)
-                })
-                .collect();
-            let end_time = std::time::Instant::now();
-            debug!("Loaded arrays in {:?}", end_time - start_time);
-
             let spec_json_gzip_base64 = &request.spec;
             let spec_content = base64::prelude::BASE64_STANDARD
                 .decode(spec_json_gzip_base64.as_bytes())
@@ -421,7 +401,7 @@ async fn yrden_http_req(
                 }
             }
 
-            let context: vidformer::Context = vidformer::Context::new(sources, arrays, filters);
+            let context: vidformer::Context = vidformer::Context::new(sources, filters);
             let context = std::sync::Arc::new(context);
 
             let dve_config: vidformer::Config = vidformer::Config {
@@ -563,25 +543,6 @@ async fn yrden_http_req(
             let end_time = std::time::Instant::now();
             debug!("Loaded sources in {:?}", end_time - start_time);
 
-            let start_time = std::time::Instant::now();
-            let arrays: BTreeMap<String, Box<dyn vidformer::array::Array>> = request
-                .arrays
-                .par_iter()
-                .map(|path| {
-                    let split = path.split(':').collect::<Vec<&str>>();
-                    assert_eq!(2, split.len());
-                    let (name, path) = (split[0], split[1]);
-
-                    let array_file = std::fs::File::open(path).unwrap();
-                    let array: vidformer::array::JsonArary =
-                        serde_json::from_reader(array_file).unwrap();
-                    let array: Box<dyn vidformer::array::Array> = Box::new(array);
-                    (name.to_string(), array)
-                })
-                .collect();
-            let end_time = std::time::Instant::now();
-            debug!("Loaded arrays in {:?}", end_time - start_time);
-
             let spec_json_gzip_base64 = &request.spec;
             let spec_content = base64::prelude::BASE64_STANDARD
                 .decode(spec_json_gzip_base64.as_bytes())
@@ -634,7 +595,7 @@ async fn yrden_http_req(
             };
             let format: Option<String> = request.format;
 
-            let context: vidformer::Context = vidformer::Context::new(sources, arrays, filters);
+            let context: vidformer::Context = vidformer::Context::new(sources, filters);
             let context = std::sync::Arc::new(context);
 
             let dve_config: vidformer::Config = vidformer::Config {

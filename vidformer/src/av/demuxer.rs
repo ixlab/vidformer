@@ -123,7 +123,8 @@ impl Demuxer {
                 )));
             }
         };
-        let buffered_reader = std::io::BufReader::new(reader);
+        // let buffered_reader = std::io::BufReader::new(reader);
+        let buffered_reader = std::io::BufReader::with_capacity(128 * 1024, reader);
 
         let io_ctx = IoCtx {
             canary: 0xdeadbeef,
@@ -135,7 +136,7 @@ impl Demuxer {
         let io_ctx_ptr =
             io_ctx.as_ref().get_ref() as *const IoCtx as *mut IoCtx as *mut ::std::os::raw::c_void;
 
-        let avio_buffer_size = 128 * 1024; // 128KiB buffer, probably good enough for now
+        let avio_buffer_size = 16 * 1024;
         let avio_buffer: *mut std::ffi::c_void =
             unsafe { ffi::av_malloc(avio_buffer_size as usize) };
 

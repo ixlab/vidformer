@@ -1,7 +1,6 @@
 use super::*;
 use glob::glob;
 use serde::Deserialize;
-use std::collections::BTreeMap;
 use std::sync::Arc;
 use vidformer::run;
 
@@ -46,8 +45,7 @@ impl DveBench {
             .collect::<Vec<_>>();
 
         let filters = default_filters();
-        let arrays = BTreeMap::new();
-        let context = vidformer::Context::new(sources, arrays, filters);
+        let context = vidformer::Context::new(sources, filters);
 
         (Arc::new(spec), Arc::new(context), Arc::new(self.config))
     }

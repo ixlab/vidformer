@@ -154,8 +154,7 @@ fn cmd_x() {
         vec![
             source::SourceVideoStreamMeta::profile("tos", "tos_720p.mp4", 0, &fs_service).unwrap(),
         ];
-    let arrays = BTreeMap::new();
-    let context: vidformer::Context = vidformer::Context::new(sources, arrays, filters);
+    let context: vidformer::Context = vidformer::Context::new(sources, filters);
 
     let dve_config = vidformer::Config {
         decode_pool_size: 10000,
