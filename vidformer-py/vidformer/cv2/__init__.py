@@ -551,10 +551,14 @@ def vidplay(video, *args, **kwargs):
         raise Exception("Unsupported video type to vidplay")
 
 
-def zeros(shape):
+def zeros(shape, dtype=np.uint8):
+    """
+    Create a black frame. Mimics numpy.zeros.
+    """
     assert isinstance(shape, tuple) or isinstance(shape, list)
     assert len(shape) == 3
     assert shape[2] == 3
+    assert dtype == np.uint8
 
     height, width, _ = shape
     f = _black(width=width, height=height, pix_fmt="rgb24")

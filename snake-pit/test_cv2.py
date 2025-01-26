@@ -192,6 +192,54 @@ def test_vidplay():
     assert re.match(r"http://localhost:\d+/\w+-\w+-\w+-\w+-\w+/stream.m3u8", link)
 
 
+def test_zeros():
+    frame = vf_cv2.zeros((100, 200, 3), dtype=np.uint8)
+    assert type(frame) is vf_cv2.Frame
+    assert frame.shape[0] == 100
+    assert frame.shape[1] == 200
+    assert frame.shape[2] == 3
+
+    frame_np = frame.numpy()
+    assert isinstance(frame_np, np.ndarray)
+    assert frame_np.shape[0] == 100
+    assert frame_np.shape[1] == 200
+    assert frame_np.shape[2] == 3
+    assert np.all(frame_np == 0)
+
+
+def test_resize():
+    frame = vf_cv2.imread("apollo.jpg")
+    assert type(frame) is vf_cv2.Frame
+
+    frame_resized = vf_cv2.resize(frame, (250, 300))
+    assert type(frame_resized) is vf_cv2.Frame
+    assert frame_resized.shape[0] == 250
+    assert frame_resized.shape[1] == 300
+    assert frame_resized.shape[2] == 3
+
+    frame_resized_np = frame_resized.numpy()
+    assert isinstance(frame_resized_np, np.ndarray)
+    assert frame_resized_np.shape[0] == 250
+    assert frame_resized_np.shape[1] == 300
+    assert frame_resized_np.shape[2] == 3
+
+    vf_cv2.imwrite("apollo_resized.png", frame_resized)
+    assert os.path.exists("apollo_resized.png")
+    os.remove("apollo_resized.png")
+
+
+def test_resize_numpy():
+    frame = np.random.randint(0, 255, (100, 200, 3), dtype=np.uint8)
+    frame = vf_cv2.resize(frame, (250, 300))
+    assert frame.shape[0] == 250
+    assert frame.shape[1] == 300
+    assert frame.shape[2] == 3
+
+    vf_cv2.imwrite("random_resized.png", frame)
+    assert os.path.exists("random_resized.png")
+    os.remove("random_resized.png")
+
+
 def rectangle(cv2):
     cap = cv2.VideoCapture(VID_PATH)
     assert cap.isOpened()
