@@ -14,6 +14,7 @@ struct IgniServerGlobal {
     pool: sqlx::Pool<sqlx::Postgres>,
 }
 
+#[derive(Debug)]
 struct UserAuth {
     user_id: uuid::Uuid,
     permissions: UserPermissions,
@@ -59,6 +60,7 @@ impl UserPermissions {
         let valsets = [
             ("spec:pix_fmt", vec!["yuv420p"]),
             ("source:storage_service", vec!["http", "s3"]),
+            ("frame:pix_fmt", vec!["rgb24"]),
         ]
         .iter()
         .map(|(key, values)| {
@@ -81,6 +83,8 @@ impl UserPermissions {
             "spec:push_part",
             "spec:delete",
             // "spec:deferred_frames" - do not enable until stable
+            // Frame permissions
+            "frame:get",
         ]
         .into_iter()
         .map(String::from)
@@ -114,13 +118,16 @@ impl UserPermissions {
         .map(|(key, value)| (key.to_string(), Rational64::new(value.0, value.1)))
         .collect();
 
-        let valsets = [("spec:pix_fmt", vec!["yuv420p"])]
-            .iter()
-            .map(|(key, values)| {
-                let values = values.iter().map(|v| v.to_string()).collect();
-                (key.to_string(), values)
-            })
-            .collect();
+        let valsets = [
+            ("spec:pix_fmt", vec!["yuv420p"]),
+            ("frame:pix_fmt", vec!["rgb24"]),
+        ]
+        .iter()
+        .map(|(key, values)| {
+            let values = values.iter().map(|v| v.to_string()).collect();
+            (key.to_string(), values)
+        })
+        .collect();
 
         let flags = vec![
             // Source permissions
@@ -132,6 +139,8 @@ impl UserPermissions {
             "spec:get",
             "spec:push_part",
             "spec:delete",
+            // Frame permissions
+            "frame:get",
         ]
         .into_iter()
         .map(String::from)
@@ -665,6 +674,12 @@ async fn igni_http_req_api(
             let uri = req.uri().path().to_string();
             let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
             api::push_part_block(req, global, spec_id, &user_auth).await
+        }
+        (hyper::Method::POST, "/v2/frame") => {
+            if let Some(res) = user_auth.permissions.flag_err("frame:get") {
+                return Ok(res);
+            }
+            api::get_frame(req, global, &user_auth).await
         }
         (method, uri) => {
             warn!("404 Not found: {} {}", method, uri);

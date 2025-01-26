@@ -7,9 +7,16 @@ use http_body_util::BodyExt;
 use log::*;
 use num_rational::Rational64;
 use std::io::Read;
+use std::io::Write;
 use uuid::Uuid;
 
 use super::IgniServerGlobal;
+
+/// Return either the parsed frame expressions or an error response to be sent back to the client
+enum RetOrResp<T> {
+    Ret(T),
+    Resp(hyper::Response<http_body_util::Full<hyper::body::Bytes>>),
+}
 
 pub(crate) async fn auth(
     _req: hyper::Request<impl hyper::body::Body>,
@@ -652,6 +659,13 @@ pub(crate) async fn push_part(
     push_frame_req(global, user, spec_id, (req.pos, req.terminal, req.frames)).await
 }
 
+#[derive(serde::Deserialize, serde::Serialize)]
+struct RequestFrameExprBlock {
+    frames: i32,
+    compression: Option<String>,
+    body: String,
+}
+
 pub(crate) async fn push_part_block(
     req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
@@ -673,17 +687,10 @@ pub(crate) async fn push_part_block(
     };
 
     #[derive(serde::Deserialize, serde::Serialize)]
-    struct RequestBlock {
-        frames: i32,
-        compression: Option<String>,
-        body: String,
-    }
-
-    #[derive(serde::Deserialize, serde::Serialize)]
     struct RequestContent {
         pos: i32,
         terminal: bool,
-        blocks: Vec<RequestBlock>,
+        blocks: Vec<RequestFrameExprBlock>,
     }
 
     let req: RequestContent = match serde_json::from_slice(&req) {
@@ -713,80 +720,10 @@ pub(crate) async fn push_part_block(
     }
     let mut frames = Vec::with_capacity(n_frames_total);
     for block in req.blocks {
-        let body_bytes = match base64::prelude::BASE64_STANDARD.decode(&block.body) {
-            Err(err) => {
-                return Ok(hyper::Response::builder()
-                    .status(hyper::StatusCode::BAD_REQUEST)
-                    .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                        format!("Error decoding block: {}", err),
-                    )))?);
-            }
-            Ok(body_bytes) => body_bytes,
+        let block_frames = match load_req_feb(block)? {
+            RetOrResp::Ret(block_frames) => block_frames,
+            RetOrResp::Resp(resp) => return Ok(resp),
         };
-
-        let body_uncompresed = match block.compression.as_deref() {
-            None => body_bytes,
-            Some("zstd") => {
-                let reader = std::io::Cursor::new(body_bytes.as_slice());
-                let body_uncompresed = zstd::stream::decode_all(reader);
-                match body_uncompresed {
-                    Ok(body_uncompresed) => body_uncompresed,
-                    Err(err) => {
-                        return Ok(hyper::Response::builder()
-                            .status(hyper::StatusCode::BAD_REQUEST)
-                            .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                                format!("Error decompressing block: {}", err),
-                            )))?);
-                    }
-                }
-            }
-            Some("gzip") => {
-                let reader = std::io::Cursor::new(body_bytes.as_slice());
-                let mut decoder = flate2::read::GzDecoder::new(reader);
-                let mut body_uncompresed = Vec::new();
-                decoder.read_to_end(&mut body_uncompresed).map_err(|err| {
-                    IgniError::General(format!("Error decompressing block: {}", err))
-                })?;
-                body_uncompresed
-            }
-            Some(_) => {
-                return Ok(hyper::Response::builder()
-                    .status(hyper::StatusCode::BAD_REQUEST)
-                    .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                        "Invalid block compression algorithm (only null, 'gzip' 'zstd' are supported)",
-                    )))?);
-            }
-        };
-
-        let frame_block: crate::feb::FrameBlock = match serde_json::from_slice(&body_uncompresed) {
-            Err(err) => {
-                return Ok(hyper::Response::builder()
-                    .status(hyper::StatusCode::BAD_REQUEST)
-                    .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                        format!("Error parsing block: {}", err),
-                    )))?);
-            }
-            Ok(frame_block) => frame_block,
-        };
-
-        let block_frames = match frame_block.frames() {
-            Ok(block_frames) => block_frames,
-            Err(err) => {
-                return Ok(hyper::Response::builder()
-                    .status(hyper::StatusCode::BAD_REQUEST)
-                    .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                        format!("Error parsing frame block: {}", err),
-                    )))?);
-            }
-        };
-
-        if block.frames as usize != block_frames.len() {
-            return Ok(hyper::Response::builder()
-                .status(hyper::StatusCode::BAD_REQUEST)
-                .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                    "Invalid number of block frames claimed",
-                )))?);
-        }
 
         for block_frame in block_frames {
             frames.push(((0, 0), Some(block_frame)));
@@ -794,6 +731,92 @@ pub(crate) async fn push_part_block(
     }
 
     push_frame_req(global, user, spec_id, (pos, terminal, frames)).await
+}
+
+fn load_req_feb(
+    block: RequestFrameExprBlock,
+) -> Result<RetOrResp<Vec<vidformer::sir::FrameExpr>>, IgniError> {
+    let body_bytes = match base64::prelude::BASE64_STANDARD.decode(&block.body) {
+        Err(err) => {
+            return Ok(RetOrResp::Resp(
+                hyper::Response::builder()
+                    .status(hyper::StatusCode::BAD_REQUEST)
+                    .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                        format!("Error decoding block: {}", err),
+                    )))?,
+            ));
+        }
+        Ok(body_bytes) => body_bytes,
+    };
+    let body_uncompresed = match block.compression.as_deref() {
+        None => body_bytes,
+        Some("zstd") => {
+            let reader = std::io::Cursor::new(body_bytes.as_slice());
+            let body_uncompresed = zstd::stream::decode_all(reader);
+            match body_uncompresed {
+                Ok(body_uncompresed) => body_uncompresed,
+                Err(err) => {
+                    return Ok(RetOrResp::Resp(
+                        hyper::Response::builder()
+                            .status(hyper::StatusCode::BAD_REQUEST)
+                            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                                format!("Error decompressing block: {}", err),
+                            )))?,
+                    ));
+                }
+            }
+        }
+        Some("gzip") => {
+            let reader = std::io::Cursor::new(body_bytes.as_slice());
+            let mut decoder = flate2::read::GzDecoder::new(reader);
+            let mut body_uncompresed = Vec::new();
+            decoder
+                .read_to_end(&mut body_uncompresed)
+                .map_err(|err| IgniError::General(format!("Error decompressing block: {}", err)))?;
+            body_uncompresed
+        }
+        Some(_) => {
+            return Ok(RetOrResp::Resp(hyper::Response::builder()
+                .status(hyper::StatusCode::BAD_REQUEST)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    "Invalid block compression algorithm (only null, 'gzip' 'zstd' are supported)",
+                )))?));
+        }
+    };
+    let frame_block: crate::feb::FrameBlock = match serde_json::from_slice(&body_uncompresed) {
+        Err(err) => {
+            return Ok(RetOrResp::Resp(
+                hyper::Response::builder()
+                    .status(hyper::StatusCode::BAD_REQUEST)
+                    .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                        format!("Error parsing block: {}", err),
+                    )))?,
+            ));
+        }
+        Ok(frame_block) => frame_block,
+    };
+    let block_frames = match frame_block.frames() {
+        Ok(block_frames) => block_frames,
+        Err(err) => {
+            return Ok(RetOrResp::Resp(
+                hyper::Response::builder()
+                    .status(hyper::StatusCode::BAD_REQUEST)
+                    .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                        format!("Error parsing frame block: {}", err),
+                    )))?,
+            ));
+        }
+    };
+    if block.frames as usize != block_frames.len() {
+        return Ok(RetOrResp::Resp(
+            hyper::Response::builder()
+                .status(hyper::StatusCode::BAD_REQUEST)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    "Invalid number of block frames claimed",
+                )))?,
+        ));
+    }
+    Ok(RetOrResp::Ret(block_frames))
 }
 
 async fn push_frame_req(
@@ -830,7 +853,7 @@ async fn push_frame_req(
     let mut insert_pos: Vec<i32> = Vec::with_capacity(req.2.len());
     let mut insert_frames: Vec<Option<Vec<u8>>> = Vec::with_capacity(req.2.len());
 
-    let mut referenced_source_frames = BTreeSet::new();
+    let mut referenced_source_frames: BTreeSet<&vidformer::sir::FrameSource> = BTreeSet::new();
     for (frame_idx, ((_numer, _denom), frame)) in req.2.iter().enumerate() {
         // TODO: Check numer and denom are correct?
 
@@ -1140,4 +1163,334 @@ async fn push_frame_req(
         .body(http_body_util::Full::new(hyper::body::Bytes::from(
             response,
         )))?)
+}
+
+pub(crate) async fn get_frame(
+    req: hyper::Request<impl hyper::body::Body>,
+    global: std::sync::Arc<IgniServerGlobal>,
+    user: &super::UserAuth,
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
+    let req: Vec<u8> = match req.collect().await {
+        Err(_err) => {
+            error!("Error reading request body");
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::BAD_REQUEST)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    "Bad request",
+                )))?);
+        }
+        Ok(req) => req.to_bytes().to_vec(),
+    };
+
+    #[derive(serde::Deserialize, serde::Serialize)]
+    struct RequestContent {
+        block: RequestFrameExprBlock,
+        width: i32,
+        height: i32,
+        pix_fmt: String,
+        compression: Option<String>,
+    }
+
+    let req: RequestContent = match serde_json::from_slice(&req) {
+        Err(err) => {
+            error!("Error parsing request body: {}", err);
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::BAD_REQUEST)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    format!("Bad request: {}", err),
+                )))?);
+        }
+        Ok(req) => req,
+    };
+
+    match &req.compression.as_ref() {
+        None => {}
+        Some(algo) if algo.as_str() == "gzip" => {}
+        Some(_) => {
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::BAD_REQUEST)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    "Invalid compression algorithm (only 'gzip' supported)",
+                )))?);
+        }
+    }
+
+    if let Some(err) = user
+        .permissions
+        .limit_err_max("spec:max_width", req.width as i64)
+    {
+        return Ok(err);
+    }
+
+    if let Some(err) = user
+        .permissions
+        .limit_err_max("spec:max_height", req.height as i64)
+    {
+        return Ok(err);
+    }
+
+    if let Some(err) = user.permissions.valset_err("frame:pix_fmt", &req.pix_fmt) {
+        return Ok(err);
+    };
+
+    let block_frames = match load_req_feb(req.block)? {
+        RetOrResp::Ret(block_frames) => block_frames,
+        RetOrResp::Resp(resp) => return Ok(resp),
+    };
+
+    if block_frames.len() != 1 {
+        return Ok(hyper::Response::builder()
+            .status(hyper::StatusCode::BAD_REQUEST)
+            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                "Invalid number of frames",
+            )))?);
+    }
+
+    let frame_expr: vidformer::sir::FrameExpr = block_frames.into_iter().next().unwrap();
+
+    let mut referenced_source_frames: BTreeSet<&vidformer::sir::FrameSource> = BTreeSet::new();
+    frame_expr.add_source_deps(&mut referenced_source_frames);
+
+    let mut needed_source_ids: BTreeSet<Uuid> = BTreeSet::new();
+
+    let (frame_ref_by_pos, frame_ref_by_ts) = {
+        let mut ref_by_pos = vec![];
+        let mut ref_by_ts = vec![];
+        for frame_ref in referenced_source_frames {
+            let source_id: Uuid = match frame_ref.video().parse() {
+                Ok(source_id) => source_id,
+                Err(_) => {
+                    return Ok(hyper::Response::builder()
+                        .status(hyper::StatusCode::BAD_REQUEST)
+                        .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                            "Invalid source id",
+                        )))?);
+                }
+            };
+
+            needed_source_ids.insert(source_id);
+
+            match frame_ref.index() {
+                vidformer::sir::IndexConst::ILoc(pos) => {
+                    ref_by_pos.push((source_id, *pos));
+                }
+                vidformer::sir::IndexConst::T(t) => {
+                    ref_by_ts.push((source_id, *t));
+                }
+            }
+        }
+
+        (ref_by_pos, ref_by_ts)
+    };
+    let needed_source_ids = needed_source_ids.into_iter().collect::<Vec<_>>();
+    let mut transaction = global.pool.begin().await?;
+    {
+        // Check all sources both exist and are owned by the user
+        if !needed_source_ids.is_empty() {
+            let db_sources: Vec<(Uuid,)> =
+                sqlx::query_as("SELECT id FROM source WHERE id = ANY($1::UUID[]) AND user_id = $2")
+                    .bind(&needed_source_ids)
+                    .bind(user.user_id)
+                    .fetch_all(&mut *transaction)
+                    .await?;
+
+            for source_id in &needed_source_ids {
+                if !db_sources.iter().any(|(id,)| id == source_id) {
+                    transaction.commit().await?;
+                    return Ok(hyper::Response::builder()
+                        .status(hyper::StatusCode::NOT_FOUND)
+                        .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                            format!("Source {} not found", source_id),
+                        )))?);
+                }
+            }
+        }
+    }
+
+    let sources = {
+        let mut out = vec![];
+        // load all data from source
+        let rows: Vec<(uuid::Uuid, String, i32, String, serde_json::Value, String, String, i32, i32, i64)> = sqlx::query_as("SELECT id, name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height, file_size FROM source WHERE id = ANY($1::uuid[])")
+            .bind(&needed_source_ids)
+            .fetch_all(&mut *transaction)
+            .await
+            ?;
+
+        for (
+            source_id,
+            name,
+            stream_idx,
+            storage_service,
+            storage_config,
+            codec,
+            pix_fmt,
+            width,
+            height,
+            file_size,
+        ) in rows
+        {
+            let (ts, keys): (Vec<Rational64>, Vec<Rational64>) = {
+                let rows: Vec<(i64, i64, bool)> = sqlx::query_as(
+                    "SELECT t_num, t_denom, key FROM source_t WHERE source_id = $1 ORDER BY pos",
+                )
+                .bind(source_id)
+                .fetch_all(&mut *transaction)
+                .await?;
+
+                let ts: Vec<Rational64> = rows
+                    .iter()
+                    .map(|(t_num, t_denom, _)| Rational64::new(*t_num, *t_denom))
+                    .collect();
+
+                let keys: Vec<Rational64> = rows
+                    .iter()
+                    .filter(|(_, _, key)| *key)
+                    .map(|(t_num, t_denom, _)| Rational64::new(*t_num, *t_denom))
+                    .collect();
+
+                (ts, keys)
+            };
+
+            // Check all references are valid
+            for (source_ref_id, pos) in &frame_ref_by_pos {
+                if source_ref_id == &source_id {
+                    if *pos >= ts.len() {
+                        transaction.commit().await?;
+                        return Ok(hyper::Response::builder()
+                            .status(hyper::StatusCode::BAD_REQUEST)
+                            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                                format!("Invalid reference to source {} at pos {}", source_id, pos),
+                            )))?);
+                    }
+                }
+            }
+            for (source_ref_id, ref_ts) in &frame_ref_by_ts {
+                if source_ref_id == &source_id {
+                    // Check ref_ts is in ts by binary search
+                    if !ts.binary_search(&ref_ts).is_ok() {
+                        transaction.commit().await?;
+                        return Ok(hyper::Response::builder()
+                            .status(hyper::StatusCode::BAD_REQUEST)
+                            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                                format!(
+                                    "Invalid reference to source {} at ts {}/{}",
+                                    source_id,
+                                    ref_ts.numer(),
+                                    ref_ts.denom()
+                                ),
+                            )))?);
+                    }
+                }
+            }
+
+            let storage_config_json = serde_json::to_string(&storage_config).unwrap();
+            let service = crate::ops::parse_storage_config(&storage_config_json).unwrap();
+            let service = vidformer::service::Service::new(storage_service, service.1);
+
+            out.push(vidformer::source::SourceVideoStreamMeta {
+                name: source_id.to_string(),
+                file_path: name,
+                stream_idx: stream_idx as usize,
+                file_size: file_size as u64,
+                codec,
+                pix_fmt,
+                service,
+                resolution: (width as usize, height as usize),
+                ts,
+                keys,
+            });
+        }
+
+        out
+    };
+    transaction.commit().await?;
+
+    struct IgniSpec {
+        frame: vidformer::sir::FrameExpr,
+    }
+
+    impl vidformer::spec::Spec for IgniSpec {
+        fn domain(&self, _: &dyn vidformer::spec::SpecContext) -> Vec<num_rational::Ratio<i64>> {
+            vec![num_rational::Ratio::new(0, 1)]
+        }
+
+        fn render(
+            &self,
+            _: &dyn vidformer::spec::SpecContext,
+            t: &num_rational::Ratio<i64>,
+        ) -> vidformer::sir::FrameExpr {
+            assert_eq!(t, &num_rational::Ratio::new(0, 1));
+            self.frame.clone()
+        }
+    }
+
+    let spec = IgniSpec { frame: frame_expr };
+    let spec = std::sync::Arc::new(std::boxed::Box::new(spec) as Box<dyn vidformer::spec::Spec>);
+
+    let filters = crate::server::vod::filters();
+    let context = vidformer::Context::new(sources, filters);
+    let context: std::sync::Arc<vidformer::Context> = std::sync::Arc::new(context);
+
+    let dve_config: vidformer::Config = vidformer::Config {
+        decode_pool_size: 50,
+        decoder_view: 50,
+        decoders: u16::MAX as usize,
+        filterers: 8,
+        output_width: req.width as usize,
+        output_height: req.height as usize,
+        output_pix_fmt: req.pix_fmt.clone(),
+        encoder: Some(vidformer::EncoderConfig {
+            codec_name: "rawvideo".to_string(),
+            opts: vec![],
+        }),
+        format: Some("rawvideo".to_string()),
+    };
+
+    let output_path = format!("/tmp/{}.raw", Uuid::new_v4());
+
+    let dve_config = std::sync::Arc::new(dve_config);
+    let output_path = std::sync::Arc::new(output_path);
+    let output_path2 = output_path.clone();
+
+    let stats = tokio::task::spawn_blocking(move || {
+        vidformer::run(&spec, &output_path, &context, &dve_config, &None)
+    })
+    .await
+    .expect("Error joining blocking task");
+
+    if let Err(err) = stats {
+        return Err(IgniError::General(format!(
+            "Error running vidformer spec: {:?}",
+            err
+        )));
+    }
+    let _stats = stats.unwrap();
+
+    let output = match tokio::fs::read(output_path2.as_str()).await {
+        Ok(ok) => ok,
+        Err(err) => {
+            return Err(IgniError::General(format!(
+                "Failed to read temporary file: {}",
+                err
+            )))
+        }
+    };
+
+    tokio::fs::remove_file(output_path2.as_str()).await.unwrap();
+
+    match &req.compression {
+        None => Ok(hyper::Response::builder()
+            .header("Content-Type", "application/octet-stream")
+            .body(http_body_util::Full::new(hyper::body::Bytes::from(output)))?),
+        Some(algo) if algo.as_str() == "gzip" => {
+            let mut encoder =
+                flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::new(1));
+            encoder.write_all(&output).unwrap();
+            let output = encoder.finish().unwrap();
+            Ok(hyper::Response::builder()
+                .header("Content-Type", "application/octet-stream")
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(output)))?)
+        }
+        Some(_) => unreachable!(),
+    }
 }

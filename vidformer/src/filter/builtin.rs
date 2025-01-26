@@ -937,7 +937,7 @@ pub struct Black;
 impl super::Filter for Black {
     fn filter(
         &self,
-        args: &[Val],
+        _args: &[Val],
         kwargs: &BTreeMap<String, Val>,
     ) -> Result<Frame, crate::dve::Error> {
         let width = match kwargs.get("width").unwrap() {
@@ -957,7 +957,7 @@ impl super::Filter for Black {
 
         let pix_fmt_ffmpeg = match crate::util::pixel_fmt_str_to_av_pix_fmt(pix_fmt.as_str()) {
             Ok(pix_fmt) => pix_fmt,
-            Err(e) => {
+            Err(_e) => {
                 return Err(Error::InvalidFilterArgValue(
                     "pix_fmt".to_string(),
                     pix_fmt.clone(),
@@ -1009,9 +1009,9 @@ impl super::Filter for Black {
             _ => return Err(Error::MissingFilterArg),
         };
 
-        let pix_fmt_ffmpeg = match crate::util::pixel_fmt_str_to_av_pix_fmt(pix_fmt.as_str()) {
-            Ok(pix_fmt) => pix_fmt,
-            Err(e) => {
+        match crate::util::pixel_fmt_str_to_av_pix_fmt(pix_fmt.as_str()) {
+            Ok(_) => {}
+            Err(_e) => {
                 return Err(Error::InvalidFilterArgValue(
                     "pix_fmt".to_string(),
                     pix_fmt.clone(),

@@ -721,3 +721,44 @@ def test_push_part_block_gzip():
     spec = _get_spec(spec_id)
     assert spec["frames_applied"] == 2
     assert spec["terminated"] is True
+
+
+def test_frame():
+    source_id = _create_tos_source()
+
+    # [Scale(source_id, pix_fmt='rgb24')]
+    frame_block = {
+        "functions": ["Scale"],
+        "literals": [{"String": "rgb24"}],
+        "sources": [source_id],
+        "kwarg_keys": ["pix_fmt"],
+        "source_fracs": [],
+        "exprs": [
+            4683743612482158592,
+            4827858800541171712,
+            5044031582654955520,
+            4611686018427387904,
+        ],
+        "frame_exprs": [0],
+    }
+
+    block = {
+        "frames": 1,
+        "compression": "gzip",
+        "body": base64.b64encode(
+            gzip.compress(json.dumps(frame_block).encode("utf-8"))
+        ).decode("utf-8"),
+    }
+
+    req = {
+        "block": block,
+        "width": 1280,
+        "height": 720,
+        "pix_fmt": "rgb24",
+        "compression": None,
+    }
+
+    response = requests.post(ENDPOINT + "v2/frame", json=req, headers=AUTH_HEADERS)
+    response.raise_for_status()
+    body = response.content
+    assert len(body) == 1280 * 720 * 3

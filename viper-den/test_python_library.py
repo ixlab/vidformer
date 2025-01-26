@@ -1,4 +1,5 @@
 from fractions import Fraction
+import pytest
 
 import vidformer as vf
 
@@ -124,3 +125,17 @@ def test_push_spec_part_block():
         fb.insert_frame(tos.iloc[i])
 
     server.push_spec_part_block(spec_id, 0, [fb], True)
+
+
+@pytest.mark.parametrize("compression", [None, "gzip"])
+def test_frame(compression):
+    server = vf.IgniServer(ENDPOINT, API_KEY)
+    tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
+
+    f = tos.iloc[1000]
+    scale = vf.Filter("Scale")
+    f = scale(f, pix_fmt="rgb24")
+
+    frame_content = server.frame(1280, 720, "rgb24", f, compression=compression)
+    assert type(frame_content) is bytes
+    assert len(frame_content) == 1280 * 720 * 3

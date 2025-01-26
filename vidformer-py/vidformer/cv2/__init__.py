@@ -119,16 +119,26 @@ class Frame:
         """
 
         self._mut()
-        spec = vf.YrdenSpec([Fraction(0, 1)], lambda t, i: self._f, self._fmt)
-        loader = spec.load(_server())
+        server = _server()
+        if type(server) is vf.YrdenServer:
+            spec = vf.YrdenSpec([Fraction(0, 1)], lambda t, i: self._f, self._fmt)
+            loader = spec.load(_server())
 
-        frame_raster_rgb24 = loader[0]
-        assert type(frame_raster_rgb24) is bytes
-        assert len(frame_raster_rgb24) == self.shape[0] * self.shape[1] * 3
-        raw_data_array = np.frombuffer(frame_raster_rgb24, dtype=np.uint8)
-        frame = raw_data_array.reshape(self.shape)
-        frame = frame[:, :, ::-1]  # convert RGB to BGR
-        return frame
+            frame_raster_rgb24 = loader[0]
+            assert type(frame_raster_rgb24) is bytes
+            assert len(frame_raster_rgb24) == self.shape[0] * self.shape[1] * 3
+            raw_data_array = np.frombuffer(frame_raster_rgb24, dtype=np.uint8)
+            frame = raw_data_array.reshape(self.shape)
+            frame = frame[:, :, ::-1]  # convert RGB to BGR
+            return frame
+        else:
+            frame = server.frame(self.shape[1], self.shape[0], "rgb24", self._f)
+            assert type(frame) is bytes
+            assert len(frame) == self.shape[0] * self.shape[1] * 3
+            raw_data_array = np.frombuffer(frame, dtype=np.uint8)
+            frame = raw_data_array.reshape(self.shape)
+            frame = frame[:, :, ::-1]  # convert RGB to BGR
+            return frame
 
     def __getitem__(self, key):
         if not isinstance(key, tuple):

@@ -4,9 +4,10 @@ use crate::IgniError;
 use num::Rational64;
 use num::ToPrimitive;
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use uuid::Uuid;
 
-fn filters() -> BTreeMap<String, Box<dyn vidformer::filter::Filter>> {
+pub fn filters() -> BTreeMap<String, Box<dyn vidformer::filter::Filter>> {
     let mut filters: BTreeMap<String, Box<dyn vidformer::filter::Filter>> = BTreeMap::new();
     filters.extend(vidformer::filter::builtin::filters());
     filters.extend(vidformer::filter::cv2::filters());
@@ -272,6 +273,8 @@ pub(crate) async fn get_segment(
     let start = *times.first().unwrap();
     let end = *times.last().unwrap();
 
+    let mut needed_source_ids: BTreeSet<Uuid> = BTreeSet::new();
+
     let frames = {
         let mut out = vec![];
         for (_, frame) in rows {
@@ -283,10 +286,19 @@ pub(crate) async fn get_segment(
             })?;
             assert_eq!(f_collection.len(), 1);
             let f = f_collection.remove(0);
+            let mut referenced_source_frames: BTreeSet<&vidformer::sir::FrameSource> =
+                BTreeSet::new();
+            f.add_source_deps(&mut referenced_source_frames);
+            for src in &referenced_source_frames {
+                // needed_source_ids.insert(src.video().to_string());
+                needed_source_ids.insert(Uuid::parse_str(src.video()).unwrap());
+            }
             out.push(f);
         }
         out
     };
+
+    let needed_source_ids: Vec<Uuid> = needed_source_ids.into_iter().collect();
 
     struct IgniSpec {
         times: Vec<num_rational::Ratio<i64>>,
@@ -314,7 +326,8 @@ pub(crate) async fn get_segment(
         let mut out = vec![];
 
         // load all data from source
-        let rows: Vec<(uuid::Uuid, String, i32, String, serde_json::Value, String, String, i32, i32, i64)> = sqlx::query_as("SELECT id, name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height, file_size FROM source")
+        let rows: Vec<(uuid::Uuid, String, i32, String, serde_json::Value, String, String, i32, i32, i64)> = sqlx::query_as("SELECT id, name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height, file_size FROM source WHERE id = ANY($1::uuid[])")
+            .bind(&needed_source_ids)
             .fetch_all(&mut *transaction)
             .await
             ?;
@@ -399,7 +412,6 @@ pub(crate) async fn get_segment(
     let output_path2 = output_path.clone();
 
     // Run the spec in a blocking task
-    let context = std::sync::Arc::new(context);
     let dve_config = std::sync::Arc::new(dve_config);
     let output_path = std::sync::Arc::new(output_path);
 

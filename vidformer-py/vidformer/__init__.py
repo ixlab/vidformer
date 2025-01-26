@@ -715,6 +715,41 @@ class IgniServer:
         response = response.json()
         assert response["status"] == "ok"
 
+    def frame(self, width, height, pix_fmt, frame_expr, compression="gzip"):
+        assert type(frame_expr) is FilterExpr or type(frame_expr) is SourceExpr
+        assert compression is None or compression in ["gzip"]
+        feb = _FrameExpressionBlock()
+        feb.insert_frame(frame_expr)
+        feb_body = feb.as_dict()
+
+        feb_body = json.dumps(feb_body).encode("utf-8")
+        if compression == "gzip":
+            feb_body = gzip.compress(feb_body, 1)
+        feb_body = base64.b64encode(feb_body).decode("utf-8")
+        req = {
+            "width": width,
+            "height": height,
+            "pix_fmt": pix_fmt,
+            "compression": compression,
+            "block": {
+                "frames": 1,
+                "compression": compression,
+                "body": feb_body,
+            },
+        }
+        response = requests.post(
+            f"{self._endpoint}/frame",
+            json=req,
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
+        if not response.ok:
+            raise Exception(response.text)
+        response_body = response.content
+        assert type(response_body) is bytes
+        if compression == "gzip":
+            response_body = gzip.decompress(response_body)
+        return response_body
+
 
 class YrdenSpec:
     """

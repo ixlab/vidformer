@@ -1,7 +1,10 @@
 import pytest
+import numpy as np
 
 import vidformer as vf
 import vidformer.cv2 as cv2
+
+import cv2 as ocv_cv2
 
 ENDPOINT = "http://localhost:8080/v2"
 API_KEY = "test"
@@ -234,3 +237,32 @@ def test_block_compression(compression):
             break
     cap.release()
     out.release()
+
+
+def test_numpy():
+    server = vf.IgniServer(ENDPOINT, API_KEY)
+    cv2.set_server(server)
+
+    tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
+    cap = cv2.VideoCapture(tos)
+    assert cap.isOpened()
+
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 100)
+
+    i = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        frame_numpy = frame.numpy()
+        assert type(frame_numpy) is np.ndarray
+        assert frame_numpy.shape == (height, width, 3)
+        assert frame_numpy.dtype == np.uint8
+
+        i += 1
+        if i == 10:
+            break
