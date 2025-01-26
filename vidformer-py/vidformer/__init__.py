@@ -795,12 +795,11 @@ class YrdenSpec:
             }
             for k, v in filters.items()
         }
-        arrays = []
 
         if verbose:
             print(f"Sending to server. Spec is {len(spec_obj_json_gzip_b64)} bytes")
 
-        resp = server._new(spec_obj_json_gzip_b64, sources, filters, arrays, self._fmt)
+        resp = server._new(spec_obj_json_gzip_b64, sources, filters, self._fmt)
         hls_video_url = resp["stream_url"]
         hls_player_url = resp["player_url"]
         namespace = resp["namespace"]
@@ -868,9 +867,7 @@ class YrdenSpec:
             }
             for k, v in filters.items()
         }
-        arrays = []
-
-        resp = server._new(spec_obj_json_gzip_b64, sources, filters, arrays, self._fmt)
+        resp = server._new(spec_obj_json_gzip_b64, sources, filters, self._fmt)
         namespace = resp["namespace"]
         return YrdenLoader(server, namespace, self._domain)
 
@@ -904,14 +901,12 @@ class YrdenSpec:
             }
             for k, v in filters.items()
         }
-        arrays = []
 
         resp = server._export(
             pth,
             spec_obj_json_gzip_b64,
             sources,
             filters,
-            arrays,
             self._fmt,
             encoder,
             encoder_opts,
@@ -944,12 +939,11 @@ class YrdenSpec:
             }
             for k, v in filters.items()
         }
-        arrays = []
         end_t = time.time()
         out["vrod_create_spec"] = end_t - start_t
 
         start = time.time()
-        resp = server._new(pth, sources, filters, arrays, self._fmt)
+        resp = server._new(pth, sources, filters, self._fmt)
         end = time.time()
         out["vrod_register"] = end - start
 
@@ -987,12 +981,11 @@ class YrdenSpec:
             }
             for k, v in filters.items()
         }
-        arrays = []
         end_t = time.time()
         out["dve2_create_spec"] = end_t - start_t
 
         start = time.time()
-        resp = server._export(pth, sources, filters, arrays, self._fmt, None, None)
+        resp = server._export(pth, sources, filters, self._fmt, None, None)
         resp.raise_for_status()
         end = time.time()
         out["dve2_exec"] = end - start
@@ -1113,12 +1106,11 @@ class YrdenServer:
         resp["ts"] = [Fraction(x[0], x[1]) for x in resp["ts"]]
         return resp
 
-    def _new(self, spec, sources, filters, arrays, fmt):
+    def _new(self, spec, sources, filters, fmt):
         req = {
             "spec": spec,
             "sources": sources,
             "filters": filters,
-            "arrays": arrays,
             "width": fmt["width"],
             "height": fmt["height"],
             "pix_fmt": fmt["pix_fmt"],
@@ -1130,14 +1122,11 @@ class YrdenServer:
 
         return r.json()
 
-    def _export(
-        self, pth, spec, sources, filters, arrays, fmt, encoder, encoder_opts, format
-    ):
+    def _export(self, pth, spec, sources, filters, fmt, encoder, encoder_opts, format):
         req = {
             "spec": spec,
             "sources": sources,
             "filters": filters,
-            "arrays": arrays,
             "width": fmt["width"],
             "height": fmt["height"],
             "pix_fmt": fmt["pix_fmt"],

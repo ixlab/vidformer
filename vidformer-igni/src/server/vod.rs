@@ -380,9 +380,8 @@ pub(crate) async fn get_segment(
     };
     transaction.commit().await?;
 
-    let arrays = std::collections::BTreeMap::new();
     let filters = filters();
-    let context = vidformer::Context::new(sources, arrays, filters);
+    let context = vidformer::Context::new(sources, filters);
     let context = std::sync::Arc::new(context);
 
     let dve_config: vidformer::Config = vidformer::Config {

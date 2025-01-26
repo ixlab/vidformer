@@ -91,8 +91,7 @@ fn test_placeholder() {
     );
 
     let sources = vec![];
-    let arrays = BTreeMap::new();
-    let context: vidformer::Context = vidformer::Context::new(sources, arrays, filters);
+    let context: vidformer::Context = vidformer::Context::new(sources, filters);
 
     let dve_config = vidformer::Config {
         decode_pool_size: 10,
@@ -146,8 +145,7 @@ fn test_bad_resolution() {
     );
 
     let sources = vec![];
-    let arrays = BTreeMap::new();
-    let context: vidformer::Context = vidformer::Context::new(sources, arrays, filters);
+    let context: vidformer::Context = vidformer::Context::new(sources, filters);
 
     let dve_config = vidformer::Config {
         decode_pool_size: 10,
@@ -204,8 +202,7 @@ fn test_non_existant_source() {
     );
 
     let sources = vec![];
-    let arrays = BTreeMap::new();
-    let context: vidformer::Context = vidformer::Context::new(sources, arrays, filters);
+    let context: vidformer::Context = vidformer::Context::new(sources, filters);
 
     let dve_config = vidformer::Config {
         decode_pool_size: 10,
@@ -276,8 +273,7 @@ fn test_no_source_file() {
         keys: vec![Rational64::new(0, 1)],
         file_path: "something_fake.mp4".to_string(),
     }];
-    let arrays = BTreeMap::new();
-    let context: vidformer::Context = vidformer::Context::new(sources, arrays, filters);
+    let context: vidformer::Context = vidformer::Context::new(sources, filters);
 
     let dve_config = vidformer::Config {
         decode_pool_size: 10,
@@ -346,8 +342,7 @@ fn tos_context() -> std::sync::Arc<vidformer::Context> {
             source::SourceVideoStreamMeta::profile("tos", "../tos_720p.mp4", 0, &fs_service)
                 .unwrap(),
         ];
-    let arrays = BTreeMap::new();
-    let context: vidformer::Context = vidformer::Context::new(sources, arrays, filters);
+    let context: vidformer::Context = vidformer::Context::new(sources, filters);
     std::sync::Arc::new(context)
 }
 

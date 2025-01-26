@@ -6,7 +6,6 @@
 //! * [📘 Documentation](https://ixlab.github.io/vidformer/vidformer/)
 //! * [🧑‍💻 Source Code](https://github.com/ixlab/vidformer/tree/main/vidformer/)
 
-pub mod array;
 pub mod filter;
 pub mod service;
 pub mod sir;

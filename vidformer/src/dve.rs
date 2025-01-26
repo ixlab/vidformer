@@ -74,7 +74,6 @@ impl std::fmt::Display for SourceRef {
 pub struct Context {
     pub(crate) sources: BTreeMap<SourceRef, crate::source::SourceVideoStreamMeta>,
     pub(crate) filters: BTreeMap<String, Box<dyn crate::filter::Filter>>,
-    pub(crate) arrays: BTreeMap<String, Box<dyn crate::array::Array>>,
 }
 
 #[derive(Debug)]
@@ -105,7 +104,6 @@ impl crate::spec::SpecContext for EmptySpecCtx {}
 impl Context {
     pub fn new(
         source_files: Vec<crate::source::SourceVideoStreamMeta>,
-        arrays: BTreeMap<String, Box<dyn crate::array::Array>>,
         filters: BTreeMap<String, Box<dyn crate::filter::Filter>>,
     ) -> Context {
         let mut sources = BTreeMap::new();
@@ -114,7 +112,6 @@ impl Context {
         }
         Context {
             sources,
-            arrays,
             filters,
         }
     }

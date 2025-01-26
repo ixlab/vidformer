@@ -77,7 +77,6 @@ pub enum DataExpr {
     Int(i64),
     String(String),
     Bytes(Vec<u8>),
-    ArrayRef(String, IndexConst),
     Float(f64),
     List(Vec<DataExpr>),
 }
@@ -90,8 +89,6 @@ impl Display for DataExpr {
             DataExpr::String(s) => write!(f, "\"{}\"", s),
             DataExpr::Bytes(b) => write!(f, "<{} bytes>", b.len()),
             DataExpr::Float(n) => write!(f, "{}", n),
-            DataExpr::ArrayRef(name, IndexConst::ILoc(i)) => write!(f, "{}.iloc[{}]", name, i),
-            DataExpr::ArrayRef(name, IndexConst::T(t)) => write!(f, "{}[{}]", name, t),
             DataExpr::List(list) => {
                 write!(f, "[")?;
                 for (idx, item) in list.iter().enumerate() {
