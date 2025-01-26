@@ -490,9 +490,7 @@ async fn igni_http_req_api(
         .headers()
         .get("Authorization")
         .and_then(|header| header.to_str().ok())
-        .and_then(|header| {
-            header.strip_prefix("Bearer ")
-        });
+        .and_then(|header| header.strip_prefix("Bearer "));
 
     let api_key = match api_key {
         Some(api_key) => api_key,

@@ -277,8 +277,7 @@ pub(crate) async fn get_segment(
         for (_, frame) in rows {
             let frame_reader = std::io::Cursor::new(frame);
             let frame_uncompressed = zstd::stream::decode_all(frame_reader).unwrap();
-            let feb: crate::feb::FrameBlock =
-                serde_json::from_slice(&frame_uncompressed).unwrap();
+            let feb: crate::feb::FrameBlock = serde_json::from_slice(&frame_uncompressed).unwrap();
             let mut f_collection = feb.frames().map_err(|err| {
                 IgniError::General(format!("Error decoding frame block: {:?}", err))
             })?;

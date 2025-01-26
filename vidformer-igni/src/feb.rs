@@ -541,12 +541,10 @@ impl FrameBlock {
         let target_expr = FrameExprBlock::from_int(*target_expr)?;
         match target_expr {
             FrameExprBlock::Expr { expr_idx } if member => self.get_expr(expr_idx as usize, false),
-            FrameExprBlock::Expr { .. } => {
-                Err(format!(
-                    "Expr at pos {} is not a Function or List member",
-                    idx
-                ))
-            }
+            FrameExprBlock::Expr { .. } => Err(format!(
+                "Expr at pos {} is not a Function or List member",
+                idx
+            )),
             FrameExprBlock::InlineLiteral(inline_literal) => inline_literal.get_expr(),
             FrameExprBlock::RefLiteral(i) => Ok(vidformer::sir::Expr::Data(
                 self.literals
@@ -577,15 +575,13 @@ impl FrameBlock {
             FrameExprBlock::KwargKey { .. } => {
                 Err(format!("Pos {} needs to be an expr, not kwarg key", idx))
             }
-            FrameExprBlock::SourceILoc { .. } | FrameExprBlock::SourceFrac { .. } => self
-                .get_frame(idx)
-                .map(vidformer::sir::Expr::Frame),
+            FrameExprBlock::SourceILoc { .. } | FrameExprBlock::SourceFrac { .. } => {
+                self.get_frame(idx).map(vidformer::sir::Expr::Frame)
+            }
             FrameExprBlock::Func { .. } if member => {
                 Err("A function can't be a direct member".to_string())
             }
-            FrameExprBlock::Func { .. } => self
-                .get_frame(idx)
-                .map(vidformer::sir::Expr::Frame),
+            FrameExprBlock::Func { .. } => self.get_frame(idx).map(vidformer::sir::Expr::Frame),
         }
     }
 
@@ -629,10 +625,12 @@ impl FrameBlock {
                     .get(source_idx as usize)
                     .ok_or("Source index out of bounds")?;
                 let t = Rational64::new(
-                    *self.source_fracs
+                    *self
+                        .source_fracs
                         .get(source_frac_idx as usize * 2)
                         .ok_or("Source frac index out of bounds")?,
-                    *self.source_fracs
+                    *self
+                        .source_fracs
                         .get(source_frac_idx as usize * 2 + 1)
                         .ok_or("Source frac index out of bounds")?,
                 );

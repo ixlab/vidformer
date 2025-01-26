@@ -51,6 +51,7 @@ LINE_AA = 16
 _inline_mat = vf.Filter("_inline_mat")
 _slice_mat = vf.Filter("_slice_mat")
 _slice_write_mat = vf.Filter("_slice_write_mat")
+_black = vf.Filter("_black")
 
 
 _filter_scale = vf.Filter("Scale")
@@ -548,6 +549,30 @@ def vidplay(video, *args, **kwargs):
         return video.play(*args, **kwargs)
     else:
         raise Exception("Unsupported video type to vidplay")
+
+
+def zeros(shape):
+    assert isinstance(shape, tuple) or isinstance(shape, list)
+    assert len(shape) == 3
+    assert shape[2] == 3
+
+    height, width, _ = shape
+    f = _black(width=width, height=height, pix_fmt="rgb24")
+    fmt = {"width": width, "height": height, "pix_fmt": "rgb24"}
+    return Frame(f, fmt)
+
+
+def resize(src, dsize):
+    src = frameify(src)
+    src._mut()
+
+    assert isinstance(dsize, tuple) or isinstance(dsize, list)
+    assert len(dsize) == 2
+    height, width = dsize
+
+    f = _filter_scale(src._f, width=width, height=height)
+    fmt = {"width": width, "height": height, "pix_fmt": "rgb24"}
+    return Frame(f, fmt)
 
 
 def rectangle(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):

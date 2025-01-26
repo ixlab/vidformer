@@ -39,6 +39,7 @@ pub fn filters() -> BTreeMap<String, std::boxed::Box<dyn Filter>> {
         "_slice_write_mat".to_string(),
         std::boxed::Box::new(SliceWriteMat {}),
     );
+    filters.insert("_black".to_string(), std::boxed::Box::new(Black {}));
     filters.insert("Pad".to_string(), std::boxed::Box::new(Pad {}));
     filters.insert("HStack".to_string(), std::boxed::Box::new(HStack {}));
     filters.insert("VStack".to_string(), std::boxed::Box::new(VStack {}));
@@ -921,6 +922,107 @@ impl super::Filter for InlineMat {
             return Err(Error::InvalidFilterArgValue(
                 format!("{:?}", data.len()),
                 "Invalid data length".to_string(),
+            ));
+        }
+
+        Ok(FrameType {
+            width: width as usize,
+            height: height as usize,
+            format: ffi::AVPixelFormat_AV_PIX_FMT_RGB24,
+        })
+    }
+}
+
+pub struct Black;
+impl super::Filter for Black {
+    fn filter(
+        &self,
+        args: &[Val],
+        kwargs: &BTreeMap<String, Val>,
+    ) -> Result<Frame, crate::dve::Error> {
+        let width = match kwargs.get("width").unwrap() {
+            Val::Int(i) => *i,
+            _ => panic!("Expected int"),
+        };
+
+        let height = match kwargs.get("height").unwrap() {
+            Val::Int(i) => *i,
+            _ => panic!("Expected int"),
+        };
+
+        let pix_fmt = match kwargs.get("pix_fmt").unwrap() {
+            Val::String(s) => s,
+            _ => panic!("Expected string"),
+        };
+
+        let pix_fmt_ffmpeg = match crate::util::pixel_fmt_str_to_av_pix_fmt(pix_fmt.as_str()) {
+            Ok(pix_fmt) => pix_fmt,
+            Err(e) => {
+                return Err(Error::InvalidFilterArgValue(
+                    "pix_fmt".to_string(),
+                    pix_fmt.clone(),
+                ))
+            }
+        };
+
+        let f = unsafe { ffi::av_frame_alloc() };
+        if f.is_null() {
+            panic!("ERROR could not allocate frame");
+        }
+
+        unsafe {
+            (*f).width = width as i32;
+            (*f).height = height as i32;
+            (*f).format = pix_fmt_ffmpeg;
+
+            if ffi::av_frame_get_buffer(f, 0) < 0 {
+                panic!("ERROR could not allocate frame data");
+            }
+        }
+
+        // Fill the frame with zeros
+        let data_size = unsafe { (*f).linesize[0] as usize * height as usize };
+        unsafe {
+            std::ptr::write_bytes((*f).data[0], 0, data_size);
+        }
+
+        Ok(Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[Val],
+        kwargs: &BTreeMap<String, Val>,
+    ) -> Result<FrameType, Error> {
+        let width = match kwargs.get("width") {
+            Some(Val::Int(i)) => *i,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        let height = match kwargs.get("height") {
+            Some(Val::Int(i)) => *i,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        let pix_fmt = match kwargs.get("pix_fmt") {
+            Some(Val::String(s)) => s,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        let pix_fmt_ffmpeg = match crate::util::pixel_fmt_str_to_av_pix_fmt(pix_fmt.as_str()) {
+            Ok(pix_fmt) => pix_fmt,
+            Err(e) => {
+                return Err(Error::InvalidFilterArgValue(
+                    "pix_fmt".to_string(),
+                    pix_fmt.clone(),
+                ))
+            }
+        };
+
+        if !args.is_empty() {
+            return Err(Error::InvalidFilterArgValue(
+                format!("{:?}", args.len()),
+                "Invalid number of arguments".to_string(),
             ));
         }
 

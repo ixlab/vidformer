@@ -110,10 +110,7 @@ impl Context {
         for source in source_files {
             sources.insert(SourceRef::new(&source.name), source);
         }
-        Context {
-            sources,
-            filters,
-        }
+        Context { sources, filters }
     }
 
     pub fn spec_ctx(&self) -> impl crate::spec::SpecContext {

@@ -758,17 +758,16 @@ pub(crate) async fn push_part_block(
             }
         };
 
-        let frame_block: crate::feb::FrameBlock =
-            match serde_json::from_slice(&body_uncompresed) {
-                Err(err) => {
-                    return Ok(hyper::Response::builder()
-                        .status(hyper::StatusCode::BAD_REQUEST)
-                        .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                            format!("Error parsing block: {}", err),
-                        )))?);
-                }
-                Ok(frame_block) => frame_block,
-            };
+        let frame_block: crate::feb::FrameBlock = match serde_json::from_slice(&body_uncompresed) {
+            Err(err) => {
+                return Ok(hyper::Response::builder()
+                    .status(hyper::StatusCode::BAD_REQUEST)
+                    .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                        format!("Error parsing block: {}", err),
+                    )))?);
+            }
+            Ok(frame_block) => frame_block,
+        };
 
         let block_frames = match frame_block.frames() {
             Ok(block_frames) => block_frames,

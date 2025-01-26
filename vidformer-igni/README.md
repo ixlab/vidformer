@@ -11,7 +11,7 @@ The vidformer server for the cloud.
 docker-compose -f docker-compose-db.yaml up
 export 'IGNI_DB=postgres://igni:igni@localhost:5432/igni'
 cargo run -- user add --name test --api-key test --permissions test
-cargo run -- server --config igni.toml
+cargo run --release -- server --config igni.toml
 ```
 
 ## Deployment
