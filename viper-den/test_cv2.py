@@ -74,6 +74,17 @@ def test_write_video():
     out.release()
 
 
+def test_imread():
+    server = vf.IgniServer(ENDPOINT, API_KEY)
+    cv2.set_server(server)
+
+    img = cv2.imread("https://f.dominik.win/data/dve2/apollo.jpg")
+    assert type(img) is cv2.Frame
+    assert img._fmt["width"] == 3912
+    assert img._fmt["height"] == 3936
+    assert img._fmt["pix_fmt"] == "yuvj444p"
+
+
 def test_write_video_with_text():
     server = vf.IgniServer(ENDPOINT, API_KEY)
     cv2.set_server(server)

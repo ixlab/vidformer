@@ -483,17 +483,32 @@ def frameify(obj, field_name=None):
 def imread(path, *args):
     if len(args) > 0:
         raise NotImplementedError("imread does not support additional arguments")
-
     assert path.lower().endswith((".jpg", ".jpeg", ".png"))
     server = _server()
-    source = vf.YrdenSource(server, str(uuid.uuid4()), path, 0)
-    frame = Frame(source.iloc[0], source.fmt())
-    return frame
+
+    if type(server) is vf.YrdenServer:
+        source = vf.YrdenSource(server, str(uuid.uuid4()), path, 0)
+        frame = Frame(source.iloc[0], source.fmt())
+        return frame
+    else:
+        cap = VideoCapture(path)
+        assert cap.isOpened()
+        assert len(cap._source) == 1
+        ret, frame = cap.read()
+        assert ret
+        cap.release()
+        return frame
 
 
 def imwrite(path, img, *args):
     if len(args) > 0:
         raise NotImplementedError("imwrite does not support additional arguments")
+
+    server = _server()
+    if type(server) is vf.IgniServer:
+        raise NotImplementedError(
+            "imwrite is only supported with YrdenServer, not IgniServer"
+        )
 
     img = frameify(img)
 
@@ -523,7 +538,7 @@ def imwrite(path, img, *args):
                 fmt["pix_fmt"] = "yuvj420p"
 
         spec = vf.YrdenSpec(domain, lambda t, i: f, fmt)
-        spec.save(_server(), path, encoder="mjpeg")
+        spec.save(server, path, encoder="mjpeg")
     else:
         raise Exception("Unsupported image format")
 

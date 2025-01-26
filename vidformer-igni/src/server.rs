@@ -147,10 +147,17 @@ impl UserPermissions {
 
     pub fn default_test() -> UserPermissions {
         let mut out = UserPermissions::default_regular();
+
+        // Allow local fs storage for testing
         out.valsets
             .get_mut("source:storage_service")
             .unwrap()
             .insert("fs".to_string());
+
+        // Increase source:max_height to 4000x4000 so apollo.jpg can be used in tests
+        out.limits_int.insert("source:max_height".to_string(), 4000);
+        out.limits_int.insert("source:max_width".to_string(), 4000);
+
         out
     }
 
