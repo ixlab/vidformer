@@ -454,7 +454,9 @@ class IgniServer:
         self._endpoint = endpoint
 
         self._api_key = api_key
-        response = requests.get(
+        self._session = requests.Session()
+        self._session.headers.update({"Authorization": f"Bearer {self._api_key}"})
+        response = self._session.get(
             f"{self._endpoint}/auth",
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
@@ -465,7 +467,7 @@ class IgniServer:
 
     def get_source(self, id: str) -> IgniSource:
         assert type(id) is str
-        response = requests.get(
+        response = self._session.get(
             f"{self._endpoint}/source/{id}",
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
@@ -475,7 +477,7 @@ class IgniServer:
         return IgniSource(response["id"], response)
 
     def list_sources(self) -> list[str]:
-        response = requests.get(
+        response = self._session.get(
             f"{self._endpoint}/source",
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
@@ -486,7 +488,7 @@ class IgniServer:
 
     def delete_source(self, id: str):
         assert type(id) is str
-        response = requests.delete(
+        response = self._session.delete(
             f"{self._endpoint}/source/{id}",
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
@@ -511,7 +513,7 @@ class IgniServer:
             "storage_service": storage_service,
             "storage_config": storage_config,
         }
-        response = requests.post(
+        response = self._session.post(
             f"{self._endpoint}/source/search",
             json=req,
             headers={"Authorization": f"Bearer {self._api_key}"},
@@ -537,7 +539,7 @@ class IgniServer:
             "storage_service": storage_service,
             "storage_config": storage_config,
         }
-        response = requests.post(
+        response = self._session.post(
             f"{self._endpoint}/source",
             json=req,
             headers={"Authorization": f"Bearer {self._api_key}"},
@@ -563,7 +565,7 @@ class IgniServer:
 
     def get_spec(self, id: str) -> IgniSpec:
         assert type(id) is str
-        response = requests.get(
+        response = self._session.get(
             f"{self._endpoint}/spec/{id}",
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
@@ -573,7 +575,7 @@ class IgniServer:
         return IgniSpec(response["id"], response)
 
     def list_specs(self) -> list[str]:
-        response = requests.get(
+        response = self._session.get(
             f"{self._endpoint}/spec",
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
@@ -612,7 +614,7 @@ class IgniServer:
             "ready_hook": ready_hook,
             "steer_hook": steer_hook,
         }
-        response = requests.post(
+        response = self._session.post(
             f"{self._endpoint}/spec",
             json=req,
             headers={"Authorization": f"Bearer {self._api_key}"},
@@ -625,7 +627,7 @@ class IgniServer:
 
     def delete_spec(self, id: str):
         assert type(id) is str
-        response = requests.delete(
+        response = self._session.delete(
             f"{self._endpoint}/spec/{id}",
             headers={"Authorization": f"Bearer {self._api_key}"},
         )
@@ -662,7 +664,7 @@ class IgniServer:
             "frames": req_frames,
             "terminal": terminal,
         }
-        response = requests.post(
+        response = self._session.post(
             f"{self._endpoint}/spec/{spec_id}/part",
             json=req,
             headers={"Authorization": f"Bearer {self._api_key}"},
@@ -705,7 +707,7 @@ class IgniServer:
             "terminal": terminal,
             "blocks": req_blocks,
         }
-        response = requests.post(
+        response = self._session.post(
             f"{self._endpoint}/spec/{spec_id}/part_block",
             json=req,
             headers={"Authorization": f"Bearer {self._api_key}"},
@@ -737,7 +739,7 @@ class IgniServer:
                 "body": feb_body,
             },
         }
-        response = requests.post(
+        response = self._session.post(
             f"{self._endpoint}/frame",
             json=req,
             headers={"Authorization": f"Bearer {self._api_key}"},
