@@ -43,7 +43,8 @@ def test_access_video_by_http_url():
     assert count == 17616
 
 
-def test_write_video():
+@pytest.mark.parametrize("ttl", [None, 10, 10**7])
+def test_write_video(ttl):
     server = vf.IgniServer(ENDPOINT, API_KEY)
     cv2.set_server(server)
 
@@ -56,7 +57,12 @@ def test_write_video():
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     out = cv2.VideoWriter(
-        None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height), batch_size=50
+        None,
+        cv2.VideoWriter_fourcc(*"mp4v"),
+        fps,
+        (width, height),
+        batch_size=50,
+        ttl=ttl,
     )
     video_url = cv2.vidplay(out, method="link")
     assert type(video_url) is str

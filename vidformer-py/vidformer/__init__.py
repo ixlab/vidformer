@@ -593,6 +593,7 @@ class IgniServer:
         frame_rate,
         ready_hook=None,
         steer_hook=None,
+        ttl=None,
     ) -> IgniSpec:
         assert type(width) is int
         assert type(height) is int
@@ -601,6 +602,7 @@ class IgniServer:
         assert type(frame_rate) is Fraction
         assert type(ready_hook) is str or ready_hook is None
         assert type(steer_hook) is str or steer_hook is None
+        assert ttl is None or type(ttl) is int
 
         req = {
             "width": width,
@@ -613,6 +615,7 @@ class IgniServer:
             "frame_rate": [frame_rate.numerator, frame_rate.denominator],
             "ready_hook": ready_hook,
             "steer_hook": steer_hook,
+            "ttl": ttl,
         }
         response = self._session.post(
             f"{self._endpoint}/spec",

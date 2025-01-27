@@ -80,6 +80,9 @@ def test_get_source():
     assert source["height"] == 720
     assert source["pix_fmt"] == "yuv420p"
     assert len(source["ts"]) == 17616
+    assert re.match(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}\+\d{2}:\d{2}", source["created_at"]
+    )
     for ts in source["ts"]:
         assert len(ts) == 3
         assert isinstance(ts[0], int)
@@ -175,6 +178,12 @@ def test_get_spec():
     assert spec["terminated"] is False
     assert spec["closed"] is False
     assert spec["vod_endpoint"] == ENDPOINT + "vod/" + spec_id + "/"
+    assert re.match(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}\+\d{2}:\d{2}", spec["created_at"]
+    )
+    assert re.match(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}\+\d{2}:\d{2}", spec["expires_at"]
+    )
 
 
 def test_error_get_spec_not_exists():

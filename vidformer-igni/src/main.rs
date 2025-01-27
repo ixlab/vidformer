@@ -508,6 +508,7 @@ async fn cmd_spec_add(pool: sqlx::Pool<sqlx::Postgres>, opt: SpecAddOpt) -> Resu
         pix_fmt,
         ready_hook,
         steer_hook,
+        None,
     )
     .await?;
 

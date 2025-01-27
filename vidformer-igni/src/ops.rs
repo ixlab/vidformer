@@ -106,10 +106,11 @@ pub(crate) async fn add_spec(
     pix_fmt: String,
     ready_hook: Option<String>,
     steer_hook: Option<String>,
+    ttl: Option<i64>,
 ) -> Result<uuid::Uuid, IgniError> {
     let spec_id = uuid::Uuid::new_v4();
 
-    sqlx::query("INSERT INTO spec (id, user_id, width, height, pix_fmt, vod_segment_length_num, vod_segment_length_denom, frame_rate_num, frame_rate_denom, pos_discontinuity, closed, ready_hook, steer_hook) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)")
+    sqlx::query("INSERT INTO spec (id, user_id, width, height, pix_fmt, vod_segment_length_num, vod_segment_length_denom, frame_rate_num, frame_rate_denom, pos_discontinuity, closed, ready_hook, steer_hook, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)")
         .bind(spec_id)
         .bind(user_id)
         .bind(width)
@@ -123,6 +124,7 @@ pub(crate) async fn add_spec(
         .bind(false)
         .bind(ready_hook)
         .bind(steer_hook)
+        .bind(ttl.map(|ttl| chrono::Utc::now() + chrono::Duration::seconds(ttl)))
         .execute(pool)
         .await?;
 

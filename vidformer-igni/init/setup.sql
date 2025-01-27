@@ -22,7 +22,8 @@ CREATE TABLE source (
     pix_fmt TEXT NOT NULL,
     width INT NOT NULL,
     height INT NOT NULL,
-    file_size BIGINT NOT NULL
+    file_size BIGINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- source_t table
@@ -49,7 +50,9 @@ CREATE TABLE spec (
     pos_terminal INT,
     closed BOOLEAN NOT NULL,
     ready_hook TEXT,
-    steer_hook TEXT
+    steer_hook TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ
 );
 
 -- spec_t table

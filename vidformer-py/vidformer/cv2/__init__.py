@@ -353,6 +353,7 @@ class _IgniVideoWriter:
         size,
         batch_size=1024,
         compression="gzip",
+        ttl=3600,
         vod_segment_length=Fraction(2, 1),
     ):
         server = _server()
@@ -371,8 +372,9 @@ class _IgniVideoWriter:
         assert isinstance(size, tuple) or isinstance(size, list)
         assert len(size) == 2
         width, height = size
+        assert ttl is None or isinstance(ttl, int)
         self._spec = server.create_spec(
-            width, height, "yuv420p", vod_segment_length, 1 / self._f_time
+            width, height, "yuv420p", vod_segment_length, 1 / self._f_time, ttl=ttl
         )
         self._batch_size = batch_size
         assert compression is None or compression in ["gzip"]

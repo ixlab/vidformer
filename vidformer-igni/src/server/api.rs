@@ -110,6 +110,7 @@ pub(crate) async fn get_source(
             "width": source.width,
             "height": source.height,
             "ts": ts,
+            "created_at": source.created_at.to_rfc3339(),
         }
     );
 
@@ -433,6 +434,8 @@ pub(crate) async fn get_spec(
         "frames_applied": row.pos_discontinuity,
         "closed": row.closed,
         "vod_endpoint": format!("{}{}/", global.config.vod_prefix, source_id), // TODO: This should be configurable
+        "created_at": row.created_at.to_rfc3339(),
+        "expires_at": row.expires_at.map(|expires_at| expires_at.to_rfc3339()),
     });
 
     Ok(hyper::Response::builder()
@@ -521,9 +524,10 @@ pub(crate) async fn push_spec(
         frame_rate: [i32; 2],
         ready_hook: Option<String>,
         steer_hook: Option<String>,
+        ttl: Option<i64>,
     }
 
-    let req: RequestContent = match serde_json::from_slice(&req) {
+    let mut req: RequestContent = match serde_json::from_slice(&req) {
         Err(err) => {
             error!("Error parsing request body");
             return Ok(hyper::Response::builder()
@@ -579,6 +583,13 @@ pub(crate) async fn push_spec(
     {
         return Ok(err);
     }
+    if let Some(max_ttl) = user.permissions.limits_int.get("spec:max_ttl") {
+        if let Some(ttl) = &mut req.ttl {
+            req.ttl = Some((*ttl).min(*max_ttl));
+        } else {
+            req.ttl = Some(*max_ttl);
+        }
+    }
 
     let spec = crate::ops::add_spec(
         &global.pool,
@@ -590,6 +601,7 @@ pub(crate) async fn push_spec(
         req.pix_fmt,
         req.ready_hook,
         req.steer_hook,
+        req.ttl,
     )
     .await;
 

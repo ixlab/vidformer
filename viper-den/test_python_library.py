@@ -77,10 +77,13 @@ def test_delete_source():
     assert tos.id() not in sources
 
 
-def test_create_spec():
+@pytest.mark.parametrize("ttl", [None, 10, 10**7])
+def test_create_spec(ttl):
     server = vf.IgniServer(ENDPOINT, API_KEY)
     segment_legnth = Fraction(2, 1)
-    spec_id = server.create_spec(1920, 1080, "yuv420p", segment_legnth, Fraction(30, 1))
+    spec_id = server.create_spec(
+        1920, 1080, "yuv420p", segment_legnth, Fraction(30, 1), ttl=ttl
+    )
     assert isinstance(spec_id, vf.IgniSpec)
 
 

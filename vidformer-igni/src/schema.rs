@@ -22,6 +22,8 @@ pub struct SpecRow {
     pub closed: bool,
     pub ready_hook: Option<String>,
     pub steer_hook: Option<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -37,4 +39,5 @@ pub struct SourceRow {
     pub width: i32,
     pub height: i32,
     pub file_size: i64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
 }

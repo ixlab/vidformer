@@ -7,6 +7,7 @@ use num_rational::Rational64;
 use regex::Regex;
 
 mod api;
+mod gc;
 mod vod;
 
 struct IgniServerGlobal {
@@ -37,9 +38,10 @@ impl UserPermissions {
 impl UserPermissions {
     pub fn default_regular() -> UserPermissions {
         let limits_int = [
-            ("spec:max_width", 4096),    // DCI 4K
-            ("spec:max_height", 2160),   // DCI 4K
-            ("spec:max_frames", 432000), // 4 hours @ 30 fps / 5 hours @ 24 fps
+            ("spec:max_width", 4096),       // DCI 4K
+            ("spec:max_height", 2160),      // DCI 4K
+            ("spec:max_frames", 432000),    // 4 hours @ 30 fps / 5 hours @ 24 fps
+            ("spec:max_ttl", 24 * 60 * 60), // 24 hours
             ("source:max_width", 4096),
             ("source:max_height", 2160),
         ]
@@ -102,7 +104,8 @@ impl UserPermissions {
         let limits_int = [
             ("spec:max_width", 1280),
             ("spec:max_height", 720),
-            ("spec:max_frames", 162000), // 90 minutes @ 30 fps
+            ("spec:max_frames", 162000),   // 90 minutes @ 30 fps
+            ("spec:max_ttl", 1 * 60 * 60), // 1 hours
         ]
         .iter()
         .map(|(key, value)| (key.to_string(), *value))
@@ -334,6 +337,7 @@ fn load_config(path: &String) -> Result<ServerConfig, IgniError> {
 #[derive(serde::Deserialize, Debug)]
 struct ServerConfig {
     vod_prefix: String,
+    gc_period: i64,
 }
 
 pub(crate) async fn cmd_server(
@@ -349,6 +353,15 @@ pub(crate) async fn cmd_server(
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
         .map_err(|e| IgniError::General(format!("Failed to bind to {}: {}", addr, e)))?;
+
+    if global.config.gc_period > 0 {
+        let global_gc = global.clone();
+        tokio::task::spawn(async move {
+            if let Err(err) = gc::gc_main(global_gc).await {
+                error!("Garbage collector failed: {:?}", err);
+            }
+        });
+    }
 
     println!("Opened igni server on {}", addr);
 

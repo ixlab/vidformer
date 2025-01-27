@@ -63,7 +63,7 @@ You can find details on this in our [Getting Started Guide](https://ixlab.github
 
 ## 🔍 About the project
 
-Vidformer is a highly modular suite of tools that work together; these are detailed [here](https://ixlab.github.io/vidformer/tools.html).
+Vidformer is a highly modular suite of tools that work together; these are detailed [here](https://ixlab.github.io/vidformer/modules.html).
 
 ❌ vidformer is ***NOT***:
 * A conventional video editor (like Premiere Pro or Final Cut)

@@ -1,1 +1,2 @@
 vod_prefix = "http://localhost:8080/vod/"
+gc_period = 300
