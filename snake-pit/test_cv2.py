@@ -68,7 +68,7 @@ def rw(cv2):
     assert height == 720
 
     out = cv2.VideoWriter(
-        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (height, width)
     )
 
     count = 0
@@ -104,7 +104,7 @@ def videowriter_numpy(cv2):
     width, height = 300, 200
 
     out = cv2.VideoWriter(
-        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), 30, (width, height)
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), 30, (height, width)
     )
 
     for i in range(3):
@@ -168,7 +168,7 @@ def test_vidplay():
     assert width == 1280
     assert height == 720
 
-    out = cv2.VideoWriter(None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+    out = cv2.VideoWriter(None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (height, width))
 
     count = 0
     while True:
@@ -249,7 +249,7 @@ def rectangle(cv2):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     out = cv2.VideoWriter(
-        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (height, width)
     )
 
     count = 0
@@ -302,7 +302,7 @@ def putText(cv2):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     out = cv2.VideoWriter(
-        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (height, width)
     )
 
     count = 0
@@ -371,7 +371,7 @@ def arrowedLine(cv2):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     out = cv2.VideoWriter(
-        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (height, width)
     )
 
     count = 0
@@ -436,7 +436,7 @@ def line(cv2):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     out = cv2.VideoWriter(
-        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (height, width)
     )
 
     count = 0
@@ -501,7 +501,7 @@ def circle(cv2):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     out = cv2.VideoWriter(
-        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (height, width)
     )
 
     count = 0
@@ -545,7 +545,7 @@ def ellipse(cv2):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     out = cv2.VideoWriter(
-        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (height, width)
     )
 
     count = 0
@@ -615,7 +615,7 @@ def seek(cv2):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     out = cv2.VideoWriter(
-        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (height, width)
     )
 
     count = 0
@@ -722,7 +722,7 @@ def addWeighted(cv2):
     cap2.set(cv2.CAP_PROP_POS_MSEC, 1000)
 
     out = cv2.VideoWriter(
-        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+        TMP_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (height, width)
     )
 
     count = 0
@@ -895,7 +895,7 @@ def test_frameify():
     # write a video with all white frames
     width, height = 300, 200
     out = vf_cv2.VideoWriter(
-        TMP_PATH, vf_cv2.VideoWriter_fourcc(*"mp4v"), 30, (width, height)
+        TMP_PATH, vf_cv2.VideoWriter_fourcc(*"mp4v"), 30, (height, width)
     )
 
     for i in range(3):

@@ -371,7 +371,7 @@ class _IgniVideoWriter:
 
         assert isinstance(size, tuple) or isinstance(size, list)
         assert len(size) == 2
-        width, height = size
+        height, width = size
         assert ttl is None or isinstance(ttl, int)
         self._spec = server.create_spec(
             width, height, "yuv420p", vod_segment_length, 1 / self._f_time, ttl=ttl
@@ -460,8 +460,8 @@ class _YrdenVideoWriter:
 
     def spec(self) -> vf.YrdenSpec:
         fmt = {
-            "width": self._size[0],
-            "height": self._size[1],
+            "width": self._size[1],
+            "height": self._size[0],
             "pix_fmt": self._pix_fmt,
         }
         domain = _fps_to_ts(self._fps, len(self._frames))

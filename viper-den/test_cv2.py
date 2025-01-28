@@ -60,7 +60,7 @@ def test_write_video(ttl):
         None,
         cv2.VideoWriter_fourcc(*"mp4v"),
         fps,
-        (width, height),
+        (height, width),
         batch_size=50,
         ttl=ttl,
     )
@@ -107,7 +107,7 @@ def test_write_video_with_text():
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     out = cv2.VideoWriter(
-        None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height), batch_size=101
+        None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (height, width), batch_size=101
     )
 
     count = 0
@@ -145,7 +145,7 @@ def test_deeply_nested_filters():
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     out = cv2.VideoWriter(
-        None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height), batch_size=101
+        None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (height, width), batch_size=101
     )
 
     count = 0
@@ -222,7 +222,7 @@ def test_block_compression(compression):
         None,
         cv2.VideoWriter_fourcc(*"mp4v"),
         fps,
-        (width, height),
+        (height, width),
         batch_size=50,
         compression=compression,
     )
