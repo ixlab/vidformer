@@ -9,7 +9,7 @@ use std::{ptr, slice};
 struct IoCtx {
     canary: u64, // We're doing some unsafe opaque pointer passing, so let's add a canary to make sure we didn't mess up. Valid value is 0xdeadbeef
     size: u64,
-    buf_reader: std::io::BufReader<opendal::StdReader>,
+    reader: Box<dyn crate::io::ReadSeek>,
     err: Option<std::io::Error>,
 }
 
@@ -22,11 +22,11 @@ unsafe extern "C" fn vidformer_avio_read_packet(
     debug_assert_eq!(io_ctx.canary, 0xdeadbeef);
 
     let buf: &mut [u8] = unsafe { slice::from_raw_parts_mut(buf, buf_size as usize) };
-    let read = io_ctx.buf_reader.read(buf);
+    let read = io_ctx.reader.read(buf);
     match read {
         Ok(read) => {
             if read == 0 {
-                debug_assert!(io_ctx.buf_reader.stream_position().unwrap() == io_ctx.size);
+                debug_assert!(io_ctx.reader.stream_position().unwrap() == io_ctx.size);
                 ffi::AVERROR_EOF
             } else {
                 read as i32
@@ -62,7 +62,7 @@ unsafe extern "C" fn vidformer_avio_seek(
         _ => panic!("invalid seek whence ({})", whence,),
     };
 
-    let seeked = io_ctx.buf_reader.seek(whence);
+    let seeked = io_ctx.reader.seek(whence);
     match seeked {
         Ok(seeked) => seeked as i64,
         Err(e) => {
@@ -94,6 +94,7 @@ impl Demuxer {
         service: &crate::service::Service,
         file_size: u64,
         io_runtime_handle: &tokio::runtime::Handle,
+        io_wrapper: &Option<Box<dyn crate::io::IoWrapper>>,
     ) -> Result<Self, crate::Error> {
         let mut format_context = unsafe { ffi::avformat_alloc_context() };
         if format_context.is_null() {
@@ -123,13 +124,16 @@ impl Demuxer {
                 )));
             }
         };
-        // let buffered_reader = std::io::BufReader::new(reader);
-        let buffered_reader = std::io::BufReader::with_capacity(128 * 1024, reader);
+
+        let reader = match io_wrapper {
+            Some(io_wrapper) => io_wrapper.wrap(Box::new(reader)),
+            None => Box::new(std::io::BufReader::with_capacity(128 * 1024, reader)),
+        };
 
         let io_ctx = IoCtx {
             canary: 0xdeadbeef,
             size: file_size,
-            buf_reader: buffered_reader,
+            reader: Box::new(reader),
             err: None,
         };
         let io_ctx = Box::pin(io_ctx);
@@ -328,6 +332,7 @@ mod test {
             "../tos_720p.mp4",
             0,
             &service,
+            &None,
         )
         .unwrap();
 
@@ -343,6 +348,7 @@ mod test {
             &service,
             profile.file_size,
             io_runtime.handle(),
+            &None,
         )
         .unwrap();
 

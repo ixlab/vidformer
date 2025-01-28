@@ -39,13 +39,14 @@ impl DveBench {
                     &path,
                     stream,
                     &vidformer::service::Service::default(),
+                    &None,
                 )
                 .unwrap()
             })
             .collect::<Vec<_>>();
 
         let filters = default_filters();
-        let context = vidformer::Context::new(sources, filters);
+        let context = vidformer::Context::new(sources, filters, None);
 
         (Arc::new(spec), Arc::new(context), Arc::new(self.config))
     }

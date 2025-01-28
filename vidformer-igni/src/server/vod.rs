@@ -393,7 +393,7 @@ pub(crate) async fn get_segment(
     transaction.commit().await?;
 
     let filters = filters();
-    let context = vidformer::Context::new(sources, filters);
+    let context = vidformer::Context::new(sources, filters, None); // TODO: Add cache
     let context = std::sync::Arc::new(context);
 
     let dve_config: vidformer::Config = vidformer::Config {

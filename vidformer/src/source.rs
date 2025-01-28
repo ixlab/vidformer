@@ -4,6 +4,7 @@ use rusty_ffmpeg::ffi;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::ffi::CStr;
+use std::io;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SourceFileMeta {
@@ -35,6 +36,7 @@ impl SourceVideoStreamMeta {
         vid_path: &str,
         stream: usize,
         service: &crate::service::Service,
+        io_wrapper: &Option<Box<dyn crate::io::IoWrapper>>,
     ) -> Result<Self, crate::dve::Error> {
         let io_runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(1)
@@ -72,6 +74,7 @@ impl SourceVideoStreamMeta {
             service,
             file_size,
             io_runtime.handle(),
+            io_wrapper,
         )?;
 
         let codec_name = unsafe {
@@ -201,6 +204,7 @@ impl SourceVideoStreamMeta {
         vid_path: &str,
         stream: usize,
         service: &crate::service::Service,
+        io_wrapper: &Option<Box<dyn crate::io::IoWrapper>>,
     ) {
         let io_runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(1)
@@ -210,7 +214,8 @@ impl SourceVideoStreamMeta {
 
         // First profile
         let source_profile =
-            SourceVideoStreamMeta::profile(source_name, vid_path, stream, service).unwrap();
+            SourceVideoStreamMeta::profile(source_name, vid_path, stream, service, io_wrapper)
+                .unwrap();
 
         // Do a full decode
         {
@@ -222,6 +227,7 @@ impl SourceVideoStreamMeta {
                 service,
                 source_profile.file_size,
                 io_runtime.handle(),
+                io_wrapper,
             )
             .unwrap();
             while framesource.next_frame().unwrap().is_some() {
@@ -241,6 +247,7 @@ impl SourceVideoStreamMeta {
                     service,
                     source_profile.file_size,
                     io_runtime.handle(),
+                    io_wrapper,
                 )
                 .unwrap();
 

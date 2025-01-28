@@ -401,7 +401,7 @@ async fn yrden_http_req(
                 }
             }
 
-            let context: vidformer::Context = vidformer::Context::new(sources, filters);
+            let context: vidformer::Context = vidformer::Context::new(sources, filters, None);
             let context = std::sync::Arc::new(context);
 
             let dve_config: vidformer::Config = vidformer::Config {
@@ -595,7 +595,7 @@ async fn yrden_http_req(
             };
             let format: Option<String> = request.format;
 
-            let context: vidformer::Context = vidformer::Context::new(sources, filters);
+            let context: vidformer::Context = vidformer::Context::new(sources, filters, None);
             let context = std::sync::Arc::new(context);
 
             let dve_config: vidformer::Config = vidformer::Config {

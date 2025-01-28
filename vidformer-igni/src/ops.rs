@@ -88,6 +88,7 @@ pub(crate) async fn profile_source(
                 &source_name,
                 stream_idx,
                 &service,
+                &None, // TODO: Add cache
             )
         })
         .await

@@ -4,6 +4,7 @@ use crate::filter::Frame;
 use crate::pool::Pool;
 use crate::sir;
 
+use crate::io::IoWrapper;
 use crate::spec::Spec;
 use crate::util;
 use log::*;
@@ -74,6 +75,7 @@ impl std::fmt::Display for SourceRef {
 pub struct Context {
     pub(crate) sources: BTreeMap<SourceRef, crate::source::SourceVideoStreamMeta>,
     pub(crate) filters: BTreeMap<String, Box<dyn crate::filter::Filter>>,
+    pub(crate) io_wrapper: Option<Box<dyn IoWrapper>>,
 }
 
 #[derive(Debug)]
@@ -105,12 +107,17 @@ impl Context {
     pub fn new(
         source_files: Vec<crate::source::SourceVideoStreamMeta>,
         filters: BTreeMap<String, Box<dyn crate::filter::Filter>>,
+        io_wrapper: Option<Box<dyn IoWrapper>>,
     ) -> Context {
         let mut sources = BTreeMap::new();
         for source in source_files {
             sources.insert(SourceRef::new(&source.name), source);
         }
-        Context { sources, filters }
+        Context {
+            sources,
+            filters,
+            io_wrapper,
+        }
     }
 
     pub fn spec_ctx(&self) -> impl crate::spec::SpecContext {
@@ -219,6 +226,7 @@ pub(crate) fn run_decoder(
         stream_service,
         stream_meta.file_size,
         io_runtime_handle,
+        &context.io_wrapper,
     )?;
 
     while framesource.next_frame()?.is_some() {

@@ -1440,7 +1440,7 @@ pub(crate) async fn get_frame(
     let spec = std::sync::Arc::new(std::boxed::Box::new(spec) as Box<dyn vidformer::spec::Spec>);
 
     let filters = crate::server::vod::filters();
-    let context = vidformer::Context::new(sources, filters);
+    let context = vidformer::Context::new(sources, filters, None); // TODO: Add cache
     let context: std::sync::Arc<vidformer::Context> = std::sync::Arc::new(context);
 
     let dve_config: vidformer::Config = vidformer::Config {

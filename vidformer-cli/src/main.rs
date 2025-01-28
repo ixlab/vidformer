@@ -14,7 +14,7 @@ pub fn simple_source(
     assert_eq!(split.len(), 3);
     let (name, path, stream) = (split[0], split[1], split[2].parse::<usize>().unwrap());
     let fs_service = vidformer::service::Service::default();
-    source::SourceVideoStreamMeta::profile(name, path, stream, &fs_service)
+    source::SourceVideoStreamMeta::profile(name, path, stream, &fs_service, &None)
 }
 
 pub fn opendal_source(
@@ -24,10 +24,10 @@ pub fn opendal_source(
     service: Option<&vidformer::service::Service>,
 ) -> Result<vidformer::source::SourceVideoStreamMeta, vidformer::Error> {
     if let Some(service) = service {
-        source::SourceVideoStreamMeta::profile(name, path, stream, service)
+        source::SourceVideoStreamMeta::profile(name, path, stream, service, &None)
     } else {
         let fs_service = vidformer::service::Service::default();
-        source::SourceVideoStreamMeta::profile(name, path, stream, &fs_service)
+        source::SourceVideoStreamMeta::profile(name, path, stream, &fs_service, &None)
     }
 }
 
@@ -107,9 +107,14 @@ enum ArgCmd {
 
 fn cmd_profile(opt: &ProfileCmd) {
     let fs_service = vidformer::service::Service::default();
-    let stream_meta =
-        source::SourceVideoStreamMeta::profile(&opt.name, &opt.vid_path, opt.stream, &fs_service)
-            .unwrap();
+    let stream_meta = source::SourceVideoStreamMeta::profile(
+        &opt.name,
+        &opt.vid_path,
+        opt.stream,
+        &fs_service,
+        &None,
+    )
+    .unwrap();
     let profile_data = source::create_profile_file(&[stream_meta]);
 
     if let Some(out_path) = &opt.out_path {
@@ -124,7 +129,13 @@ fn cmd_profile(opt: &ProfileCmd) {
 
 fn cmd_validate(opt: &ValidateCmd) {
     let fs_service = vidformer::service::Service::default();
-    source::SourceVideoStreamMeta::validate(&opt.name, &opt.vid_path, opt.stream, &fs_service);
+    source::SourceVideoStreamMeta::validate(
+        &opt.name,
+        &opt.vid_path,
+        opt.stream,
+        &fs_service,
+        &None,
+    );
 }
 
 fn cmd_x() {
@@ -152,9 +163,10 @@ fn cmd_x() {
     let filters: BTreeMap<String, Box<dyn filter::Filter>> = BTreeMap::new();
     let sources =
         vec![
-            source::SourceVideoStreamMeta::profile("tos", "tos_720p.mp4", 0, &fs_service).unwrap(),
+            source::SourceVideoStreamMeta::profile("tos", "tos_720p.mp4", 0, &fs_service, &None)
+                .unwrap(),
         ];
-    let context: vidformer::Context = vidformer::Context::new(sources, filters);
+    let context: vidformer::Context = vidformer::Context::new(sources, filters, None);
 
     let dve_config = vidformer::Config {
         decode_pool_size: 10000,

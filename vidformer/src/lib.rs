@@ -7,6 +7,7 @@
 //! * [🧑‍💻 Source Code](https://github.com/ixlab/vidformer/tree/main/vidformer/)
 
 pub mod filter;
+pub mod io;
 pub mod service;
 pub mod sir;
 pub mod source;

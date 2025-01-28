@@ -91,7 +91,7 @@ fn test_placeholder() {
     );
 
     let sources = vec![];
-    let context: vidformer::Context = vidformer::Context::new(sources, filters);
+    let context: vidformer::Context = vidformer::Context::new(sources, filters, None);
 
     let dve_config = vidformer::Config {
         decode_pool_size: 10,
@@ -145,7 +145,7 @@ fn test_bad_resolution() {
     );
 
     let sources = vec![];
-    let context: vidformer::Context = vidformer::Context::new(sources, filters);
+    let context: vidformer::Context = vidformer::Context::new(sources, filters, None);
 
     let dve_config = vidformer::Config {
         decode_pool_size: 10,
@@ -202,7 +202,7 @@ fn test_non_existant_source() {
     );
 
     let sources = vec![];
-    let context: vidformer::Context = vidformer::Context::new(sources, filters);
+    let context: vidformer::Context = vidformer::Context::new(sources, filters, None);
 
     let dve_config = vidformer::Config {
         decode_pool_size: 10,
@@ -273,7 +273,7 @@ fn test_no_source_file() {
         keys: vec![Rational64::new(0, 1)],
         file_path: "something_fake.mp4".to_string(),
     }];
-    let context: vidformer::Context = vidformer::Context::new(sources, filters);
+    let context: vidformer::Context = vidformer::Context::new(sources, filters, None);
 
     let dve_config = vidformer::Config {
         decode_pool_size: 10,
@@ -337,12 +337,15 @@ fn tos_context() -> std::sync::Arc<vidformer::Context> {
     let fs_service = vidformer::service::Service::default();
 
     let filters: BTreeMap<String, Box<dyn filter::Filter>> = BTreeMap::new();
-    let sources =
-        vec![
-            source::SourceVideoStreamMeta::profile("tos", "../tos_720p.mp4", 0, &fs_service)
-                .unwrap(),
-        ];
-    let context: vidformer::Context = vidformer::Context::new(sources, filters);
+    let sources = vec![source::SourceVideoStreamMeta::profile(
+        "tos",
+        "../tos_720p.mp4",
+        0,
+        &fs_service,
+        &None,
+    )
+    .unwrap()];
+    let context: vidformer::Context = vidformer::Context::new(sources, filters, None);
     std::sync::Arc::new(context)
 }
 
@@ -489,4 +492,96 @@ fn test_tos_transcode_1dec_1pool() {
     assert!(stats.frames_decoded >= 2 * 24_usize);
 
     assert!(std::path::Path::new(output_path).exists());
+}
+
+#[test]
+fn test_tos_io_wrapper() {
+    struct MyMetricReader {
+        read_counter: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+        seek_counter: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+        inner: Box<dyn vidformer::io::ReadSeek>,
+    }
+
+    impl std::io::Read for MyMetricReader {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            self.read_counter
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            self.inner.read(buf)
+        }
+    }
+
+    impl std::io::Seek for MyMetricReader {
+        fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+            self.seek_counter
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            self.inner.seek(pos)
+        }
+    }
+
+    struct MyIoWrapper {
+        read_counter: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+        seek_counter: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    }
+    impl vidformer::io::IoWrapper for MyIoWrapper {
+        fn wrap(&self, r: Box<dyn vidformer::io::ReadSeek>) -> Box<dyn vidformer::io::ReadSeek> {
+            Box::new(std::io::BufReader::with_capacity(
+                128 * 1024,
+                MyMetricReader {
+                    read_counter: self.read_counter.clone(),
+                    seek_counter: self.seek_counter.clone(),
+                    inner: r,
+                },
+            ))
+        }
+    }
+
+    let read_counter = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let seek_counter = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+
+    let context = {
+        let fs_service = vidformer::service::Service::default();
+
+        let filters: BTreeMap<String, Box<dyn filter::Filter>> = BTreeMap::new();
+        let sources = vec![source::SourceVideoStreamMeta::profile(
+            "tos",
+            "../tos_720p.mp4",
+            0,
+            &fs_service,
+            &None,
+        )
+        .unwrap()];
+        let context: vidformer::Context = vidformer::Context::new(
+            sources,
+            filters,
+            Some(Box::new(MyIoWrapper {
+                read_counter: read_counter.clone(),
+                seek_counter: seek_counter.clone(),
+            })),
+        );
+        std::sync::Arc::new(context)
+    };
+
+    let dve_config = std::sync::Arc::new(vidformer::Config {
+        decode_pool_size: 10,
+        decoder_view: usize::MAX,
+        decoders: 2,
+        filterers: 4,
+
+        output_width: 1280,
+        output_height: 720,
+        output_pix_fmt: "yuv420p".to_string(),
+
+        encoder: None,
+        format: None,
+    });
+    let spec: std::sync::Arc<Box<dyn spec::Spec>> = std::sync::Arc::new(Box::new(ClipSpec {
+        num_frames: NUM_FRAMES,
+    }));
+    let output_path = test_output_path!(test_tos_transcode_2dec);
+    let _stats = run(&spec, output_path, &context, &dve_config, &None).unwrap();
+
+    assert!(std::path::Path::new(output_path).exists());
+
+    assert!(read_counter.load(std::sync::atomic::Ordering::SeqCst) > 0);
+    assert!(seek_counter.load(std::sync::atomic::Ordering::SeqCst) > 0);
 }
