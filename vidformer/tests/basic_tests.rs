@@ -272,6 +272,7 @@ fn test_no_source_file() {
         ts: vec![Rational64::new(0, 1)],
         keys: vec![Rational64::new(0, 1)],
         file_path: "something_fake.mp4".to_string(),
+        fuid: None,
     }];
     let context: vidformer::Context = vidformer::Context::new(sources, filters, None);
 
@@ -342,7 +343,7 @@ fn tos_context() -> std::sync::Arc<vidformer::Context> {
         "../tos_720p.mp4",
         0,
         &fs_service,
-        &None,
+        None,
     )
     .unwrap()];
     let context: vidformer::Context = vidformer::Context::new(sources, filters, None);
@@ -523,7 +524,12 @@ fn test_tos_io_wrapper() {
         seek_counter: std::sync::Arc<std::sync::atomic::AtomicUsize>,
     }
     impl vidformer::io::IoWrapper for MyIoWrapper {
-        fn wrap(&self, r: Box<dyn vidformer::io::ReadSeek>) -> Box<dyn vidformer::io::ReadSeek> {
+        fn wrap(
+            &self,
+            r: Box<dyn vidformer::io::ReadSeek>,
+            io_namespace: &str,
+        ) -> Box<dyn vidformer::io::ReadSeek> {
+            assert!(io_namespace == "test_tos_io_wrapper");
             Box::new(std::io::BufReader::with_capacity(
                 128 * 1024,
                 MyMetricReader {
@@ -541,25 +547,30 @@ fn test_tos_io_wrapper() {
     let context = {
         let fs_service = vidformer::service::Service::default();
 
+        let io_wrapper: Box<dyn vidformer::io::IoWrapper> = Box::new(MyIoWrapper {
+            read_counter: read_counter.clone(),
+            seek_counter: seek_counter.clone(),
+        });
+
         let filters: BTreeMap<String, Box<dyn filter::Filter>> = BTreeMap::new();
         let sources = vec![source::SourceVideoStreamMeta::profile(
             "tos",
             "../tos_720p.mp4",
             0,
             &fs_service,
-            &None,
+            Some((&io_wrapper, "test_tos_io_wrapper")),
         )
         .unwrap()];
-        let context: vidformer::Context = vidformer::Context::new(
-            sources,
-            filters,
-            Some(Box::new(MyIoWrapper {
-                read_counter: read_counter.clone(),
-                seek_counter: seek_counter.clone(),
-            })),
-        );
+        let context: vidformer::Context =
+            vidformer::Context::new(sources, filters, Some(io_wrapper));
         std::sync::Arc::new(context)
     };
+
+    // The profile should have been read and seeked at least once
+    assert!(read_counter.load(std::sync::atomic::Ordering::SeqCst) > 0);
+    assert!(seek_counter.load(std::sync::atomic::Ordering::SeqCst) > 0);
+    read_counter.store(0, std::sync::atomic::Ordering::SeqCst);
+    seek_counter.store(0, std::sync::atomic::Ordering::SeqCst);
 
     let dve_config = std::sync::Arc::new(vidformer::Config {
         decode_pool_size: 10,

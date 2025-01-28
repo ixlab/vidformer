@@ -11,5 +11,13 @@ services:
     volumes:
       # - postgres_data:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d
+  valkey:
+    image: valkey/valkey
+    container_name: igni_valkey
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./valkey.conf:/usr/local/etc/valkey/valkey.conf
+    command: valkey-server /usr/local/etc/valkey/valkey.conf
 # volumes:
 #   postgres_data:

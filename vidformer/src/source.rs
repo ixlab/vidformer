@@ -4,7 +4,6 @@ use rusty_ffmpeg::ffi;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::ffi::CStr;
-use std::io;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SourceFileMeta {
@@ -23,6 +22,7 @@ pub struct SourceVideoStreamMeta {
     pub pix_fmt: String,
     pub ts: Vec<Rational64>,
     pub keys: Vec<Rational64>,
+    pub fuid: Option<String>, // unique identifier for the file (for caching)
 }
 
 pub fn create_profile_file(streams: &[SourceVideoStreamMeta]) -> SourceFileMeta {
@@ -36,7 +36,7 @@ impl SourceVideoStreamMeta {
         vid_path: &str,
         stream: usize,
         service: &crate::service::Service,
-        io_wrapper: &Option<Box<dyn crate::io::IoWrapper>>,
+        io_cache: Option<(&Box<dyn crate::io::IoWrapper>, &str)>,
     ) -> Result<Self, crate::dve::Error> {
         let io_runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(1)
@@ -74,7 +74,7 @@ impl SourceVideoStreamMeta {
             service,
             file_size,
             io_runtime.handle(),
-            io_wrapper,
+            io_cache,
         )?;
 
         let codec_name = unsafe {
@@ -196,6 +196,7 @@ impl SourceVideoStreamMeta {
             ts: pts_array,
             keys: key_array,
             file_path: vid_path.to_string(),
+            fuid: io_cache.map(|(_, fuid)| fuid.to_string()),
         })
     }
 
@@ -204,7 +205,7 @@ impl SourceVideoStreamMeta {
         vid_path: &str,
         stream: usize,
         service: &crate::service::Service,
-        io_wrapper: &Option<Box<dyn crate::io::IoWrapper>>,
+        io_cache: Option<(&Box<dyn crate::io::IoWrapper>, &str)>,
     ) {
         let io_runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(1)
@@ -214,7 +215,7 @@ impl SourceVideoStreamMeta {
 
         // First profile
         let source_profile =
-            SourceVideoStreamMeta::profile(source_name, vid_path, stream, service, io_wrapper)
+            SourceVideoStreamMeta::profile(source_name, vid_path, stream, service, io_cache)
                 .unwrap();
 
         // Do a full decode
@@ -227,7 +228,7 @@ impl SourceVideoStreamMeta {
                 service,
                 source_profile.file_size,
                 io_runtime.handle(),
-                io_wrapper,
+                io_cache,
             )
             .unwrap();
             while framesource.next_frame().unwrap().is_some() {
@@ -247,7 +248,7 @@ impl SourceVideoStreamMeta {
                     service,
                     source_profile.file_size,
                     io_runtime.handle(),
-                    io_wrapper,
+                    io_cache,
                 )
                 .unwrap();
 

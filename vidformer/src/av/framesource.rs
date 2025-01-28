@@ -21,7 +21,7 @@ impl FrameSource {
         service: &crate::service::Service,
         file_size: u64,
         io_runtime_handle: &tokio::runtime::Handle,
-        io_wrapper: &Option<Box<dyn crate::io::IoWrapper>>,
+        io_cache: Option<(&Box<dyn crate::io::IoWrapper>, &str)>,
     ) -> Result<FrameSource, crate::Error> {
         let mut demuxer = crate::av::demuxer::Demuxer::new(
             vid_path,
@@ -29,7 +29,7 @@ impl FrameSource {
             service,
             file_size,
             io_runtime_handle,
-            io_wrapper,
+            io_cache,
         )?;
         if !seek_ts.is_zero() {
             demuxer.seek(seek_ts)?;
@@ -126,7 +126,7 @@ mod test {
             "../tos_720p.mp4",
             0,
             &service,
-            &None,
+            None,
         )
         .unwrap();
 
@@ -144,7 +144,7 @@ mod test {
             &service,
             profile.file_size,
             io_runtime.handle(),
-            &None,
+            None,
         )
         .unwrap();
 

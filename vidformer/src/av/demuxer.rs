@@ -94,7 +94,7 @@ impl Demuxer {
         service: &crate::service::Service,
         file_size: u64,
         io_runtime_handle: &tokio::runtime::Handle,
-        io_wrapper: &Option<Box<dyn crate::io::IoWrapper>>,
+        io_cache: Option<(&Box<dyn crate::io::IoWrapper>, &str)>,
     ) -> Result<Self, crate::Error> {
         let mut format_context = unsafe { ffi::avformat_alloc_context() };
         if format_context.is_null() {
@@ -125,8 +125,8 @@ impl Demuxer {
             }
         };
 
-        let reader = match io_wrapper {
-            Some(io_wrapper) => io_wrapper.wrap(Box::new(reader)),
+        let reader = match io_cache {
+            Some((io_wrapper, fuid)) => io_wrapper.wrap(Box::new(reader), fuid),
             None => Box::new(std::io::BufReader::with_capacity(128 * 1024, reader)),
         };
 
@@ -332,7 +332,7 @@ mod test {
             "../tos_720p.mp4",
             0,
             &service,
-            &None,
+            None,
         )
         .unwrap();
 
@@ -348,7 +348,7 @@ mod test {
             &service,
             profile.file_size,
             io_runtime.handle(),
-            &None,
+            None,
         )
         .unwrap();
 

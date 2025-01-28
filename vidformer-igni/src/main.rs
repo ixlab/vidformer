@@ -298,11 +298,14 @@ async fn cmd_source_add(
             return Err(IgniError::General(format!("Invalid user id: {}", e)));
         }
     };
+    let source_id = uuid::Uuid::new_v4();
+
     let profile = ops::profile_source(
         &add_source.name,
         add_source.stream_idx,
         &add_source.storage_service,
         &add_source.storage_config,
+        None,
     )
     .await?;
 
@@ -311,7 +314,6 @@ async fn cmd_source_add(
 
     let source_id = {
         let mut transaction = pool.begin().await?;
-        let source_id = uuid::Uuid::new_v4();
         sqlx::query("INSERT INTO source (id, user_id, name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height, file_size) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)")
         .bind(source_id)
         .bind(user_id)

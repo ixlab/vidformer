@@ -385,6 +385,7 @@ pub(crate) async fn get_segment(
                 resolution: (width as usize, height as usize),
                 ts,
                 keys,
+                fuid: Some(source_id.to_string()),
             });
         }
 
@@ -392,8 +393,10 @@ pub(crate) async fn get_segment(
     };
     transaction.commit().await?;
 
+    let io_wrapper = global.io_wrapper();
+
     let filters = filters();
-    let context = vidformer::Context::new(sources, filters, None); // TODO: Add cache
+    let context = vidformer::Context::new(sources, filters, io_wrapper);
     let context = std::sync::Arc::new(context);
 
     let dve_config: vidformer::Config = vidformer::Config {

@@ -75,11 +75,13 @@ pub(crate) async fn profile_source(
     stream_idx: usize,
     storage_service: &str,
     storage_config_json: &str,
+    io_cache: Option<(Box<dyn vidformer::io::IoWrapper>, String)>,
 ) -> Result<vidformer::source::SourceVideoStreamMeta, IgniError> {
     let storage: (serde_json::Value, HashMap<String, String>) =
         parse_storage_config(storage_config_json)?;
     let service = vidformer::service::Service::new(storage_service.to_string(), storage.1);
     let source_name = source_name.to_string();
+
     // run profile in a blocking thread
     let profile: vidformer::source::SourceVideoStreamMeta =
         tokio::task::spawn_blocking(move || {
@@ -88,7 +90,10 @@ pub(crate) async fn profile_source(
                 &source_name,
                 stream_idx,
                 &service,
-                &None, // TODO: Add cache
+                match io_cache {
+                    Some((ref wrapper, ref ns)) => Some((&wrapper, ns.as_str())),
+                    None => None,
+                },
             )
         })
         .await

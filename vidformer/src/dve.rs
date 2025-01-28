@@ -219,6 +219,20 @@ pub(crate) fn run_decoder(
     let stream_meta = &context.sources.get(source).unwrap();
     let stream_service = &stream_meta.service;
 
+    let io_cache: Option<(&Box<dyn crate::io::IoWrapper>, &str)> = match &context.io_wrapper {
+        Some(io_wrapper) => {
+            let fuid: &str = if let Some(fuid) = &stream_meta.fuid {
+                fuid.as_str()
+            } else {
+                return Err(Error::IOError(format!(
+                    "Source {} has a missing fuid",
+                    source
+                )));
+            };
+            Some((io_wrapper, fuid))
+        }
+        None => None,
+    };
     let mut framesource = av::framesource::FrameSource::new(
         &stream_meta.file_path,
         stream_meta.stream_idx,
@@ -226,7 +240,7 @@ pub(crate) fn run_decoder(
         stream_service,
         stream_meta.file_size,
         io_runtime_handle,
-        &context.io_wrapper,
+        io_cache,
     )?;
 
     while framesource.next_frame()?.is_some() {

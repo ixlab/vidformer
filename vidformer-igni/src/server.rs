@@ -8,11 +8,24 @@ use regex::Regex;
 
 mod api;
 mod gc;
+pub mod io_cache;
 mod vod;
 
 struct IgniServerGlobal {
     config: ServerConfig,
     pool: sqlx::Pool<sqlx::Postgres>,
+}
+
+impl IgniServerGlobal {
+    fn io_wrapper(&self) -> Option<Box<dyn vidformer::io::IoWrapper>> {
+        match &self.config.io_cache_valkey_url {
+            Some(url) => Some(Box::new(io_cache::IgniIoWrapper {
+                url: url.clone(),
+                chunk_size: self.config.io_cache_block_size,
+            })),
+            None => None,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -338,6 +351,8 @@ fn load_config(path: &String) -> Result<ServerConfig, IgniError> {
 struct ServerConfig {
     vod_prefix: String,
     gc_period: i64,
+    io_cache_valkey_url: Option<String>,
+    io_cache_block_size: usize,
 }
 
 pub(crate) async fn cmd_server(

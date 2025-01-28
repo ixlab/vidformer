@@ -286,11 +286,20 @@ pub(crate) async fn create_source(
         return Ok(err);
     }
 
+    let source_id = uuid::Uuid::new_v4();
+
+    let io_wrapper = global.io_wrapper();
+    let io_cache = match io_wrapper {
+        Some(io_wrapper) => Some((io_wrapper, source_id.to_string())),
+        None => None,
+    };
+
     let profile = crate::ops::profile_source(
         &name,
         stream_idx as usize,
         &storage_service,
         &storage_config_json,
+        io_cache,
     )
     .await;
 
@@ -321,7 +330,6 @@ pub(crate) async fn create_source(
 
     let source_id = {
         let mut transaction = global.pool.begin().await?;
-        let source_id = uuid::Uuid::new_v4();
         sqlx::query("INSERT INTO source (id, user_id, name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height, file_size) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)")
         .bind(source_id)
         .bind(user.user_id)
@@ -1410,6 +1418,7 @@ pub(crate) async fn get_frame(
                 resolution: (width as usize, height as usize),
                 ts,
                 keys,
+                fuid: Some(source_id.to_string()),
             });
         }
 
@@ -1439,8 +1448,9 @@ pub(crate) async fn get_frame(
     let spec = IgniSpec { frame: frame_expr };
     let spec = std::sync::Arc::new(std::boxed::Box::new(spec) as Box<dyn vidformer::spec::Spec>);
 
+    let io_wrapper = global.io_wrapper();
     let filters = crate::server::vod::filters();
-    let context = vidformer::Context::new(sources, filters, None); // TODO: Add cache
+    let context = vidformer::Context::new(sources, filters, io_wrapper);
     let context: std::sync::Arc<vidformer::Context> = std::sync::Arc::new(context);
 
     let dve_config: vidformer::Config = vidformer::Config {

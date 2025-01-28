@@ -39,7 +39,7 @@ impl DveBench {
                     &path,
                     stream,
                     &vidformer::service::Service::default(),
-                    &None,
+                    None,
                 )
                 .unwrap()
             })

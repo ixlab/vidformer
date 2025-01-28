@@ -11,6 +11,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d
+  valkey:
+    image: valkey/valkey
+    container_name: igni_valkey
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - ./valkey.conf:/usr/local/etc/valkey/valkey.conf
+    command: valkey-server /usr/local/etc/valkey/valkey.conf
   web:
     image: nginx
     container_name: igni_web
