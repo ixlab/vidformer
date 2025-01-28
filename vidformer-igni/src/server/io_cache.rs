@@ -38,13 +38,13 @@ impl<R: Read + Seek> RedisIoCache<R> {
         while total_read < self.chunk_size {
             let read_now = self.inner.read(&mut buf[total_read..])?;
             if read_now == 0 {
-                // EOF
                 break;
             }
             total_read += read_now;
         }
 
         assert!(total_read <= self.chunk_size);
+        buf.truncate(total_read);
         Ok(buf)
     }
 }
@@ -65,7 +65,7 @@ impl<R: Read + Seek> Read for RedisIoCache<R> {
         let start = offset_in_chunk as isize;
         let end = (offset_in_chunk + to_read - 1) as isize; // redis GETRANGE is inclusive for some reason
 
-        let partial_data = redis::cmd("GETRANGE")
+        let partial_data: std::result::Result<Vec<u8>, redis::RedisError> = redis::cmd("GETRANGE")
             .arg(&key)
             .arg(start)
             .arg(end)
@@ -73,12 +73,18 @@ impl<R: Read + Seek> Read for RedisIoCache<R> {
 
         match partial_data {
             Ok(partial_data) => {
-                let partial_data: Vec<u8> = partial_data;
-                if partial_data.len() == to_read {
-                    // cache hit
-                    out_buf[..to_read].copy_from_slice(&partial_data);
-                    self.position += to_read as u64;
-                    return Ok(to_read);
+                if !partial_data.is_empty() {
+                    trace!(
+                        "IO cache hit - GETRANGE {} [{}-{}] returned {} bytes (requested {})",
+                        key,
+                        start,
+                        end,
+                        partial_data.len(),
+                        to_read
+                    );
+                    out_buf[..partial_data.len()].copy_from_slice(&partial_data);
+                    self.position += partial_data.len() as u64;
+                    return Ok(partial_data.len());
                 }
             }
             Err(err) => {
