@@ -15,6 +15,7 @@ Legend:
 * `VideoWriter.spec()` - Return the Spec of an output video
 * `Frame.numpy()` - Return the frame as a numpy array
 * `cv2.setTo` - The OpenCV `Mat.setTo` function (not in cv2)
+* `cv2.zeros` - Create a black frame (equiv to `numpy.zeros`)
 
 ## opencv
 
@@ -27,7 +28,7 @@ Legend:
 |**Function**|**Status**|
 |---|---|
 |imread|✅|
-|imwrite|✅|
+|imwrite|✅ (Yrden only)|
 
 
 ## opencv.imgproc
@@ -41,7 +42,7 @@ Drawing Functions:
 |clipLine|❌|
 |drawContours|❌|
 |drawMarker|❌|
-|ellipse|❌|
+|ellipse|✅|
 |ellipse2Poly|❌|
 |fillConvexPoly|❌|
 |fillPoly|❌|
@@ -57,3 +58,4 @@ Drawing Functions:
 |**Function**|**Status**|
 |---|---|
 |addWeighted|✅|
+|resize|✅|

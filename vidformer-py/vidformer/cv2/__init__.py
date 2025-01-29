@@ -62,6 +62,7 @@ _filter_line = vf.Filter("cv2.line")
 _filter_circle = vf.Filter("cv2.circle")
 _filter_addWeighted = vf.Filter("cv2.addWeighted")
 _filter_ellipse = vf.Filter("cv2.ellipse")
+_set_to = vf.Filter("cv2.setTo")
 
 
 def _ts_to_fps(timestamps):
@@ -90,11 +91,30 @@ def set_server(server):
     _global_cv2_server = server
 
 
+_PIX_FMT_MAP = {
+    "rgb24": "rgb24",
+    "yuv420p": "rgb24",
+    "yuv422p": "rgb24",
+    "yuv444p": "rgb24",
+    "yuvj420p": "rgb24",
+    "yuvj422p": "rgb24",
+    "yuvj444p": "rgb24",
+    "gray8": "gray8",
+}
+
+
+def _top_level_pix_fmt(pix_fmt):
+    if pix_fmt in _PIX_FMT_MAP:
+        return _PIX_FMT_MAP[pix_fmt]
+    raise Exception(f"Unsupported pix_fmt {pix_fmt}")
+
+
 class Frame:
     def __init__(self, f, fmt):
         self._f = f
         self._fmt = fmt
-        self.shape = (fmt["height"], fmt["width"], 3)
+        channels = 3 if _top_level_pix_fmt(fmt["pix_fmt"]) == "rgb24" else 1
+        self.shape = (fmt["height"], fmt["width"], channels)
 
         # denotes that the frame has not yet been modified
         # when a frame is modified, it is converted to rgb24 first
@@ -102,13 +122,22 @@ class Frame:
 
     def _mut(self):
         if self._modified:
-            assert self._fmt["pix_fmt"] == "rgb24"
+            assert self._fmt["pix_fmt"] in ["rgb24", "gray8"]
             return
 
         self._modified = True
-        if self._fmt["pix_fmt"] != "rgb24":
+        if (
+            self._fmt["pix_fmt"] != "rgb24"
+            and _top_level_pix_fmt(self._fmt["pix_fmt"]) == "rgb24"
+        ):
             self._f = _filter_scale(self._f, pix_fmt="rgb24")
             self._fmt["pix_fmt"] = "rgb24"
+        elif (
+            self._fmt["pix_fmt"] != "gray8"
+            and _top_level_pix_fmt(self._fmt["pix_fmt"]) == "gray8"
+        ):
+            self._f = _filter_scale(self._f, pix_fmt="gray8")
+            self._fmt["pix_fmt"] = "gray8"
 
     def copy(self):
         return Frame(self._f, self._fmt.copy())
@@ -132,12 +161,15 @@ class Frame:
             frame = frame[:, :, ::-1]  # convert RGB to BGR
             return frame
         else:
-            frame = server.frame(self.shape[1], self.shape[0], "rgb24", self._f)
+            frame = server.frame(
+                self.shape[1], self.shape[0], self._fmt["pix_fmt"], self._f
+            )
             assert type(frame) is bytes
-            assert len(frame) == self.shape[0] * self.shape[1] * 3
+            assert len(frame) == self.shape[0] * self.shape[1] * self.shape[2]
             raw_data_array = np.frombuffer(frame, dtype=np.uint8)
             frame = raw_data_array.reshape(self.shape)
-            frame = frame[:, :, ::-1]  # convert RGB to BGR
+            if self.shape[2] == 3:
+                frame = frame[:, :, ::-1]  # convert RGB to BGR
             return frame
 
     def __getitem__(self, key):
@@ -584,12 +616,17 @@ def zeros(shape, dtype=np.uint8):
     """
     assert isinstance(shape, tuple) or isinstance(shape, list)
     assert len(shape) == 3
-    assert shape[2] == 3
+    assert shape[2] in [1, 3]
     assert dtype == np.uint8
 
-    height, width, _ = shape
-    f = _black(width=width, height=height, pix_fmt="rgb24")
-    fmt = {"width": width, "height": height, "pix_fmt": "rgb24"}
+    height, width, channels = shape
+    if channels == 1:
+        pix_fmt = "gray8"
+    else:
+        pix_fmt = "rgb24"
+
+    f = _black(width=width, height=height, pix_fmt=pix_fmt)
+    fmt = {"width": width, "height": height, "pix_fmt": pix_fmt}
     return Frame(f, fmt)
 
 
@@ -602,7 +639,7 @@ def resize(src, dsize):
     height, width = dsize
 
     f = _filter_scale(src._f, width=width, height=height)
-    fmt = {"width": width, "height": height, "pix_fmt": "rgb24"}
+    fmt = {"width": width, "height": height, "pix_fmt": src._fmt["pix_fmt"]}
     return Frame(f, fmt)
 
 

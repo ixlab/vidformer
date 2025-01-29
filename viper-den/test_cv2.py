@@ -272,3 +272,22 @@ def test_numpy():
         i += 1
         if i == 10:
             break
+
+
+def test_numpy_gray8():
+    server = vf.IgniServer(ENDPOINT, API_KEY)
+    cv2.set_server(server)
+
+    img = cv2.zeros((100, 150, 1), dtype=np.uint8)
+    assert type(img) is cv2.Frame
+    assert img._fmt["width"] == 150
+    assert img._fmt["height"] == 100
+    assert img._fmt["pix_fmt"] == "gray8"
+    assert img.shape == (100, 150, 1)
+
+    img_numpy = img.numpy()
+    assert type(img_numpy) is np.ndarray
+    assert img_numpy.dtype == np.uint8
+    assert img_numpy.shape == (100, 150, 1)
+
+    assert np.all(img_numpy == 0)

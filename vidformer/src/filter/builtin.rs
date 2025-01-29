@@ -1009,8 +1009,9 @@ impl super::Filter for Black {
             _ => return Err(Error::MissingFilterArg),
         };
 
-        match crate::util::pixel_fmt_str_to_av_pix_fmt(pix_fmt.as_str()) {
-            Ok(_) => {}
+
+        let ff_pix_fmt = match crate::util::pixel_fmt_str_to_av_pix_fmt(pix_fmt.as_str()) {
+            Ok(fmt) => {fmt}
             Err(_e) => {
                 return Err(Error::InvalidFilterArgValue(
                     "pix_fmt".to_string(),
@@ -1029,7 +1030,7 @@ impl super::Filter for Black {
         Ok(FrameType {
             width: width as usize,
             height: height as usize,
-            format: ffi::AVPixelFormat_AV_PIX_FMT_RGB24,
+            format: ff_pix_fmt,
         })
     }
 }
