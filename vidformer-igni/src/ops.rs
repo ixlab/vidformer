@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::server;
+use crate::{schema, server};
 
 use super::IgniError;
 
@@ -135,4 +135,39 @@ pub(crate) async fn add_spec(
         .await?;
 
     Ok(spec_id)
+}
+
+pub(crate) async fn update_users(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    users: &[schema::UserRow],
+) -> Result<(), IgniError> {
+    // Make the users table match the provided list
+    let mut user_ids = Vec::new();
+    for user in users {
+        assert!(!user_ids.contains(&user.id));
+        user_ids.push(user.id);
+        sqlx::query("INSERT INTO \"user\" (id, name, api_key, permissions) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET name = $2, api_key = $3, permissions = $4")
+            .bind(&user.id)
+            .bind(&user.name)
+            .bind(&user.api_key)
+            .bind(&user.permissions)
+            .execute(&mut **transaction)
+            .await?;
+    }
+
+    // Remove any users not in the list
+    let mut rows = sqlx::query_as::<_, schema::UserRow>("SELECT * FROM \"user\"")
+        .fetch_all(&mut **transaction)
+        .await?;
+
+    for row in rows.drain(..) {
+        if !user_ids.contains(&row.id) {
+            sqlx::query("DELETE FROM \"user\" WHERE id = $1")
+                .bind(&row.id)
+                .execute(&mut **transaction)
+                .await?;
+        }
+    }
+
+    Ok(())
 }

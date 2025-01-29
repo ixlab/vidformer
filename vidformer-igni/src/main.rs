@@ -121,6 +121,7 @@ enum UserCmd {
     Ls,
     Add(UserAddOpt),
     Rm(UserRmOpt),
+    Edit(UserEditOpt),
 }
 
 #[derive(clap::ValueEnum, Debug, Clone)]
@@ -144,6 +145,9 @@ struct UserAddOpt {
 struct UserRmOpt {
     id: Vec<String>,
 }
+
+#[derive(Parser, Debug)]
+struct UserEditOpt {}
 
 fn main() {
     pretty_env_logger::init();
@@ -529,6 +533,9 @@ async fn cmd_user(pool: sqlx::Pool<sqlx::Postgres>, user_cmd: UserCmd) -> Result
         UserCmd::Rm(del_user) => {
             cmd_user_del(pool, del_user).await?;
         }
+        UserCmd::Edit(edit_user) => {
+            cmd_user_edit(pool, edit_user).await?;
+        }
     }
     Ok(())
 }
@@ -608,6 +615,59 @@ async fn cmd_user_del(
 
         println!("{}", user_id);
     }
+
+    Ok(())
+}
+
+async fn cmd_user_edit(
+    pool: sqlx::Pool<sqlx::Postgres>,
+    _edit_user: UserEditOpt,
+) -> Result<(), IgniError> {
+    let mut transaction = pool.begin().await?;
+    let users: Vec<schema::UserRow> = sqlx::query_as("SELECT * FROM \"user\" ORDER BY id")
+        .fetch_all(&mut *transaction)
+        .await?;
+
+    let tmp = tempfile::NamedTempFile::with_suffix(".json").unwrap();
+    tokio::fs::write(
+        tmp.path(),
+        serde_json::to_string_pretty(&users).unwrap().as_bytes(),
+    )
+    .await
+    .unwrap();
+
+    let editor = std::env::var("EDITOR").unwrap_or("/usr/bin/editor".to_string());
+    let status = std::process::Command::new(editor)
+        .arg(tmp.path())
+        .status()
+        .expect("Failed to open editor");
+
+    if !status.success() {
+        return Err(IgniError::General("Editor failed".to_string()));
+    }
+
+    let updated_users: Result<Vec<schema::UserRow>, _> =
+        serde_json::from_str(&std::fs::read_to_string(tmp.path()).expect("Failed to read file"));
+
+    if updated_users.is_err() {
+        transaction.rollback().await?;
+        return Err(IgniError::General("Failed to parse JSON".to_string()));
+    }
+
+    let updated_users = updated_users.unwrap();
+
+    if updated_users.len() != users.len() {
+        transaction.rollback().await?;
+        return Err(IgniError::General(
+            "Refusing to remove user through edit".to_string(),
+        ));
+    }
+
+    ops::update_users(&mut transaction, &users).await?;
+
+    transaction.commit().await?;
+
+    println!("Users updated");
 
     Ok(())
 }
