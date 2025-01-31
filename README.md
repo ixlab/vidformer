@@ -86,3 +86,5 @@ If you're working on any of the later four, vidformer may be for you.
 
 **License:** Vidformer is open source under [Apache-2.0](./LICENSE).
 Contributions welcome.
+
+**Acknowledgements:** Vidformer is supported by the U.S. National Science Foundation under Awards #2118240 and #1910356.
