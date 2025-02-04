@@ -105,14 +105,14 @@ def _play(namespace, hls_video_url, hls_js_url, method="html", status_url=None):
     <script src="{hls_js_url}"></script>
 </head>
 <body>
-    <div id="container"></div>
+    <div id="container-{namespace}"></div>
     <script>
         var statusUrl = '{status_url}';
         var videoSrc = '{hls_video_url}';
         var videoNamespace = '{namespace}';
 
         function showWaiting() {{
-            document.getElementById('container').textContent = 'Waiting...';
+            document.getElementById('container-{namespace}').textContent = 'Waiting...';
             pollStatus();
         }}
 
@@ -122,7 +122,7 @@ def _play(namespace, hls_video_url, hls_js_url, method="html", status_url=None):
                     .then(r => r.json())
                     .then(res => {{
                         if (res.ready) {{
-                            document.getElementById('container').textContent = '';
+                            document.getElementById('container-{namespace}').textContent = '';
                             attachHls();
                         }} else {{
                             pollStatus();
@@ -136,7 +136,7 @@ def _play(namespace, hls_video_url, hls_js_url, method="html", status_url=None):
         }}
 
         function attachHls() {{
-            var container = document.getElementById('container');
+            var container = document.getElementById('container-{namespace}');
             container.textContent = '';
             var video = document.createElement('video');
             video.id = 'video-' + videoNamespace;

@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/ixlab/vidformer/blob/main/LICENSE)
 
 
-A research project providing infrastructure for video interfaces and pipelines.
+A research project providing infrastructure for video-native interfaces.
 Developed by the OSU Interactive Data Systems Lab.
 
 ## 🎯 Why vidformer
@@ -16,11 +16,17 @@ Vidformer efficiently transforms video data, enabling faster annotation, editing
 
 It uses a declarative specification format to represent transformations. This enables:
 
-* **⚡ Transparent Optimization:** Vidformer optimizes the execution of declarative specifications just like a relational database optimizes relational queries.
+* **Transparent Optimization:** Vidformer optimizes the execution of declarative specifications just like a relational database optimizes relational queries.
   
-* **⏳ Lazy/Deferred Execution:** Video results can be retrieved on-demand, allowing for practically instantaneous playback of video results.
+* **Lazy/Deferred Execution:** Video results can be retrieved on-demand, allowing for practically instantaneous playback of video results.
 
-* **🔄 Transpilation:** Vidformer specifications can be created from existing code (like `cv2`).
+* **Familiar Technologies:** Vidformer builds on open technologies you may already use:
+  * **OpenCV:** A `cv2`-compatible interface ensures both you (and LLMs) can use  existing knowlege and code.
+  * **Supervision:** [Supervision](https://supervision.roboflow.com/latest/)-compatible annotators make visualizing computer vision models trivial.
+  * **Jupyter:** View transformed videos instantly right in your notebook.
+  * **FFmpeg:** Built on the same libraries, codecs, and formats that run the world.
+  * **HTTP Live Streaming (HLS):** Serve transformed videos over a network directly into any media player.
+  * **Apache OpenDAL:** Access source videos no matter where they are stored.
 
 ## 🚀 Quick Start
 
@@ -61,7 +67,7 @@ You can find details on this in our [Getting Started Guide](https://ixlab.github
 * [🐍 vidformer-py](https://ixlab.github.io/vidformer/vidformer-py.html)
 * [🛠️ vidformer core](https://ixlab.github.io/vidformer/vidformer/)
 
-## 🔍 About the project
+## About the project
 
 Vidformer is a highly modular suite of tools that work together; these are detailed [here](https://ixlab.github.io/vidformer/modules.html).
 
