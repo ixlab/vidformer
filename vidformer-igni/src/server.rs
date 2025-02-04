@@ -75,7 +75,7 @@ impl UserPermissions {
         let valsets = [
             ("spec:pix_fmt", vec!["yuv420p"]),
             ("source:storage_service", vec!["http", "s3"]),
-            ("frame:pix_fmt", vec!["rgb24", "gray8"]),
+            ("frame:pix_fmt", vec!["rgb24", "gray"]),
         ]
         .iter()
         .map(|(key, values)| {
@@ -136,7 +136,7 @@ impl UserPermissions {
 
         let valsets = [
             ("spec:pix_fmt", vec!["yuv420p"]),
-            ("frame:pix_fmt", vec!["rgb24", "gray8"]),
+            ("frame:pix_fmt", vec!["rgb24", "gray"]),
         ]
         .iter()
         .map(|(key, values)| {

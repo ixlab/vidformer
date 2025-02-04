@@ -274,7 +274,7 @@ def test_numpy():
             break
 
 
-def test_numpy_gray8():
+def test_numpy_gray():
     server = vf.IgniServer(ENDPOINT, API_KEY)
     cv2.set_server(server)
 
@@ -282,7 +282,7 @@ def test_numpy_gray8():
     assert type(img) is cv2.Frame
     assert img._fmt["width"] == 150
     assert img._fmt["height"] == 100
-    assert img._fmt["pix_fmt"] == "gray8"
+    assert img._fmt["pix_fmt"] == "gray"
     assert img.shape == (100, 150, 1)
 
     img_numpy = img.numpy()
@@ -291,3 +291,27 @@ def test_numpy_gray8():
     assert img_numpy.shape == (100, 150, 1)
 
     assert np.all(img_numpy == 0)
+
+
+def test_set_color_with_mask():
+    server = vf.IgniServer(ENDPOINT, API_KEY)
+    cv2.set_server(server)
+
+    # TODO: Eventually test this with a non-zero mask
+    mymask = cv2.zeros((100, 150, 1), dtype=np.uint8)
+    assert type(mymask) is cv2.Frame
+    assert mymask._fmt["width"] == 150
+    assert mymask._fmt["height"] == 100
+    assert mymask._fmt["pix_fmt"] == "gray"
+
+    myframe = cv2.zeros((100, 150, 3), dtype=np.uint8)
+    assert type(myframe) is cv2.Frame
+    assert myframe._fmt["width"] == 150
+    assert myframe._fmt["height"] == 100
+    assert myframe._fmt["pix_fmt"] == "rgb24"
+
+    myframe[mymask] = [255, 0, 0]  # Blue
+    myframe_np = myframe.numpy()
+    assert type(myframe_np) is np.ndarray
+    assert myframe_np.dtype == np.uint8
+    assert myframe_np.shape == (100, 150, 3)

@@ -99,7 +99,7 @@ _PIX_FMT_MAP = {
     "yuvj420p": "rgb24",
     "yuvj422p": "rgb24",
     "yuvj444p": "rgb24",
-    "gray8": "gray8",
+    "gray": "gray",
 }
 
 
@@ -122,7 +122,7 @@ class Frame:
 
     def _mut(self):
         if self._modified:
-            assert self._fmt["pix_fmt"] in ["rgb24", "gray8"]
+            assert self._fmt["pix_fmt"] in ["rgb24", "gray"]
             return
 
         self._modified = True
@@ -133,11 +133,11 @@ class Frame:
             self._f = _filter_scale(self._f, pix_fmt="rgb24")
             self._fmt["pix_fmt"] = "rgb24"
         elif (
-            self._fmt["pix_fmt"] != "gray8"
-            and _top_level_pix_fmt(self._fmt["pix_fmt"]) == "gray8"
+            self._fmt["pix_fmt"] != "gray"
+            and _top_level_pix_fmt(self._fmt["pix_fmt"]) == "gray"
         ):
-            self._f = _filter_scale(self._f, pix_fmt="gray8")
-            self._fmt["pix_fmt"] = "gray8"
+            self._f = _filter_scale(self._f, pix_fmt="gray")
+            self._fmt["pix_fmt"] = "gray"
 
     def copy(self):
         return Frame(self._f, self._fmt.copy())
@@ -214,49 +214,71 @@ class Frame:
         return Frame(f, fmt)
 
     def __setitem__(self, key, value):
-        value = frameify(value, "value")
+        if type(key) is tuple:
+            value = frameify(value, "value")
 
-        if not isinstance(key, tuple):
-            raise NotImplementedError("Only 2D slicing is supported")
+            if len(key) != 2:
+                raise NotImplementedError("Only 2D slicing is supported")
 
-        if len(key) != 2:
-            raise NotImplementedError("Only 2D slicing is supported")
+            if not all(isinstance(x, slice) for x in key):
+                raise NotImplementedError("Only 2D slicing is supported")
 
-        if not all(isinstance(x, slice) for x in key):
-            raise NotImplementedError("Only 2D slicing is supported")
+            miny = key[0].start if key[0].start is not None else 0
+            maxy = key[0].stop if key[0].stop is not None else self.shape[0]
+            minx = key[1].start if key[1].start is not None else 0
+            maxx = key[1].stop if key[1].stop is not None else self.shape[1]
 
-        miny = key[0].start if key[0].start is not None else 0
-        maxy = key[0].stop if key[0].stop is not None else self.shape[0]
-        minx = key[1].start if key[1].start is not None else 0
-        maxx = key[1].stop if key[1].stop is not None else self.shape[1]
+            # handle negative indices
+            if miny < 0:
+                miny = self.shape[0] + miny
+            if maxy < 0:
+                maxy = self.shape[0] + maxy
+            if minx < 0:
+                minx = self.shape[1] + minx
+            if maxx < 0:
+                maxx = self.shape[1] + maxx
 
-        # handle negative indices
-        if miny < 0:
-            miny = self.shape[0] + miny
-        if maxy < 0:
-            maxy = self.shape[0] + maxy
-        if minx < 0:
-            minx = self.shape[1] + minx
-        if maxx < 0:
-            maxx = self.shape[1] + maxx
+            if (
+                maxy <= miny
+                or maxx <= minx
+                or miny < 0
+                or minx < 0
+                or maxy > self.shape[0]
+                or maxx > self.shape[1]
+            ):
+                raise NotImplementedError("Invalid slice")
 
-        if (
-            maxy <= miny
-            or maxx <= minx
-            or miny < 0
-            or minx < 0
-            or maxy > self.shape[0]
-            or maxx > self.shape[1]
-        ):
-            raise NotImplementedError("Invalid slice")
+            if value.shape[0] != maxy - miny or value.shape[1] != maxx - minx:
+                raise NotImplementedError("Shape mismatch")
 
-        if value.shape[0] != maxy - miny or value.shape[1] != maxx - minx:
-            raise NotImplementedError("Shape mismatch")
+            self._mut()
+            value._mut()
 
-        self._mut()
-        value._mut()
+            self._f = _slice_write_mat(self._f, value._f, miny, maxy, minx, maxx)
+        elif type(key) is Frame or type(key) is np.ndarray:
+            key = frameify(key, "key")
 
-        self._f = _slice_write_mat(self._f, value._f, miny, maxy, minx, maxx)
+            if key.shape[0] != self.shape[0] or key.shape[1] != self.shape[1]:
+                raise NotImplementedError("Shape mismatch")
+
+            if key.shape[2] != 1:
+                raise NotImplementedError("Only 1-channel mask frames are supported")
+
+            # Value should be a bgr or bgra color
+            if type(value) is not list or len(value) not in [3, 4]:
+                raise NotImplementedError("Value should be a 3 or 4 element list")
+            value = [float(x) for x in value]
+            if len(value) == 3:
+                value.append(255.0)
+
+            self._mut()
+            key._mut()
+
+            self._f = _set_to(self._f, value, key._f)
+        else:
+            raise NotImplementedError(
+                "__setitem__ only supports slicing by a 2d tuple or a mask frame"
+            )
 
 
 def _inline_frame(arr):
@@ -621,7 +643,7 @@ def zeros(shape, dtype=np.uint8):
 
     height, width, channels = shape
     if channels == 1:
-        pix_fmt = "gray8"
+        pix_fmt = "gray"
     else:
         pix_fmt = "rgb24"
 
