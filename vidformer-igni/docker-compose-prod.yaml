@@ -28,19 +28,33 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
       - ./conf.d:/etc/nginx/conf.d
+      - ./certbot/www/:/var/www/certbot/:ro
+      - ./certbot/conf/:/etc/nginx/ssl/:ro
       - nginx_logs:/var/log/nginx
+    depends_on:
+      - igni
   igni:
     image: igni
     container_name: igni_app
     entrypoint: ["wait-for-it", "postgres:5432", "--", "/usr/local/bin/vidformer-igni", "server", "--config", "/etc/igni.toml"]
     environment:
       IGNI_DB: postgres://igni:igni@postgres:5432/igni
+      RUST_LOG: warn
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
       - ./igni.toml:/etc/igni.toml
     depends_on:
       - postgres
+      - valkey
+    restart: unless-stopped
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - ./certbot/www/:/var/www/certbot/:rw
+      - ./certbot/conf/:/etc/letsencrypt/:rw
+    depends_on:
+      - web
 volumes:
   postgres_data:
   nginx_logs:
