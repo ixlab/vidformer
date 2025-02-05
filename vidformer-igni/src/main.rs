@@ -573,8 +573,8 @@ async fn cmd_user_add(
     let name = add_user.name.clone();
     let api_key = match add_user.api_key.clone() {
         Some(key) => key,
-        None => rand::thread_rng()
-            .sample_iter(&rand::distributions::Alphanumeric)
+        None => rand::rng()
+            .sample_iter(&rand::distr::Alphanumeric)
             .take(30)
             .map(char::from)
             .collect(),

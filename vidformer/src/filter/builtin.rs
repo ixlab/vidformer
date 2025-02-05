@@ -1009,9 +1009,8 @@ impl super::Filter for Black {
             _ => return Err(Error::MissingFilterArg),
         };
 
-
         let ff_pix_fmt = match crate::util::pixel_fmt_str_to_av_pix_fmt(pix_fmt.as_str()) {
-            Ok(fmt) => {fmt}
+            Ok(fmt) => fmt,
             Err(_e) => {
                 return Err(Error::InvalidFilterArgValue(
                     "pix_fmt".to_string(),
