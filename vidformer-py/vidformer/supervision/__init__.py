@@ -14,6 +14,11 @@ from supervision.geometry.core import Position
 
 import vidformer.cv2 as vf_cv2
 
+try:
+    import cv2 as ocv_cv2
+except ImportError:
+    ocv_cv2 = None
+
 CV2_FONT = vf_cv2.FONT_HERSHEY_SIMPLEX
 
 
@@ -536,3 +541,94 @@ class LabelAnnotator:
                     thickness=-1,
                 )
         return scene
+
+
+class MaskAnnotator:
+    def __init__(
+        self,
+        color=ColorPalette.DEFAULT,
+        opacity: float = 0.5,
+        color_lookup: ColorLookup = ColorLookup.CLASS,
+    ):
+        """
+        Args:
+            color (Union[Color, ColorPalette]): The color or color palette to use for
+                annotating detections.
+            opacity (float): Opacity of the overlay mask. Must be between `0` and `1`.
+            color_lookup (ColorLookup): Strategy for mapping colors to annotations.
+                Options are `INDEX`, `CLASS`, `TRACK`.
+        """
+        self.color = color
+        self.opacity = opacity
+        self.color_lookup: ColorLookup = color_lookup
+
+    def annotate(
+        self,
+        scene,
+        detections: Detections,
+        custom_color_lookup=None,
+    ):
+        if detections.mask is None:
+            return scene
+
+        colored_mask = scene.copy()
+
+        for detection_idx in np.flip(np.argsort(detections.box_area)):
+            color = resolve_color(
+                color=self.color,
+                detections=detections,
+                detection_idx=detection_idx,
+                color_lookup=(
+                    self.color_lookup
+                    if custom_color_lookup is None
+                    else custom_color_lookup
+                ),
+            )
+            mask = detections.mask[detection_idx]
+            colored_mask[mask] = color.as_bgr()
+
+        vf_cv2.addWeighted(
+            colored_mask, self.opacity, scene, 1 - self.opacity, 0, dst=scene
+        )
+        return scene
+
+
+class MaskStreamWriter:
+    def __init__(self, path: str, shape: tuple):
+        # Shape should be (width, height)
+        assert ocv_cv2 is not None, "OpenCV cv2 is required for ExternDetectionsBuilder"
+        assert type(shape) is tuple, "shape must be a tuple"
+        assert len(shape) == 2, "shape must be a tuple of length 2"
+        self._shape = (shape[1], shape[0])
+        self._writer = ocv_cv2.VideoWriter(
+            path, ocv_cv2.VideoWriter_fourcc(*"FFV1"), 1, shape, isColor=False
+        )
+        assert self._writer.isOpened(), f"Failed to open video writer at {path}"
+        self._i = 0
+
+    def write_detections(self, detections: Detections):
+        mask = detections.mask
+        assert (
+            mask.shape[1:] == self._shape
+        ), f"mask shape ({mask.shape[:1]}) must match the shape of the video ({self._shape})"
+        for i in range(mask.shape[0]):
+            frame_uint8 = detections.mask[i].astype(np.uint8)
+            self._writer.write(frame_uint8)
+            self._i += 1
+        return self._i
+
+    def release(self):
+        self._writer.release()
+
+
+def populate_mask(
+    detections: Detections, mask_stream: vf_cv2.VideoCapture, frame_idx: int
+):
+    assert type(detections) is Detections
+    assert detections.mask is None
+    detections.mask = []
+    assert len(detections) + frame_idx <= len(mask_stream)
+    for i in range(len(detections)):
+        mask = mask_stream[frame_idx + i]
+        assert mask.shape[2] == 1, "mask must be a single channel image"
+        detections.mask.append(mask)

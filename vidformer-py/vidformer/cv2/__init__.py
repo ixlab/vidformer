@@ -265,8 +265,12 @@ class Frame:
                 raise NotImplementedError("Only 1-channel mask frames are supported")
 
             # Value should be a bgr or bgra color
-            if type(value) is not list or len(value) not in [3, 4]:
-                raise NotImplementedError("Value should be a 3 or 4 element list")
+            if (type(value) is not list and type(value) is not tuple) or len(
+                value
+            ) not in [3, 4]:
+                raise NotImplementedError(
+                    "Value should be a 3 or 4 element list or tuple"
+                )
             value = [float(x) for x in value]
             if len(value) == 3:
                 value.append(255.0)
@@ -348,7 +352,7 @@ class VideoCapture:
         elif prop == CAP_PROP_FRAME_HEIGHT:
             return self._source.fmt()["height"]
         elif prop == CAP_PROP_FRAME_COUNT:
-            return len(self._source.ts())
+            return len(self._source)
         elif prop == CAP_PROP_POS_FRAMES:
             return self._next_frame_idx
 
@@ -373,6 +377,20 @@ class VideoCapture:
         self._next_frame_idx += 1
         frame = Frame(frame, self._source.fmt())
         return True, frame
+
+    def __getitem__(self, key):
+        if not isinstance(key, int):
+            raise NotImplementedError("Only integer indexing is supported")
+        if key < 0:
+            key = len(self._source) + key
+        if key < 0 or key >= len(self._source):
+            raise IndexError("Index out of bounds")
+        frame = self._source.iloc[key]
+        frame = Frame(frame, self._source.fmt())
+        return frame
+
+    def __len__(self):
+        return len(self._source)
 
     def release(self):
         pass
