@@ -272,7 +272,6 @@ class DotAnnotator:
         outline_thickness: int = 0,
         outline_color=Color.BLACK,
     ):
-
         self.color = color
         self.radius: int = radius
         self.position: Position = position

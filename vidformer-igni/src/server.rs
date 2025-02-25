@@ -230,6 +230,7 @@ impl UserPermissions {
         }
     }
 
+    #[allow(dead_code)]
     pub fn limit_err_min(
         &self,
         limit: &str,
