@@ -1196,7 +1196,12 @@ class YrdenServer:
 
     def __del__(self):
         if self._proc is not None:
-            self._proc.kill()
+            self._proc.terminate()
+            try:
+                self._proc.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                self._proc.kill()
+                self._proc.wait()
 
 
 class YrdenSource:
