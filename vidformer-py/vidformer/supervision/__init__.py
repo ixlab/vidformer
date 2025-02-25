@@ -550,14 +550,6 @@ class MaskAnnotator:
         opacity: float = 0.5,
         color_lookup: ColorLookup = ColorLookup.CLASS,
     ):
-        """
-        Args:
-            color (Union[Color, ColorPalette]): The color or color palette to use for
-                annotating detections.
-            opacity (float): Opacity of the overlay mask. Must be between `0` and `1`.
-            color_lookup (ColorLookup): Strategy for mapping colors to annotations.
-                Options are `INDEX`, `CLASS`, `TRACK`.
-        """
         self.color = color
         self.opacity = opacity
         self.color_lookup: ColorLookup = color_lookup
@@ -607,6 +599,9 @@ class MaskStreamWriter:
         self._i = 0
 
     def write_detections(self, detections: Detections):
+        if len(detections) == 0:
+            return self._i
+
         mask = detections.mask
         assert (
             mask.shape[1:] == self._shape
