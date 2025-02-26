@@ -12,8 +12,6 @@ use std::ptr;
 use std::sync::Arc;
 
 mod drawutils;
-mod ipc;
-pub use ipc::IPC;
 
 /// vidformer built-in filters
 pub fn filters() -> BTreeMap<String, std::boxed::Box<dyn Filter>> {

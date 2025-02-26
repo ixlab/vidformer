@@ -327,9 +327,7 @@ class VideoCapture:
                 if path.startswith("/"):
                     path = path[1:]
                 self._path = path
-                self._source = server.source(
-                    path, 0, "http", {"endpoint": endpoint}
-                )
+                self._source = server.source(path, 0, "http", {"endpoint": endpoint})
             else:
                 self._path = path
                 self._source = server.source(path, 0, "fs", {"root": "."})
