@@ -23,6 +23,7 @@ import uuid
 import zlib
 from bisect import bisect_right
 from fractions import Fraction
+import os
 
 import numpy as np
 
@@ -80,7 +81,16 @@ _global_cv2_server = None
 def _server():
     global _global_cv2_server
     if _global_cv2_server is None:
-        _global_cv2_server = vf.YrdenServer()
+        if "VF_IGNI_ENDPOINT" in os.environ:
+            server_endpoint = os.environ["VF_IGNI_ENDPOINT"]
+            if "VF_IGNI_API_KEY" not in os.environ:
+                raise Exception("VF_IGNI_API_KEY must be set")
+            api_key = os.environ["VF_IGNI_API_KEY"]
+            _global_cv2_server = vf.IgniServer(server_endpoint, api_key)
+        else:
+            raise Exception(
+                "No server set for the cv2 frontend. Set VF_IGNI_ENDPOINT and VF_IGNI_API_KEY environment variables or use cv2.set_server() before use."
+            )
     return _global_cv2_server
 
 
@@ -91,10 +101,16 @@ def set_server(server):
     _global_cv2_server = server
 
 
+def get_server():
+    """Get the server used by the cv2 frontend."""
+    return _server()
+
+
 _PIX_FMT_MAP = {
     "rgb24": "rgb24",
     "yuv420p": "rgb24",
     "yuv422p": "rgb24",
+    "yuv422p10le": "rgb24",
     "yuv444p": "rgb24",
     "yuvj420p": "rgb24",
     "yuvj422p": "rgb24",
@@ -332,9 +348,8 @@ class VideoCapture:
                         path, 0, "http", {"endpoint": endpoint}
                     )
                 else:
-                    raise Exception(
-                        "Using a VideoCapture source by name only works with http(s) URLs. You need to pass an IgniSource instead."
-                    )
+                    self._path = path
+                    self._source = server.source(path, 0, "fs", {"root": "."})
         elif isinstance(path, vf.IgniSource):
             assert isinstance(server, vf.IgniServer)
             self._path = path._name
@@ -426,14 +441,13 @@ class _IgniVideoWriter:
         batch_size=1024,
         compression="gzip",
         ttl=3600,
+        pix_fmt="yuv420p",
         vod_segment_length=Fraction(2, 1),
     ):
         server = _server()
         assert isinstance(server, vf.IgniServer)
-        if path is not None:
-            raise Exception(
-                "Igni does not support writing to a file. VideoWriter path must be None"
-            )
+        assert path is None or type(path) is str
+        self._path = path
         if isinstance(fps, int):
             self._f_time = Fraction(1, fps)
         elif isinstance(fps, Fraction):
@@ -446,7 +460,7 @@ class _IgniVideoWriter:
         width, height = size
         assert ttl is None or isinstance(ttl, int)
         self._spec = server.create_spec(
-            width, height, "yuv420p", vod_segment_length, 1 / self._f_time, ttl=ttl
+            width, height, pix_fmt, vod_segment_length, 1 / self._f_time, ttl=ttl
         )
         self._batch_size = batch_size
         assert compression is None or compression in ["gzip"]
@@ -498,6 +512,9 @@ class _IgniVideoWriter:
 
     def release(self):
         self._flush(True)
+        if self._path is not None:
+            server = _server()
+            server.export_spec(self._spec.id(), self._path)
 
 
 class _YrdenVideoWriter:
@@ -588,43 +605,34 @@ def imwrite(path, img, *args):
     if len(args) > 0:
         raise NotImplementedError("imwrite does not support additional arguments")
 
-    server = _server()
-    if type(server) is vf.IgniServer:
-        raise NotImplementedError(
-            "imwrite is only supported with YrdenServer, not IgniServer"
-        )
-
     img = frameify(img)
-
     fmt = img._fmt.copy()
     width = fmt["width"]
     height = fmt["height"]
-    f = img._f
-
-    domain = [Fraction(0, 1)]
 
     if path.lower().endswith(".png"):
-        img._mut()  # Make sure it's in rgb24
-        spec = vf.YrdenSpec(
-            domain,
-            lambda t, i: img._f,
-            {"width": width, "height": height, "pix_fmt": "rgb24"},
-        )
-        spec.save(_server(), path, encoder="png")
+        out_pix_fmt = "rgb24"
+        encoder = "png"
     elif path.lower().endswith((".jpg", ".jpeg")):
-        if img._modified:
-            # it's rgb24, we need to convert to something jpeg can handle
-            f = _filter_scale(img._f, pix_fmt="yuv420p")
-            fmt["pix_fmt"] = "yuv420p"
+        encoder = "mjpeg"
+        if img._fmt["pix_fmt"] not in ["yuvj420p", "yuvj422p", "yuvj444p"]:
+            out_pix_fmt = "yuvj420p"
         else:
-            if fmt["pix_fmt"] not in ["yuvj420p", "yuvj422p", "yuvj444p"]:
-                f = _filter_scale(img._f, pix_fmt="yuvj420p")
-                fmt["pix_fmt"] = "yuvj420p"
-
-        spec = vf.YrdenSpec(domain, lambda t, i: f, fmt)
-        spec.save(server, path, encoder="mjpeg")
+            out_pix_fmt = img._fmt["pix_fmt"]
     else:
         raise Exception("Unsupported image format")
+
+    if img._fmt["pix_fmt"] != out_pix_fmt:
+        f = _filter_scale(img._f, pix_fmt=out_pix_fmt)
+        img = Frame(f, {"width": width, "height": height, "pix_fmt": out_pix_fmt})
+
+    writer = VideoWriter(None, None, 1, (width, height), pix_fmt=out_pix_fmt)
+    writer.write(img)
+    writer.release()
+
+    spec = writer.spec()
+    server = _server()
+    server.export_spec(spec.id(), path, encoder=encoder)
 
 
 def vidplay(video, *args, **kwargs):

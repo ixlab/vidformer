@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
 use super::super::IgniError;
@@ -1515,4 +1516,256 @@ pub(crate) async fn get_frame(
         }
         Some(_) => unreachable!(),
     }
+}
+
+pub(crate) async fn export_spec(
+    req: hyper::Request<impl hyper::body::Body>,
+    global: std::sync::Arc<IgniServerGlobal>,
+    spec_id: &str,
+    user: &super::UserAuth,
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
+    let spec_id = Uuid::parse_str(spec_id).unwrap();
+    let req: Vec<u8> = match req.collect().await {
+        Err(_err) => {
+            error!("Error reading request body");
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::BAD_REQUEST)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    "Bad request",
+                )))?);
+        }
+        Ok(req) => req.to_bytes().to_vec(),
+    };
+
+    #[derive(serde::Deserialize, serde::Serialize)]
+    struct RequestContent {
+        path: String,
+        encoder: Option<String>,
+        encoder_opts: Option<BTreeMap<String, String>>,
+        format: Option<String>,
+    }
+
+    let req: RequestContent = match serde_json::from_slice(&req) {
+        Err(err) => {
+            error!("Error parsing request body: {}", err);
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::BAD_REQUEST)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    format!("Bad request: {}", err),
+                )))?);
+        }
+        Ok(req) => req,
+    };
+
+    let mut transaction = global.pool.begin().await?;
+
+    let row: Option<schema::SpecRow> =
+        sqlx::query_as("SELECT * FROM spec WHERE id = $1 AND NOT closed AND user_id = $2")
+            .bind(spec_id)
+            .bind(user.user_id)
+            .fetch_optional(&mut *transaction)
+            .await?;
+
+    let spec_db = match row {
+        None => {
+            transaction.commit().await?;
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::NOT_FOUND)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    "Not found",
+                )))?);
+        }
+        Some(spec) => spec,
+    };
+
+    let frame_rate = num_rational::Ratio::new(spec_db.frame_rate_num, spec_db.frame_rate_denom);
+
+    // Get the frames from spec_t that are in the segment (pos between first_t and last_t)
+    let rows: Vec<(i32, Vec<u8>)> =
+        sqlx::query_as("SELECT pos, frame FROM spec_t WHERE spec_id = $1 ORDER BY pos")
+            .bind(spec_id)
+            .fetch_all(&mut *transaction)
+            .await?;
+
+    // map times to rational
+    let times: Vec<num_rational::Ratio<i64>> = rows
+        .iter()
+        .map(|(pos, _)| num_rational::Ratio::from(*pos as i64) * frame_rate.recip())
+        .collect();
+
+    let mut needed_source_ids: BTreeSet<Uuid> = BTreeSet::new();
+
+    let frames = {
+        let mut out = vec![];
+        for (_, frame) in rows {
+            let frame_reader = std::io::Cursor::new(frame);
+            let frame_uncompressed = zstd::stream::decode_all(frame_reader).unwrap();
+            let feb: crate::feb::FrameBlock = serde_json::from_slice(&frame_uncompressed).unwrap();
+            let mut f_collection = feb.frames().map_err(|err| {
+                IgniError::General(format!("Error decoding frame block: {:?}", err))
+            })?;
+            assert_eq!(f_collection.len(), 1);
+            let f = f_collection.remove(0);
+            let mut referenced_source_frames: BTreeSet<&vidformer::sir::FrameSource> =
+                BTreeSet::new();
+            f.add_source_deps(&mut referenced_source_frames);
+            for src in &referenced_source_frames {
+                needed_source_ids.insert(Uuid::parse_str(src.video()).unwrap());
+            }
+            out.push(f);
+        }
+        out
+    };
+
+    let needed_source_ids: Vec<Uuid> = needed_source_ids.into_iter().collect();
+
+    struct IgniSpec {
+        times: Vec<num_rational::Ratio<i64>>,
+        frames: Vec<vidformer::sir::FrameExpr>,
+    }
+
+    impl vidformer::spec::Spec for IgniSpec {
+        fn domain(&self, _: &dyn vidformer::spec::SpecContext) -> Vec<num_rational::Ratio<i64>> {
+            self.times.clone()
+        }
+
+        fn render(
+            &self,
+            _: &dyn vidformer::spec::SpecContext,
+            t: &num_rational::Ratio<i64>,
+        ) -> vidformer::sir::FrameExpr {
+            let idx = self.times.binary_search(t).unwrap();
+            self.frames[idx].clone()
+        }
+    }
+
+    let spec = IgniSpec { times, frames };
+    let spec = std::sync::Arc::new(std::boxed::Box::new(spec) as Box<dyn vidformer::spec::Spec>);
+    let sources = {
+        let mut out = vec![];
+
+        // load all data from source
+        let rows: Vec<(uuid::Uuid, String, i32, String, serde_json::Value, String, String, i32, i32, i64)> = sqlx::query_as("SELECT id, name, stream_idx, storage_service, storage_config, codec, pix_fmt, width, height, file_size FROM source WHERE id = ANY($1::uuid[])")
+            .bind(&needed_source_ids)
+            .fetch_all(&mut *transaction)
+            .await
+            ?;
+
+        for (
+            source_id,
+            name,
+            stream_idx,
+            storage_service,
+            storage_config,
+            codec,
+            pix_fmt,
+            width,
+            height,
+            file_size,
+        ) in rows
+        {
+            let (ts, keys): (Vec<Rational64>, Vec<Rational64>) = {
+                let rows: Vec<(i64, i64, bool)> = sqlx::query_as(
+                    "SELECT t_num, t_denom, key FROM source_t WHERE source_id = $1 ORDER BY pos",
+                )
+                .bind(source_id)
+                .fetch_all(&mut *transaction)
+                .await?;
+
+                let ts: Vec<Rational64> = rows
+                    .iter()
+                    .map(|(t_num, t_denom, _)| Rational64::new(*t_num, *t_denom))
+                    .collect();
+
+                let keys: Vec<Rational64> = rows
+                    .iter()
+                    .filter(|(_, _, key)| *key)
+                    .map(|(t_num, t_denom, _)| Rational64::new(*t_num, *t_denom))
+                    .collect();
+                (ts, keys)
+            };
+
+            let storage_config_json = serde_json::to_string(&storage_config).unwrap();
+            let service = crate::ops::parse_storage_config(&storage_config_json).unwrap();
+            let service = vidformer::service::Service::new(storage_service, service.1);
+
+            out.push(vidformer::source::SourceVideoStreamMeta {
+                name: source_id.to_string(),
+                file_path: name,
+                stream_idx: stream_idx as usize,
+                file_size: file_size as u64,
+                codec,
+                pix_fmt,
+                service,
+                resolution: (width as usize, height as usize),
+                ts,
+                keys,
+                fuid: Some(source_id.to_string()),
+            });
+        }
+
+        out
+    };
+    transaction.commit().await?;
+
+    let io_wrapper = global.io_wrapper();
+
+    let filters = crate::server::vod::filters();
+    let context = vidformer::Context::new(sources, filters, io_wrapper);
+    let context = std::sync::Arc::new(context);
+
+    let dve_config: vidformer::Config = vidformer::Config {
+        decode_pool_size: 50,
+        decoder_view: 50,
+        decoders: u16::MAX as usize,
+        filterers: 8,
+        output_width: spec_db.width as usize,
+        output_height: spec_db.height as usize,
+        output_pix_fmt: spec_db.pix_fmt,
+        encoder: match req.encoder {
+            None => None,
+            Some(encoder) => {
+                let encoder_opts: Vec<(String, String)> = match req.encoder_opts {
+                    None => vec![],
+                    Some(opts) => opts.into_iter().map(|(k, v)| (k, v)).collect(),
+                };
+                Some(vidformer::EncoderConfig {
+                    codec_name: encoder,
+                    opts: encoder_opts,
+                })
+            }
+        },
+        format: req.format,
+    };
+
+    let output_path = req.path.clone();
+    let output_path2 = output_path.clone();
+
+    let dve_config = std::sync::Arc::new(dve_config);
+    let output_path = std::sync::Arc::new(output_path);
+
+    let stats = tokio::task::spawn_blocking(move || {
+        vidformer::run(&spec, &output_path, &context, &dve_config, &None)
+    })
+    .await
+    .expect("Error joining blocking task");
+
+    if let Err(err) = stats {
+        return Err(IgniError::General(format!(
+            "Error running vidformer spec: {:?}",
+            err
+        )));
+    }
+    let stats = stats.unwrap();
+
+    let resp = serde_json::json!({
+        "status": "ok",
+        "path": output_path2,
+        "stats": stats,
+    });
+
+    let resp = serde_json::to_string(&resp).unwrap();
+    Ok(hyper::Response::builder()
+        .header("Content-Type", "application/json")
+        .body(http_body_util::Full::new(hyper::body::Bytes::from(resp)))?)
 }

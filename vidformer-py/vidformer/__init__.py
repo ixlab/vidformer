@@ -639,6 +639,27 @@ class IgniServer:
         response = response.json()
         assert response["status"] == "ok"
 
+    def export_spec(
+        self, id: str, path: str, encoder=None, encoder_opts=None, format=None
+    ):
+        assert type(id) is str
+        assert type(path) is str
+        req = {
+            "path": path,
+            "encoder": encoder,
+            "encoder_opts": encoder_opts,
+            "format": format,
+        }
+        response = self._session.post(
+            f"{self._endpoint}/spec/{id}/export",
+            json=req,
+            headers={"Authorization": f"Bearer {self._api_key}"},
+        )
+        if not response.ok:
+            raise Exception(response.text)
+        response = response.json()
+        assert response["status"] == "ok"
+
     def push_spec_part(self, spec_id, pos, frames, terminal):
         if type(spec_id) is IgniSpec:
             spec_id = spec_id._id
