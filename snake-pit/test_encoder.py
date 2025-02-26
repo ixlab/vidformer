@@ -1,9 +1,24 @@
 import os
 import subprocess as sp
+import random
 
 import pytest
 
 import vidformer as vf
+import vidformer.cv2 as vf_cv2
+
+
+def tmp_path(extension: str):
+    pytest_name = (
+        os.environ.get("PYTEST_CURRENT_TEST", "test")
+        .replace("::", "_")
+        .replace(" ", "_")
+        .replace("_(call)", "")
+    )
+    random_8_alnum_chars = "".join(
+        random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=8)
+    )
+    return f"../snake-pit/tmp_{pytest_name}_{random_8_alnum_chars}.{extension}"
 
 
 def get_codec(pth):
@@ -24,42 +39,94 @@ def get_codec(pth):
     return ret.stdout.strip()
 
 
+def tmp_spec(pix_fmt="yuv420p"):
+    cap = vf_cv2.VideoCapture("../tos_720p.mp4")
+    width = int(cap.get(vf_cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(vf_cv2.CAP_PROP_FRAME_HEIGHT))
+
+    out = vf_cv2.VideoWriter(
+        None,
+        None,
+        30,
+        (width, height),
+        pix_fmt=pix_fmt,
+    )
+
+    i = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        if pix_fmt is not None:
+            f = frame._f
+            f = vf.Filter("Scale")(f, pix_fmt=pix_fmt)
+            frame = vf_cv2.Frame(
+                f,
+                {
+                    "width": width,
+                    "height": height,
+                    "pix_fmt": pix_fmt,
+                },
+            )
+        out.write(frame)
+        if i == 50:
+            break
+        i += 1
+
+    cap.release()
+    out.release()
+    return out.spec()
+
+
 def test_output_codec_default():
     """Make sure we properly default to h264."""
-
-    server = vf.YrdenServer()
-    tos = vf.YrdenSource(server, "tos_720p", "tos_720p.mp4", 0)
-
-    domain = tos.ts()[:50]
-
-    def render(t, i):
-        return tos.iloc[300 + i]
-
-    fmt = tos.fmt()
-
-    spec = vf.YrdenSpec(domain, render, fmt)
-
-    spec.save(server, "enc.mp4")
-    assert get_codec("enc.mp4") == "h264"
-    os.remove("enc.mp4")
+    spec = tmp_spec()
+    path = tmp_path("mp4")
+    vf_cv2.get_server().export_spec(spec.id(), path)
+    assert get_codec(path) == "h264"
+    os.remove(path)
 
 
 def test_output_raw():
-    server = vf.YrdenServer()
-    tos = vf.YrdenSource(server, "tos_720p", "tos_720p.mp4", 0)
+    spec = tmp_spec()
+    path = tmp_path("raw")
+    vf_cv2.get_server().export_spec(
+        spec.id(), path, encoder="rawvideo", format="rawvideo"
+    )
+    assert os.path.exists(path)
+    assert os.path.getsize(path) > 0
+    os.remove(path)
 
-    domain = tos.ts()[:50]
 
-    def render(t, i):
-        return tos.iloc[300 + i]
+# @pytest.mark.parametrize(
+#     "codec,encoder,pix_fmt,container,opts",
+#     [
+#         ("h264", "libx264", "yuv420p", "mp4", {"preset": "ultrafast", "crf": "18"}),
+#         ("ffv1", "ffv1", "yuv420p", "mov", {}),
+#         ("prores", "prores", "yuv422p10le", "mov", {}),
+#     ],
+# )
+# def test_output_codec(codec, encoder, pix_fmt, container, opts):
+#     server = vf.YrdenServer()
+#     tos = vf.YrdenSource(server, "tos_720p", "tos_720p.mp4", 0)
 
-    fmt = tos.fmt()
+#     scale = vf.Filter("Scale")
 
-    spec = vf.YrdenSpec(domain, render, fmt)
+#     domain = tos.ts()[:50]
 
-    spec.save(server, "enc.raw", encoder="rawvideo", format="rawvideo")
-    assert os.path.exists("enc.raw")
-    os.remove("enc.raw")
+#     def render(t, i):
+#         return scale(tos.iloc[300 + i], pix_fmt=pix_fmt)
+
+#     fmt = tos.fmt()
+#     fmt["pix_fmt"] = pix_fmt
+
+#     spec = vf.YrdenSpec(domain, render, fmt)
+
+#     pth = "enc." + container
+#     spec.save(server, pth, encoder=encoder, encoder_opts=opts)
+#     assert get_codec(pth) == codec
+
+#     os.remove(pth)
 
 
 @pytest.mark.parametrize(
@@ -71,23 +138,8 @@ def test_output_raw():
     ],
 )
 def test_output_codec(codec, encoder, pix_fmt, container, opts):
-    server = vf.YrdenServer()
-    tos = vf.YrdenSource(server, "tos_720p", "tos_720p.mp4", 0)
-
-    scale = vf.Filter("Scale")
-
-    domain = tos.ts()[:50]
-
-    def render(t, i):
-        return scale(tos.iloc[300 + i], pix_fmt=pix_fmt)
-
-    fmt = tos.fmt()
-    fmt["pix_fmt"] = pix_fmt
-
-    spec = vf.YrdenSpec(domain, render, fmt)
-
-    pth = "enc." + container
-    spec.save(server, pth, encoder=encoder, encoder_opts=opts)
-    assert get_codec(pth) == codec
-
-    os.remove(pth)
+    spec = tmp_spec(pix_fmt=pix_fmt)
+    path = tmp_path(container)
+    vf_cv2.get_server().export_spec(spec.id(), path, encoder=encoder, encoder_opts=opts)
+    assert get_codec(path) == codec
+    os.remove(path)

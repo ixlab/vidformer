@@ -36,35 +36,11 @@ jobs:
     - name: Install vidformer-py
       run: pip3 install ./vidformer-py
     - name: snake-pit pytest
-      run: ./scripts/snake-pit.sh
-      timeout-minutes: 10
+      run: ./scripts/snake-pit.py
+      timeout-minutes: 15
     - name: Valgrind Tests
       run: bash ./scripts/valgrind_test.sh
       timeout-minutes: 10
-  
-  test-igni:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-    - uses: actions/checkout@v3
-    - name: Cache ffmpeg
-      uses: actions/cache@v3
-      with:
-        path: |
-          ./ffmpeg
-        key: ${{ runner.os }}-ffmpeg-${{ hashFiles('**/deps_*.sh') }}
-    - name: Deps
-      run: bash ./scripts/deps_ci.sh
-    - name: Download Test Video
-      run: curl -O https://f.dominik.win/data/dve2/tos_720p.mp4 && curl -O https://f.dominik.win/data/dve2/apollo.jpg
-    - name: Build Debug
-      run: cargo build -p vidformer-igni
-    - name: Install vidformer-py
-      run: pip3 install ./vidformer-py
-    - name: Run vidformer-igni tests
-      run: ./scripts/igni-test.py
-      timeout-minutes: 15
 
   system-ffmpeg-build:
     runs-on: ubuntu-24.04

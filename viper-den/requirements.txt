@@ -1,3 +1,0 @@
-pandas
-opencv-python
-supervision

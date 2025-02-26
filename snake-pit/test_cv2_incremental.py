@@ -7,7 +7,7 @@ import vidformer.cv2 as vf_cv2
 
 import cv2 as ocv_cv2
 
-CWD_PREFIX = "../viper-den/"
+CWD_PREFIX = "../snake-pit/"
 
 TEST_VID_PATH = "../tos_720p.mp4"
 TEST_IMG_PATH = "apollo.jpg"

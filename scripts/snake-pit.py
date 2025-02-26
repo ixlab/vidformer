@@ -170,8 +170,8 @@ test_env = {
 }
 
 # Run the tests
-viper_den_script = os.path.join(current_dir, "viper-den.sh")
-viper_den_response = sp.run([viper_den_script], env=test_env)
+snake_pit_script = os.path.join(current_dir, "snake-pit.sh")
+snake_pit_response = sp.run([snake_pit_script], env=test_env)
 
 # Cleanup (always run, even if tests failed)
 print("Cleaning up")
@@ -180,7 +180,7 @@ igni_proc.wait()
 
 sp.run(["docker-compose", "-f", igni_docker_compose, "down"], check=True)
 
-if viper_den_response.returncode != 0:
+if snake_pit_response.returncode != 0:
     print("Tests failed!")
     exit(1)
 else:

@@ -5,14 +5,27 @@ import cv2 as ocv_cv2
 import numpy as np
 import pytest
 import subprocess
+import random
 
 
 import vidformer.cv2 as vf_cv2
 
 TEST_VID_PATH = "../tos_720p.mp4"
-TEST_IMG_PATH = "apollo.jpg"
-TMP_VID_PATH = "tmp.mp4"
+TEST_IMG_PATH = "../apollo.jpg"
 FFPROBE_PATH = "../ffmpeg/build/bin/ffprobe"
+
+
+def tmp_path(extension: str):
+    pytest_name = (
+        os.environ.get("PYTEST_CURRENT_TEST", "test")
+        .replace("::", "_")
+        .replace(" ", "_")
+        .replace("_(call)", "")
+    )
+    random_8_alnum_chars = "".join(
+        random.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=8)
+    )
+    return f"../snake-pit/tmp_{pytest_name}_{random_8_alnum_chars}.{extension}"
 
 
 def ffprobe_count_frames(path):
@@ -111,9 +124,8 @@ def rw(cv2):
     assert width == 1280
     assert height == 720
 
-    out = cv2.VideoWriter(
-        TMP_VID_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
-    )
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
 
     count = 0
     while True:
@@ -131,13 +143,13 @@ def rw(cv2):
     cap.release()
     out.release()
 
-    assert os.path.exists(TMP_VID_PATH)
-    assert ffprobe_count_frames(TMP_VID_PATH) == count
-    fmt = ffprobe_fmt(TMP_VID_PATH)
+    assert os.path.exists(path)
+    assert ffprobe_count_frames(path) == count
+    fmt = ffprobe_fmt(path)
     assert fmt["width"] == width
     assert fmt["height"] == height
     assert fmt["pix_fmt"] == "yuv420p"
-    os.remove(TMP_VID_PATH)
+    os.remove(path)
 
 
 def test_rw_ocv():
@@ -152,17 +164,16 @@ def videowriter_numpy(cv2):
     # make up random numpy frames, write them to a video
     width, height = 300, 200
 
-    out = cv2.VideoWriter(
-        TMP_VID_PATH, cv2.VideoWriter_fourcc(*"mp4v"), 30, (width, height)
-    )
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), 30, (width, height))
 
     for i in range(3):
         frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
         out.write(frame)
     out.release()
 
-    assert os.path.exists(TMP_VID_PATH)
-    os.remove(TMP_VID_PATH)
+    assert os.path.exists(path)
+    os.remove(path)
 
 
 def test_videowriter_numpy_ocv():
@@ -234,11 +245,11 @@ def test_vidplay():
     # test vidplay on a Spec
     spec = out.spec()
     link = cv2.vidplay(spec, method="link")
-    assert re.match(r"http://localhost:\d+/\w+-\w+-\w+-\w+-\w+/stream.m3u8", link)
+    assert re.match(r"http://localhost:\d+/vod/\w+-\w+-\w+-\w+-\w+/playlist.m3u8", link)
 
     # test vidplay on a VideoWriter
     link = cv2.vidplay(out, method="link")
-    assert re.match(r"http://localhost:\d+/\w+-\w+-\w+-\w+-\w+/stream.m3u8", link)
+    assert re.match(r"http://localhost:\d+/vod/\w+-\w+-\w+-\w+-\w+/playlist.m3u8", link)
 
 
 def test_zeros():
@@ -272,13 +283,14 @@ def test_resize():
     assert frame_resized_np.shape[1] == 300
     assert frame_resized_np.shape[2] == 3
 
-    vf_cv2.imwrite("apollo_resized.png", frame_resized)
-    assert os.path.exists("apollo_resized.png")
-    fmt = ffprobe_fmt("apollo_resized.png")
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame_resized)
+    assert os.path.exists(path)
+    fmt = ffprobe_fmt(path)
     assert fmt["width"] == 300
     assert fmt["height"] == 250
     assert fmt["pix_fmt"] == "rgb24"
-    os.remove("apollo_resized.png")
+    os.remove(path)
 
 
 def test_resize_numpy():
@@ -288,9 +300,10 @@ def test_resize_numpy():
     assert frame.shape[1] == 300
     assert frame.shape[2] == 3
 
-    vf_cv2.imwrite("random_resized.png", frame)
-    assert os.path.exists("random_resized.png")
-    os.remove("random_resized.png")
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
 
 
 def rectangle(cv2):
@@ -301,9 +314,8 @@ def rectangle(cv2):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    out = cv2.VideoWriter(
-        TMP_VID_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
-    )
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
 
     count = 0
     while True:
@@ -319,13 +331,13 @@ def rectangle(cv2):
     cap.release()
     out.release()
 
-    assert os.path.exists(TMP_VID_PATH)
-    assert ffprobe_count_frames(TMP_VID_PATH) == count
-    fmt = ffprobe_fmt(TMP_VID_PATH)
+    assert os.path.exists(path)
+    assert ffprobe_count_frames(path) == count
+    fmt = ffprobe_fmt(path)
     assert fmt["width"] == width
     assert fmt["height"] == height
     assert fmt["pix_fmt"] == "yuv420p"
-    os.remove(TMP_VID_PATH)
+    os.remove(path)
 
 
 def test_rectangle_ocv():
@@ -346,9 +358,10 @@ def test_rectangle_numpy():
     assert frame.shape[1] == width
     assert frame.shape[2] == 3
 
-    vf_cv2.imwrite("rectangle.png", frame)
-    assert os.path.exists("rectangle.png")
-    os.remove("rectangle.png")
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
 
 
 def putText(cv2):
@@ -359,9 +372,8 @@ def putText(cv2):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    out = cv2.VideoWriter(
-        TMP_VID_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
-    )
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
 
     count = 0
     while True:
@@ -385,13 +397,13 @@ def putText(cv2):
     cap.release()
     out.release()
 
-    assert os.path.exists(TMP_VID_PATH)
-    assert ffprobe_count_frames(TMP_VID_PATH) == count
-    fmt = ffprobe_fmt(TMP_VID_PATH)
+    assert os.path.exists(path)
+    assert ffprobe_count_frames(path) == count
+    fmt = ffprobe_fmt(path)
     assert fmt["width"] == width
     assert fmt["height"] == height
     assert fmt["pix_fmt"] == "yuv420p"
-    os.remove(TMP_VID_PATH)
+    os.remove(path)
 
 
 def test_text_ocv():
@@ -420,9 +432,10 @@ def test_text_numpy():
     assert frame.shape[1] == width
     assert frame.shape[2] == 3
 
-    vf_cv2.imwrite("text.png", frame)
-    assert os.path.exists("text.png")
-    os.remove("text.png")
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
 
 
 def arrowedLine(cv2):
@@ -433,9 +446,8 @@ def arrowedLine(cv2):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    out = cv2.VideoWriter(
-        TMP_VID_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
-    )
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
 
     count = 0
     while True:
@@ -457,13 +469,13 @@ def arrowedLine(cv2):
     cap.release()
     out.release()
 
-    assert os.path.exists(TMP_VID_PATH)
-    os.path.exists(TMP_VID_PATH)
-    fmt = ffprobe_fmt(TMP_VID_PATH)
+    assert os.path.exists(path)
+    os.path.exists(path)
+    fmt = ffprobe_fmt(path)
     assert fmt["width"] == width
     assert fmt["height"] == height
     assert fmt["pix_fmt"] == "yuv420p"
-    os.remove(TMP_VID_PATH)
+    os.remove(path)
 
 
 def test_arrowedLine_ocv():
@@ -490,9 +502,10 @@ def test_arrowedLine_numpy():
     assert frame.shape[1] == width
     assert frame.shape[2] == 3
 
-    vf_cv2.imwrite("arrowedLine.png", frame)
-    assert os.path.exists("arrowedLine.png")
-    os.remove("arrowedLine.png")
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
 
 
 def line(cv2):
@@ -503,9 +516,8 @@ def line(cv2):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    out = cv2.VideoWriter(
-        TMP_VID_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
-    )
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
 
     count = 0
     while True:
@@ -527,13 +539,13 @@ def line(cv2):
     cap.release()
     out.release()
 
-    assert os.path.exists(TMP_VID_PATH)
-    os.path.exists(TMP_VID_PATH)
-    fmt = ffprobe_fmt(TMP_VID_PATH)
+    assert os.path.exists(path)
+    os.path.exists(path)
+    fmt = ffprobe_fmt(path)
     assert fmt["width"] == width
     assert fmt["height"] == height
     assert fmt["pix_fmt"] == "yuv420p"
-    os.remove(TMP_VID_PATH)
+    os.remove(path)
 
 
 def test_line_ocv():
@@ -560,9 +572,10 @@ def test_line_numpy():
     assert frame.shape[1] == width
     assert frame.shape[2] == 3
 
-    vf_cv2.imwrite("line.png", frame)
-    assert os.path.exists("line.png")
-    os.remove("line.png")
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
 
 
 def circle(cv2):
@@ -573,9 +586,8 @@ def circle(cv2):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    out = cv2.VideoWriter(
-        TMP_VID_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
-    )
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
 
     count = 0
     while True:
@@ -597,13 +609,13 @@ def circle(cv2):
     cap.release()
     out.release()
 
-    assert os.path.exists(TMP_VID_PATH)
-    os.path.exists(TMP_VID_PATH)
-    fmt = ffprobe_fmt(TMP_VID_PATH)
+    assert os.path.exists(path)
+    os.path.exists(path)
+    fmt = ffprobe_fmt(path)
     assert fmt["width"] == width
     assert fmt["height"] == height
     assert fmt["pix_fmt"] == "yuv420p"
-    os.remove(TMP_VID_PATH)
+    os.remove(path)
 
 
 def test_circle_ocv():
@@ -622,9 +634,8 @@ def ellipse(cv2):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    out = cv2.VideoWriter(
-        TMP_VID_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
-    )
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
 
     count = 0
     while True:
@@ -649,13 +660,13 @@ def ellipse(cv2):
     cap.release()
     out.release()
 
-    assert os.path.exists(TMP_VID_PATH)
-    os.path.exists(TMP_VID_PATH)
-    fmt = ffprobe_fmt(TMP_VID_PATH)
+    assert os.path.exists(path)
+    os.path.exists(path)
+    fmt = ffprobe_fmt(path)
     assert fmt["width"] == width
     assert fmt["height"] == height
     assert fmt["pix_fmt"] == "yuv420p"
-    os.remove(TMP_VID_PATH)
+    os.remove(path)
 
 
 def test_ellipse_ocv():
@@ -682,9 +693,10 @@ def test_circle_numpy():
     assert frame.shape[1] == width
     assert frame.shape[2] == 3
 
-    vf_cv2.imwrite("circle.png", frame)
-    assert os.path.exists("circle.png")
-    os.remove("circle.png")
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
 
 
 def seek(cv2):
@@ -697,9 +709,8 @@ def seek(cv2):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    out = cv2.VideoWriter(
-        TMP_VID_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
-    )
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
 
     count = 0
     while True:
@@ -724,13 +735,13 @@ def seek(cv2):
     cap.release()
     out.release()
 
-    assert os.path.exists(TMP_VID_PATH)
-    os.path.exists(TMP_VID_PATH)
-    fmt = ffprobe_fmt(TMP_VID_PATH)
+    assert os.path.exists(path)
+    os.path.exists(path)
+    fmt = ffprobe_fmt(path)
     assert fmt["width"] == width
     assert fmt["height"] == height
     assert fmt["pix_fmt"] == "yuv420p"
-    os.remove(TMP_VID_PATH)
+    os.remove(path)
 
 
 def test_seek_ocv():
@@ -809,9 +820,8 @@ def addWeighted(cv2):
     height = int(cap1.get(cv2.CAP_PROP_FRAME_HEIGHT))
     cap2.set(cv2.CAP_PROP_POS_MSEC, 1000)
 
-    out = cv2.VideoWriter(
-        TMP_VID_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
-    )
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
 
     count = 0
     while True:
@@ -829,13 +839,13 @@ def addWeighted(cv2):
     cap2.release()
     out.release()
 
-    assert os.path.exists(TMP_VID_PATH)
-    os.path.exists(TMP_VID_PATH)
-    fmt = ffprobe_fmt(TMP_VID_PATH)
+    assert os.path.exists(path)
+    os.path.exists(path)
+    fmt = ffprobe_fmt(path)
     assert fmt["width"] == width
     assert fmt["height"] == height
     assert fmt["pix_fmt"] == "yuv420p"
-    os.remove(TMP_VID_PATH)
+    os.remove(path)
 
 
 def test_addWeighted_ocv():
@@ -858,9 +868,10 @@ def test_addWeighted_numpy():
     assert frame.shape[1] == width
     assert frame.shape[2] == 3
 
-    vf_cv2.imwrite("addWeighted.png", frame)
-    assert os.path.exists("addWeighted.png")
-    os.remove("addWeighted.png")
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
 
 
 def test_imread():
@@ -894,19 +905,22 @@ def imwrite(cv2):
     img = cv2.imread(TEST_IMG_PATH)
 
     # jpg
-    cv2.imwrite("apollo2.jpg", img)
-    assert os.path.exists("apollo2.jpg")
-    os.remove("apollo2.jpg")
+    path = tmp_path("jpg")
+    cv2.imwrite(path, img)
+    assert os.path.exists(path)
+    os.remove(path)
 
     # jpeg
-    cv2.imwrite("apollo2.jpeg", img)
-    assert os.path.exists("apollo2.jpeg")
-    os.remove("apollo2.jpeg")
+    path = tmp_path("jpeg")
+    cv2.imwrite(path, img)
+    assert os.path.exists(path)
+    os.remove(path)
 
     # png
-    cv2.imwrite("apollo2.png", img)
-    assert os.path.exists("apollo2.png")
-    os.remove("apollo2.png")
+    path = tmp_path("png")
+    cv2.imwrite(path, img)
+    assert os.path.exists(path)
+    os.remove(path)
 
     # from 1000th frame of tos_720p.mp4
     cap = cv2.VideoCapture(TEST_VID_PATH)
@@ -917,19 +931,22 @@ def imwrite(cv2):
     assert ret
 
     # jpg
-    cv2.imwrite("tos_720p_1000.jpg", frame)
-    assert os.path.exists("tos_720p_1000.jpg")
-    os.remove("tos_720p_1000.jpg")
+    path = tmp_path("jpg")
+    cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
 
     # jpeg
-    cv2.imwrite("tos_720p_1000.jpeg", frame)
-    assert os.path.exists("tos_720p_1000.jpeg")
-    os.remove("tos_720p_1000.jpeg")
+    path = tmp_path("jpeg")
+    cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
 
     # png
-    cv2.imwrite("tos_720p_1000.png", frame)
-    assert os.path.exists("tos_720p_1000.png")
-    os.remove("tos_720p_1000.png")
+    path = tmp_path("png")
+    cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
 
 
 def test_imwrite_ocv():
@@ -946,10 +963,12 @@ def imwrite_numpy(cv2):
     red_image = np.zeros((height, width, 3), dtype=np.uint8)
     red_image[:, :] = (0, 0, 255)
 
-    output_filename = "red_image.png"
+    output_filename = tmp_path("png")
     cv2.imwrite(output_filename, red_image)
 
     assert os.path.exists(output_filename)
+    file_size = os.path.getsize(output_filename)
+    print(f"File {output_filename} size: {file_size} bytes")
 
     red_image2 = cv2.imread(output_filename)
     if isinstance(red_image2, vf_cv2.Frame):
@@ -971,24 +990,29 @@ def test_imwrite_numpy_vf():
 
 
 def test_imread_numpy_match_content():
-    # use cv2 to write "apollo.png", because jpeg decoding can be lossy
+    # use cv2 to write TMP_PNG_PATH, because jpeg decoding can be lossy
     img = ocv_cv2.imread(TEST_IMG_PATH)
-    ocv_cv2.imwrite("apollo.png", img)
+    assert img.shape == (3936, 3912, 3)
+    path = tmp_path("png")
+    ocv_cv2.imwrite(path, img)
 
-    img1 = ocv_cv2.imread("apollo.png")
-    img2 = vf_cv2.imread("apollo.png").numpy()
+    img1 = ocv_cv2.imread(path)
+    assert img1.shape == (3936, 3912, 3)
+    img2 = vf_cv2.imread(path).numpy()
+    assert img2.shape == (3936, 3912, 3)
 
     assert img1.dtype == img2.dtype
     assert img1.shape == img2.shape
     assert np.all(img1 == img2)
-    os.remove("apollo.png")
+    os.remove(path)
 
 
 def test_frameify():
     # write a video with all white frames
     width, height = 300, 200
+    path = tmp_path("mp4")
     out = vf_cv2.VideoWriter(
-        TMP_VID_PATH, vf_cv2.VideoWriter_fourcc(*"mp4v"), 30, (width, height)
+        path, vf_cv2.VideoWriter_fourcc(*"mp4v"), 30, (width, height)
     )
 
     for i in range(3):
@@ -1002,16 +1026,17 @@ def test_frameify():
         out.write(frame)
 
     out.release()
-    assert os.path.exists(TMP_VID_PATH)
-    os.path.exists(TMP_VID_PATH)
-    os.remove(TMP_VID_PATH)
+    assert os.path.exists(path)
+    os.path.exists(path)
+    os.remove(path)
 
 
 def test_frame_array_slicing_appolo():
     frame_orig = ocv_cv2.imread(TEST_IMG_PATH)[:1000, :1000]
-    ocv_cv2.imwrite("apollo.png", frame_orig)
-    assert os.path.exists("apollo.png")
-    frame = vf_cv2.imread("apollo.png")
+    path = tmp_path("png")
+    ocv_cv2.imwrite(path, frame_orig)
+    assert os.path.exists(path)
+    frame = vf_cv2.imread(path)
 
     assert frame.shape == frame_orig.shape
 
@@ -1020,14 +1045,15 @@ def test_frame_array_slicing_appolo():
 
     assert frame.shape == frame_orig.shape
     assert np.all(frame.numpy() == frame_orig)
-    os.remove("apollo.png")
+    os.remove(path)
 
 
 def test_write_slice_apollo():
     frame_orig = ocv_cv2.imread(TEST_IMG_PATH)[:1000, :1000]
-    ocv_cv2.imwrite("apollo.png", frame_orig)
-    assert os.path.exists("apollo.png")
-    frame = vf_cv2.imread("apollo.png")
+    path = tmp_path("png")
+    ocv_cv2.imwrite(path, frame_orig)
+    assert os.path.exists(path)
+    frame = vf_cv2.imread(path)
 
     assert frame.shape == frame_orig.shape
 
@@ -1038,7 +1064,7 @@ def test_write_slice_apollo():
 
     assert frame.shape == frame_orig.shape
     assert np.all(frame.numpy() == frame_orig)
-    os.remove("apollo.png")
+    os.remove(path)
 
 
 class Slicer:
