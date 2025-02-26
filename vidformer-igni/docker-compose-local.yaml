@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: igni_db
+    environment:
+      POSTGRES_USER: igni
+      POSTGRES_PASSWORD: igni
+      POSTGRES_DB: igni
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
+  valkey:
+    image: valkey/valkey
+    container_name: igni_valkey
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - ./valkey.conf:/usr/local/etc/valkey/valkey.conf
+    command: valkey-server /usr/local/etc/valkey/valkey.conf
+  igni:
+    image: igni
+    container_name: igni_app
+    entrypoint: ["/bin/bash", "/usr/local/bin/igni-local-entrypoint.sh"]
+    environment:
+      IGNI_DB: postgres://igni:igni@postgres:5432/igni
+      RUST_LOG: warn
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      - postgres
+      - valkey
+    restart: unless-stopped
+volumes:
+  postgres_data:
+  nginx_logs:
