@@ -5,7 +5,6 @@ use std::{collections::BTreeMap, fs::File, io::Write};
 use vidformer::{filter, run, sir, source, spec};
 
 mod bench;
-mod yrden;
 
 pub fn simple_source(
     ident: &str,
@@ -66,21 +65,6 @@ struct ValidateCmd {
 }
 
 #[derive(Parser, Debug)]
-struct YrdenCmd {
-    #[clap(long, default_value = "8000")]
-    port: u16,
-
-    #[clap(long)]
-    hls_prefix: Option<String>,
-
-    #[clap(long)]
-    print_url: bool,
-
-    #[clap(long, default_value = "/tmp/yrden.db")]
-    db_path: String,
-}
-
-#[derive(Parser, Debug)]
 struct BenchmarkCmd {
     #[clap(long)]
     benches_glob: String,
@@ -99,7 +83,6 @@ struct BenchmarkCmd {
 enum ArgCmd {
     Profile(ProfileCmd),
     X,
-    Yrden(YrdenCmd),
     Benchmark(BenchmarkCmd),
     Validate(ValidateCmd),
     Codecs,
@@ -254,7 +237,6 @@ fn main() {
         ArgCmd::Profile(opt) => cmd_profile(&opt),
         ArgCmd::Validate(opt) => cmd_validate(&opt),
         ArgCmd::X => cmd_x(),
-        ArgCmd::Yrden(opt) => yrden::cmd_yrden(&opt),
         ArgCmd::Benchmark(opt) => bench::cmd_benchmark(&opt),
         ArgCmd::Codecs => cmd_codecs(),
     }
