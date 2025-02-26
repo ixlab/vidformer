@@ -160,9 +160,18 @@ sp.run(["wait-for-it", "localhost:8080", "--timeout=15"], check=True)
 
 print("Igni server started")
 
+# export VF_IGNI_ENDPOINT='http://localhost:8080/v2'
+# export VF_IGNI_API_KEY='test'
+
+test_env = {
+    **os.environ,
+    "VF_IGNI_ENDPOINT": "http://localhost:8080/v2",
+    "VF_IGNI_API_KEY": "test",
+}
+
 # Run the tests
-viper_den_script = os.path.join(current_dir, "viper-den.sh")
-viper_den_response = sp.run([viper_den_script])
+snake_pit_script = os.path.join(current_dir, "snake-pit.sh")
+snake_pit_response = sp.run([snake_pit_script], env=test_env)
 
 # Cleanup (always run, even if tests failed)
 print("Cleaning up")
@@ -171,7 +180,7 @@ igni_proc.wait()
 
 sp.run(["docker-compose", "-f", igni_docker_compose, "down"], check=True)
 
-if viper_den_response.returncode != 0:
+if snake_pit_response.returncode != 0:
     print("Tests failed!")
     exit(1)
 else:

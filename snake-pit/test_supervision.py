@@ -7,8 +7,8 @@ import supervision as sv
 import vidformer.cv2 as vf_cv2
 import vidformer.supervision as vf_sv
 
-IMG_PATH = "apollo.jpg"
-TMP_PATH = "tmp.png"
+IMG_PATH = "../apollo.jpg"
+TMP_PATH = "../snake-pit/tmp.png"
 
 
 def apollo_detections():
@@ -40,7 +40,7 @@ def apollo_detections():
 )
 def test_box_annotator(box_annotator_kwargs):
     detections = apollo_detections()
-    img = vf_cv2.imread("apollo.jpg")
+    img = vf_cv2.imread(IMG_PATH)
 
     box_annotator = vf_sv.BoxAnnotator(**box_annotator_kwargs)
     annotated_img = box_annotator.annotate(img.copy(), detections)
@@ -69,7 +69,7 @@ def test_box_annotator(box_annotator_kwargs):
 )
 def test_round_box_annotator(round_box_annotator_kwargs):
     detections = apollo_detections()
-    img = vf_cv2.imread("apollo.jpg")
+    img = vf_cv2.imread(IMG_PATH)
 
     round_box_annotator = vf_sv.RoundBoxAnnotator(**round_box_annotator_kwargs)
     annotated_img = round_box_annotator.annotate(img.copy(), detections)
@@ -98,7 +98,7 @@ def test_round_box_annotator(round_box_annotator_kwargs):
 )
 def test_box_corner_annotator(box_corner_annotator_kwargs):
     detections = apollo_detections()
-    img = vf_cv2.imread("apollo.jpg")
+    img = vf_cv2.imread(IMG_PATH)
 
     box_annotator = vf_sv.BoxCornerAnnotator(**box_corner_annotator_kwargs)
     annotated_img = box_annotator.annotate(img.copy(), detections)
@@ -125,7 +125,7 @@ def test_box_corner_annotator(box_corner_annotator_kwargs):
 )
 def test_color_annotator(color_annotator_kwargs):
     detections = apollo_detections()
-    img = vf_cv2.imread("apollo.jpg")
+    img = vf_cv2.imread(IMG_PATH)
 
     color_annotator = vf_sv.ColorAnnotator(**color_annotator_kwargs)
     annotated_img = color_annotator.annotate(img.copy(), detections)
@@ -152,7 +152,7 @@ def test_color_annotator(color_annotator_kwargs):
 )
 def test_circle_annotator(circle_annotator_kwargs):
     detections = apollo_detections()
-    img = vf_cv2.imread("apollo.jpg")
+    img = vf_cv2.imread(IMG_PATH)
 
     circle_annotator = vf_sv.CircleAnnotator(**circle_annotator_kwargs)
     annotated_img = circle_annotator.annotate(img.copy(), detections)
@@ -184,7 +184,7 @@ def test_circle_annotator(circle_annotator_kwargs):
 )
 def test_dot_annotator(dot_annotator_kwargs):
     detections = apollo_detections()
-    img = vf_cv2.imread("apollo.jpg")
+    img = vf_cv2.imread(IMG_PATH)
 
     dot_annotator = vf_sv.DotAnnotator(**dot_annotator_kwargs)
     annotated_img = dot_annotator.annotate(img.copy(), detections)
@@ -239,7 +239,7 @@ class LabelAnnotator:
 )
 def test_label_annotator(label_annotator_kwargs):
     detections = apollo_detections()
-    img = vf_cv2.imread("apollo.jpg")
+    img = vf_cv2.imread(IMG_PATH)
 
     label_annotator = vf_sv.LabelAnnotator(**label_annotator_kwargs)
     labels = [

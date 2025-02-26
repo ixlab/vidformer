@@ -73,7 +73,17 @@ impl UserPermissions {
         .collect();
 
         let valsets = [
-            ("spec:pix_fmt", vec!["yuv420p"]),
+            (
+                "spec:pix_fmt",
+                vec![
+                    "yuv420p",
+                    "yuv422p10le",
+                    "rgb24",
+                    "yuvj420p",
+                    "yuvj422p",
+                    "yuvj444p",
+                ],
+            ),
             ("source:storage_service", vec!["http", "s3"]),
             ("frame:pix_fmt", vec!["rgb24", "gray"]),
         ]
@@ -173,6 +183,9 @@ impl UserPermissions {
     pub fn default_test() -> UserPermissions {
         let mut out = UserPermissions::default_regular();
 
+        // Allow exports
+        out.flags.push("spec:export".to_string());
+
         // Allow local fs storage for testing
         out.valsets
             .get_mut("source:storage_service")
@@ -182,6 +195,8 @@ impl UserPermissions {
         // Increase source:max_height to 4000x4000 so apollo.jpg can be used in tests
         out.limits_int.insert("source:max_height".to_string(), 4000);
         out.limits_int.insert("source:max_width".to_string(), 4000);
+        out.limits_int.insert("spec:max_height".to_string(), 4000);
+        out.limits_int.insert("spec:max_width".to_string(), 4000);
 
         out
     }
@@ -354,6 +369,7 @@ struct ServerConfig {
     gc_period: i64,
     io_cache_valkey_url: Option<String>,
     io_cache_block_size: usize,
+    enable_export: bool,
 }
 
 pub(crate) async fn cmd_server(
@@ -709,6 +725,28 @@ async fn igni_http_req_api(
                 return Ok(res);
             }
             api::get_frame(req, global, &user_auth).await
+        }
+        (hyper::Method::POST, _) // /v2/spec/<uuid>/part_block
+            if {
+                Regex::new(r"^/v2/spec/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/export$").unwrap().is_match(req.uri().path())
+            } =>
+        {
+            if !global.config.enable_export {
+                let mut res = hyper::Response::new(http_body_util::Full::new(
+                    hyper::body::Bytes::from("Export is disabled on this server"),
+                ));
+                *res.status_mut() = hyper::StatusCode::FORBIDDEN;
+                return Ok(res);
+            }
+            if let Some(res) = user_auth.permissions.flag_err("spec:export") {
+                return Ok(res);
+            }
+            let r = Regex::new(
+                r"^/v2/spec/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/export$",
+            );
+            let uri = req.uri().path().to_string();
+            let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            api::export_spec(req, global, spec_id, &user_auth).await
         }
         (method, uri) => {
             warn!("404 Not found: {} {}", method, uri);

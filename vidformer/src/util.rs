@@ -98,13 +98,6 @@ pub(crate) fn pixel_fmt_str_to_av_pix_fmt(s: &str) -> Result<ffi::AVPixelFormat,
     }
 }
 
-pub(crate) fn pixel_fmt_str(n: i32) -> &'static str {
-    unsafe {
-        let fmt = ffi::av_get_pix_fmt_name(n);
-        CStr::from_ptr(fmt).to_str().unwrap()
-    }
-}
-
 pub(crate) fn av_strerror(err: i32) -> String {
     let mut buf = [0u8; 1024];
     unsafe {

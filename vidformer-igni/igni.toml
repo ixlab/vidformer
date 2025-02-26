@@ -4,3 +4,5 @@ gc_period = 300                                 # 5 minutes
 
 io_cache_valkey_url = "redis://localhost:6379/"
 io_cache_block_size = 1048576                   # 1MB
+
+enable_export = true

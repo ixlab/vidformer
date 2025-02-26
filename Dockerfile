@@ -23,17 +23,17 @@ COPY ./vidformer ./vidformer
 COPY ./vidformer-cli ./vidformer-cli
 COPY ./vidformer-igni ./vidformer-igni
 ENV FFMPEG_PKG_CONFIG_PATH="/src/ffmpeg/build/lib/pkgconfig" FFMPEG_INCLUDE_DIR="/src/ffmpeg/build/include"
-RUN cargo build --release -p vidformer-cli
+RUN cargo build --release -p vidformer-igni
 
 FROM debian:bookworm
 
 RUN sed -i -e's/ main/ main contrib non-free/g' /etc/apt/sources.list.d/debian.sources && \
     apt update && \
     apt upgrade -y && \
-    apt install -y libopencv-dev libfdk-aac-dev && \
+    apt install -y libopencv-dev libfdk-aac-dev wait-for-it && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /src/target/release/vidformer-cli /usr/local/bin/vidformer-cli
+COPY --from=build /src/target/release/vidformer-igni /usr/local/bin/vidformer-igni
 
 EXPOSE 8000
-ENTRYPOINT [ "/usr/local/bin/vidformer-cli" ]
+ENTRYPOINT [ "/usr/local/bin/vidformer-igni" ]
