@@ -47,10 +47,6 @@ impl Frame {
         }
     }
 
-    pub(crate) fn inner(&self) -> *mut ffi::AVFrame {
-        self.inner.inner
-    }
-
     pub(crate) fn into_avframe(self) -> Arc<AVFrame> {
         self.inner
     }
@@ -119,13 +115,6 @@ impl Val {
     pub(crate) fn as_int(&self) -> Option<i64> {
         match self {
             Val::Int(i) => Some(*i),
-            _ => None,
-        }
-    }
-
-    pub(crate) fn as_frame_type(&self) -> Option<&FrameType> {
-        match self {
-            Val::FrameType(frame_type) => Some(frame_type),
             _ => None,
         }
     }
