@@ -12,7 +12,6 @@ classifiers = [
 ]
 dependencies = [
   "requests",
-  "msgpack",
   "numpy",
 ]
 

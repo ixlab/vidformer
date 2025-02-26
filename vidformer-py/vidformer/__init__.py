@@ -15,21 +15,11 @@ __version__ = "0.12.0"
 import base64
 import gzip
 import json
-import multiprocessing
-import os
-import random
-import re
-import socket
 import struct
-import subprocess
-import threading
 import time
-import uuid
 from fractions import Fraction
 from urllib.parse import urlparse
 
-import msgpack
-import numpy as np
 import requests
 
 _in_notebook = False
@@ -857,20 +847,8 @@ def _json_arg(arg, skip_data_anot=False):
 class Filter:
     """A video filter."""
 
-    def __init__(self, name: str, tl_func=None, **kwargs):
-        self._name = name
-
-        # tl_func is the top level func, which is the true implementation, not just a pretty name
-        if tl_func is None:
-            self._func = name
-        else:
-            self._func = tl_func
-
-        # filter infra args, not invocation args
-        for k, v in kwargs.items():
-            if type(v) is not str:
-                raise Exception(f"Value of {k} must be a string")
-        self._kwargs = kwargs
+    def __init__(self, func: str):
+        self._func = func
 
     def __call__(self, *args, **kwargs):
         return FilterExpr(self, args, kwargs)

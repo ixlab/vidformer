@@ -19,7 +19,6 @@ except Exception:
     _opencv2 = None
 
 import re
-import uuid
 import zlib
 from bisect import bisect_right
 from fractions import Fraction
