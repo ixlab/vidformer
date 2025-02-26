@@ -98,37 +98,6 @@ def test_output_raw():
     os.remove(path)
 
 
-# @pytest.mark.parametrize(
-#     "codec,encoder,pix_fmt,container,opts",
-#     [
-#         ("h264", "libx264", "yuv420p", "mp4", {"preset": "ultrafast", "crf": "18"}),
-#         ("ffv1", "ffv1", "yuv420p", "mov", {}),
-#         ("prores", "prores", "yuv422p10le", "mov", {}),
-#     ],
-# )
-# def test_output_codec(codec, encoder, pix_fmt, container, opts):
-#     server = vf.YrdenServer()
-#     tos = vf.YrdenSource(server, "tos_720p", "tos_720p.mp4", 0)
-
-#     scale = vf.Filter("Scale")
-
-#     domain = tos.ts()[:50]
-
-#     def render(t, i):
-#         return scale(tos.iloc[300 + i], pix_fmt=pix_fmt)
-
-#     fmt = tos.fmt()
-#     fmt["pix_fmt"] = pix_fmt
-
-#     spec = vf.YrdenSpec(domain, render, fmt)
-
-#     pth = "enc." + container
-#     spec.save(server, pth, encoder=encoder, encoder_opts=opts)
-#     assert get_codec(pth) == codec
-
-#     os.remove(pth)
-
-
 @pytest.mark.parametrize(
     "codec,encoder,pix_fmt,container,opts",
     [

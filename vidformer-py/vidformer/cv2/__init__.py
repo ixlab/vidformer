@@ -97,7 +97,7 @@ def _server():
 def set_server(server):
     """Set the server to use for the cv2 frontend."""
     global _global_cv2_server
-    assert isinstance(server, vf.YrdenServer) or isinstance(server, vf.IgniServer)
+    assert isinstance(server, vf.IgniServer)
     _global_cv2_server = server
 
 
@@ -165,28 +165,16 @@ class Frame:
 
         self._mut()
         server = _server()
-        if type(server) is vf.YrdenServer:
-            spec = vf.YrdenSpec([Fraction(0, 1)], lambda t, i: self._f, self._fmt)
-            loader = spec.load(_server())
-
-            frame_raster_rgb24 = loader[0]
-            assert type(frame_raster_rgb24) is bytes
-            assert len(frame_raster_rgb24) == self.shape[0] * self.shape[1] * 3
-            raw_data_array = np.frombuffer(frame_raster_rgb24, dtype=np.uint8)
-            frame = raw_data_array.reshape(self.shape)
+        frame = server.frame(
+            self.shape[1], self.shape[0], self._fmt["pix_fmt"], self._f
+        )
+        assert type(frame) is bytes
+        assert len(frame) == self.shape[0] * self.shape[1] * self.shape[2]
+        raw_data_array = np.frombuffer(frame, dtype=np.uint8)
+        frame = raw_data_array.reshape(self.shape)
+        if self.shape[2] == 3:
             frame = frame[:, :, ::-1]  # convert RGB to BGR
-            return frame
-        else:
-            frame = server.frame(
-                self.shape[1], self.shape[0], self._fmt["pix_fmt"], self._f
-            )
-            assert type(frame) is bytes
-            assert len(frame) == self.shape[0] * self.shape[1] * self.shape[2]
-            raw_data_array = np.frombuffer(frame, dtype=np.uint8)
-            frame = raw_data_array.reshape(self.shape)
-            if self.shape[2] == 3:
-                frame = frame[:, :, ::-1]  # convert RGB to BGR
-            return frame
+        return frame
 
     def __getitem__(self, key):
         if not isinstance(key, tuple):
@@ -332,24 +320,19 @@ class VideoCapture:
     def __init__(self, path: str):
         server = _server()
         if type(path) is str:
-            if isinstance(server, vf.YrdenServer):
+            match = re.match(r"(http|https)://([^/]+)(.*)", path)
+            if match is not None:
+                endpoint = f"{match.group(1)}://{match.group(2)}"
+                path = match.group(3)
+                if path.startswith("/"):
+                    path = path[1:]
                 self._path = path
-                self._source = vf.YrdenSource(server, str(uuid.uuid4()), path, 0)
+                self._source = server.source(
+                    path, 0, "http", {"endpoint": endpoint}
+                )
             else:
-                assert isinstance(server, vf.IgniServer)
-                match = re.match(r"(http|https)://([^/]+)(.*)", path)
-                if match is not None:
-                    endpoint = f"{match.group(1)}://{match.group(2)}"
-                    path = match.group(3)
-                    if path.startswith("/"):
-                        path = path[1:]
-                    self._path = path
-                    self._source = server.source(
-                        path, 0, "http", {"endpoint": endpoint}
-                    )
-                else:
-                    self._path = path
-                    self._source = server.source(path, 0, "fs", {"root": "."})
+                self._path = path
+                self._source = server.source(path, 0, "fs", {"root": "."})
         elif isinstance(path, vf.IgniSource):
             assert isinstance(server, vf.IgniServer)
             self._path = path._name
@@ -412,26 +395,6 @@ class VideoCapture:
 
 
 class VideoWriter:
-    def __init__(self, *args, **kwargs):
-        server = _server()
-        if isinstance(server, vf.YrdenServer):
-            self._writer = _YrdenVideoWriter(*args, **kwargs)
-        elif isinstance(server, vf.IgniServer):
-            self._writer = _IgniVideoWriter(*args, **kwargs)
-        else:
-            raise Exception("Unsupported server type")
-
-    def write(self, *args, **kwargs):
-        return self._writer.write(*args, **kwargs)
-
-    def release(self, *args, **kwargs):
-        return self._writer.release(*args, **kwargs)
-
-    def spec(self, *args, **kwargs):
-        return self._writer.spec(*args, **kwargs)
-
-
-class _IgniVideoWriter:
     def __init__(
         self,
         path,
@@ -517,47 +480,6 @@ class _IgniVideoWriter:
             server.export_spec(self._spec.id(), self._path)
 
 
-class _YrdenVideoWriter:
-    def __init__(self, path, fourcc, fps, size):
-        assert isinstance(fourcc, VideoWriter_fourcc)
-        if path is not None and not isinstance(path, str):
-            raise Exception("path must be a string or None")
-        self._path = path
-        self._fourcc = fourcc
-        self._fps = fps
-        self._size = size
-
-        self._frames = []
-        self._pix_fmt = "yuv420p"
-
-    def write(self, frame):
-        frame = frameify(frame, "frame")
-
-        if frame._fmt["pix_fmt"] != self._pix_fmt:
-            f_obj = _filter_scale(frame._f, pix_fmt=self._pix_fmt)
-            self._frames.append(f_obj)
-        else:
-            self._frames.append(frame._f)
-
-    def release(self):
-        if self._path is None:
-            return
-
-        spec = self.spec()
-        server = _server()
-        spec.save(server, self._path)
-
-    def spec(self) -> vf.YrdenSpec:
-        fmt = {
-            "width": self._size[0],
-            "height": self._size[1],
-            "pix_fmt": self._pix_fmt,
-        }
-        domain = _fps_to_ts(self._fps, len(self._frames))
-        spec = vf.YrdenSpec(domain, lambda t, i: self._frames[i], fmt)
-        return spec
-
-
 class VideoWriter_fourcc:
     def __init__(self, *args):
         self._args = args
@@ -587,18 +509,13 @@ def imread(path, *args):
     assert path.lower().endswith((".jpg", ".jpeg", ".png"))
     server = _server()
 
-    if type(server) is vf.YrdenServer:
-        source = vf.YrdenSource(server, str(uuid.uuid4()), path, 0)
-        frame = Frame(source.iloc[0], source.fmt())
-        return frame
-    else:
-        cap = VideoCapture(path)
-        assert cap.isOpened()
-        assert len(cap._source) == 1
-        ret, frame = cap.read()
-        assert ret
-        cap.release()
-        return frame
+    cap = VideoCapture(path)
+    assert cap.isOpened()
+    assert len(cap._source) == 1
+    ret, frame = cap.read()
+    assert ret
+    cap.release()
+    return frame
 
 
 def imwrite(path, img, *args):
@@ -635,25 +552,14 @@ def imwrite(path, img, *args):
     server.export_spec(spec.id(), path, encoder=encoder)
 
 
-def vidplay(video, *args, **kwargs):
+def vidplay(video, method=None):
     """
     Play a vidformer video specification.
-
-    Args:
-        video: one of [vidformer.Spec, vidformer.Source, vidformer.cv2.VideoWriter]
     """
-    if isinstance(video, vf.YrdenSpec):
-        return video.play(_server(), *args, **kwargs)
-    elif isinstance(video, vf.YrdenSource):
-        return video.play(_server(), *args, **kwargs)
-    elif isinstance(video, VideoWriter):
-        return vidplay(video._writer, *args, **kwargs)
-    elif isinstance(video, _YrdenVideoWriter):
-        return video.spec().play(_server(), *args, **kwargs)
-    elif isinstance(video, _IgniVideoWriter):
-        return video._spec.play(*args, **kwargs)
+    if isinstance(video, VideoWriter):
+        return video.spec().play(method=method)
     elif isinstance(video, vf.IgniSpec):
-        return video.play(*args, **kwargs)
+        return video.play(method=method)
     else:
         raise Exception("Unsupported video type to vidplay")
 

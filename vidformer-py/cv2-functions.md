@@ -28,7 +28,7 @@ Legend:
 |**Function**|**Status**|
 |---|---|
 |imread|✅|
-|imwrite|✅ (Yrden only)|
+|imwrite|✅|
 
 
 ## opencv.imgproc
