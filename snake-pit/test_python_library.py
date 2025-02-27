@@ -3,7 +3,7 @@ import pytest
 
 import vidformer as vf
 
-ENDPOINT = "http://localhost:8080/v2"
+ENDPOINT = "http://localhost:8080"
 API_KEY = "test"
 
 

@@ -160,12 +160,9 @@ sp.run(["wait-for-it", "localhost:8080", "--timeout=15"], check=True)
 
 print("Igni server started")
 
-# export VF_IGNI_ENDPOINT='http://localhost:8080/v2'
-# export VF_IGNI_API_KEY='test'
-
 test_env = {
     **os.environ,
-    "VF_IGNI_ENDPOINT": "http://localhost:8080/v2",
+    "VF_IGNI_ENDPOINT": "http://localhost:8080",
     "VF_IGNI_API_KEY": "test",
 }
 

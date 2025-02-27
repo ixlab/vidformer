@@ -34,8 +34,6 @@ RUN sed -i -e's/ main/ main contrib non-free/g' /etc/apt/sources.list.d/debian.s
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /src/target/release/vidformer-igni /usr/local/bin/vidformer-igni
-COPY --from=build /src/vidformer-igni/igni-local-entrypoint.sh /usr/local/bin/igni-local-entrypoint.sh
-COPY --from=build /src/vidformer-igni/igni-local.toml /etc/igni-local.toml
 
 EXPOSE 8000
 ENTRYPOINT [ "/usr/local/bin/vidformer-igni" ]
