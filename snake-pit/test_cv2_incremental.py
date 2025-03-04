@@ -88,7 +88,7 @@ def test_access_video_by_http_url():
 
 def test_access_video_by_igni_source():
     server = tos = vf_cv2.get_server()
-    assert type(server) is vf.IgniServer
+    assert type(server) is vf.Server
     tos = server.create_source("../tos_720p.mp4", 0, "fs", {"root": "."})
     cap = vf_cv2.VideoCapture(tos)
     assert cap.isOpened()

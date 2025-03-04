@@ -11,6 +11,5 @@
 - [Filters](./filters.md)
     - [Built-in Filters](./builtin-filters.md)
     - [OpenCV/cv2](./opencv-filters.md)
-    - [User-Defined Filters](./udf-filters.md)
 - [Roadmap](./roadmap.md)
 - [FAQ](./faq.md)

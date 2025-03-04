@@ -85,7 +85,7 @@ def _server():
             if "VF_IGNI_API_KEY" not in os.environ:
                 raise Exception("VF_IGNI_API_KEY must be set")
             api_key = os.environ["VF_IGNI_API_KEY"]
-            _global_cv2_server = vf.IgniServer(server_endpoint, api_key)
+            _global_cv2_server = vf.Server(server_endpoint, api_key)
         else:
             raise Exception(
                 "No server set for the cv2 frontend. Set VF_IGNI_ENDPOINT and VF_IGNI_API_KEY environment variables or use cv2.set_server() before use."
@@ -96,7 +96,7 @@ def _server():
 def set_server(server):
     """Set the server to use for the cv2 frontend."""
     global _global_cv2_server
-    assert isinstance(server, vf.IgniServer)
+    assert isinstance(server, vf.Server)
     _global_cv2_server = server
 
 
@@ -330,8 +330,8 @@ class VideoCapture:
             else:
                 self._path = path
                 self._source = server.source(path, 0, "fs", {"root": "."})
-        elif isinstance(path, vf.IgniSource):
-            assert isinstance(server, vf.IgniServer)
+        elif isinstance(path, vf.Source):
+            assert isinstance(server, vf.Server)
             self._path = path._name
             self._source = path
         self._next_frame_idx = 0
@@ -405,7 +405,7 @@ class VideoWriter:
         vod_segment_length=Fraction(2, 1),
     ):
         server = _server()
-        assert isinstance(server, vf.IgniServer)
+        assert isinstance(server, vf.Server)
         assert path is None or type(path) is str
         self._path = path
         if isinstance(fps, int):
@@ -555,7 +555,7 @@ def vidplay(video, method=None):
     """
     if isinstance(video, VideoWriter):
         return video.spec().play(method=method)
-    elif isinstance(video, vf.IgniSpec):
+    elif isinstance(video, vf.Spec):
         return video.play(method=method)
     else:
         raise Exception("Unsupported video type to vidplay")

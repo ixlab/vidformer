@@ -9,7 +9,7 @@ vidformer-py is a Python 🐍 interface for [vidformer](https://github.com/ixlab
 * [🧑‍💻 Source Code](https://github.com/ixlab/vidformer/tree/main/vidformer-py/)
 """
 
-__version__ = "0.12.0"
+__version__ = "1.0.0"
 
 
 import base64
@@ -381,7 +381,7 @@ class _FrameExpressionBlock:
         }
 
 
-class IgniSource:
+class Source:
     def __init__(self, id: str, src):
         self._name = id
         self._fmt = {
@@ -410,10 +410,10 @@ class IgniSource:
         return SourceExpr(self, idx, False)
 
     def __repr__(self):
-        return f"IgniSource({self._name})"
+        return f"Source({self._name})"
 
 
-class IgniSpec:
+class Spec:
     def __init__(self, id: str, src):
         self._id = id
         self._fmt = {
@@ -435,7 +435,7 @@ class IgniSpec:
         return _play(self._id, url, hls_js_url, method=method, status_url=status_url)
 
 
-class IgniServer:
+class Server:
     def __init__(self, endpoint: str, api_key: str):
         if not endpoint.startswith("http://") and not endpoint.startswith("https://"):
             raise Exception("Endpoint must start with http:// or https://")
@@ -455,7 +455,7 @@ class IgniServer:
         response = response.json()
         assert response["status"] == "ok"
 
-    def get_source(self, id: str) -> IgniSource:
+    def get_source(self, id: str) -> Source:
         assert type(id) is str
         response = self._session.get(
             f"{self._endpoint}/v2/source/{id}",
@@ -464,7 +464,7 @@ class IgniServer:
         if not response.ok:
             raise Exception(response.text)
         response = response.json()
-        return IgniSource(response["id"], response)
+        return Source(response["id"], response)
 
     def list_sources(self) -> list[str]:
         response = self._session.get(
@@ -515,7 +515,7 @@ class IgniServer:
 
     def create_source(
         self, name, stream_idx, storage_service, storage_config
-    ) -> IgniSource:
+    ) -> Source:
         assert type(name) is str
         assert type(stream_idx) is int
         assert type(storage_service) is str
@@ -541,7 +541,7 @@ class IgniServer:
         id = response["id"]
         return self.get_source(id)
 
-    def source(self, name, stream_idx, storage_service, storage_config) -> IgniSource:
+    def source(self, name, stream_idx, storage_service, storage_config) -> Source:
         """Convenience function for accessing sources.
 
         Tries to find a source with the given name, stream_idx, storage_service, and storage_config.
@@ -553,7 +553,7 @@ class IgniServer:
             return self.create_source(name, stream_idx, storage_service, storage_config)
         return self.get_source(sources[0])
 
-    def get_spec(self, id: str) -> IgniSpec:
+    def get_spec(self, id: str) -> Spec:
         assert type(id) is str
         response = self._session.get(
             f"{self._endpoint}/v2/spec/{id}",
@@ -562,7 +562,7 @@ class IgniServer:
         if not response.ok:
             raise Exception(response.text)
         response = response.json()
-        return IgniSpec(response["id"], response)
+        return Spec(response["id"], response)
 
     def list_specs(self) -> list[str]:
         response = self._session.get(
@@ -584,7 +584,7 @@ class IgniServer:
         ready_hook=None,
         steer_hook=None,
         ttl=None,
-    ) -> IgniSpec:
+    ) -> Spec:
         assert type(width) is int
         assert type(height) is int
         assert type(pix_fmt) is str
@@ -651,7 +651,7 @@ class IgniServer:
         assert response["status"] == "ok"
 
     def push_spec_part(self, spec_id, pos, frames, terminal):
-        if type(spec_id) is IgniSpec:
+        if type(spec_id) is Spec:
             spec_id = spec_id._id
         assert type(spec_id) is str
         assert type(pos) is int
@@ -691,7 +691,7 @@ class IgniServer:
     def push_spec_part_block(
         self, spec_id: str, pos, blocks, terminal, compression="gzip"
     ):
-        if type(spec_id) is IgniSpec:
+        if type(spec_id) is Spec:
             spec_id = spec_id._id
         assert type(spec_id) is str
         assert type(pos) is int

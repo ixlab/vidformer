@@ -19,7 +19,7 @@ Either use the environment variables printed out by the server or set it manuall
 import vidformer as vf
 import vidformer.cv2 as cv2
 
-cv2.set_server(vf.IgniServer("<ENDPOINT>", "<API_KEY>"))
+cv2.set_server(vf.Server("<ENDPOINT>", "<API_KEY>"))
 ```
 
 ## Run admin commands
