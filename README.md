@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/ixlab/vidformer/blob/main/LICENSE)
 
 
-A research project providing infrastructure for video-native interfaces.
+A research project providing infrastructure for video-native interfaces and accelerating computer vision visualization.
 Developed by the OSU Interactive Data Systems Lab.
 
 ## 🎯 Why vidformer
