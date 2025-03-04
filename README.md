@@ -12,7 +12,7 @@ Developed by the OSU Interactive Data Systems Lab.
 
 ## 🎯 Why vidformer
 
-Vidformer efficiently transforms video data, enabling faster annotation, editing, and processing of video data—without having to focus on performance.
+Vidformer efficiently transforms videos, enabling faster annotation, editing, and processing of video data—without having to focus on performance.
 
 It uses a declarative specification format to represent transformations. This enables:
 
@@ -20,11 +20,11 @@ It uses a declarative specification format to represent transformations. This en
   
 * **Lazy/Deferred Execution:** Video results can be retrieved on-demand, allowing for practically instantaneous playback of video results.
 
-* **Familiar Technologies:** Vidformer builds on open technologies you may already use:
+Vidformer builds on open technologies you may already use:
   * **OpenCV:** A `cv2`-compatible interface ensures both you (and LLMs) can use  existing knowlege and code.
   * **Supervision:** [Supervision](https://supervision.roboflow.com/latest/)-compatible annotators make visualizing computer vision models trivial.
-  * **Jupyter:** View transformed videos instantly right in your notebook.
   * **FFmpeg:** Built on the same libraries, codecs, and formats that run the world.
+  * **Jupyter:** View transformed videos instantly right in your notebook.
   * **HTTP Live Streaming (HLS):** Serve transformed videos over a network directly into any media player.
   * **Apache OpenDAL:** Access source videos no matter where they are stored.
 
@@ -69,18 +69,6 @@ You can find details on this in our [Getting Started Guide](https://ixlab.github
 
 ## About the project
 
-Vidformer is a highly modular suite of tools that work together; these are detailed [here](https://ixlab.github.io/vidformer/modules.html).
-
-❌ vidformer is ***NOT***:
-* A conventional video editor (like Premiere Pro or Final Cut)
-* A video database/VDBMS
-* A natural language query interface for video
-* A computer vision library (like OpenCV)
-* A computer vision AI model (like CLIP or Yolo)
-
-However, vidformer is highly complementary to each of these.
-If you're working on any of the later four, vidformer may be for you.
-
 **File Layout**:
 - [*./vidformer*](./vidformer/): The core transformation library
 - [*./vidformer-py*](./vidformer-py/): A Python video editing client
@@ -89,7 +77,19 @@ If you're working on any of the later four, vidformer may be for you.
 - [*./snake-pit*](./snake-pit/): The main vidformer test suite
 - [*./docs*](./docs/): The [vidformer website](https://ixlab.github.io/vidformer/)
 
+Vidformer components are detailed [here](https://ixlab.github.io/vidformer/modules.html).
+
+❌ vidformer is ***NOT***:
+* A conventional video editor (like Premiere Pro or Final Cut)
+* A video database/VDBMS
+* A natural language query interface for video
+* A computer vision library (like OpenCV)
+* A computer vision AI model (like CLIP or Yolo)
+
+However, vidformer is strongly complementary to each of these.
+If you're working on any of the later four, vidformer may be for you.
+
 **License:** Vidformer is open source under [Apache-2.0](./LICENSE).
-Contributions welcome.
+Contributions are welcome.
 
 **Acknowledgements:** Vidformer is supported by the U.S. National Science Foundation under Awards #2118240 and #1910356.
