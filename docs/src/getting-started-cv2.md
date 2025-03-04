@@ -9,7 +9,6 @@ This is a walkthrough of getting started with vidformer OpenCV `cv2` compatabili
 See [Installation guide](./install.md)
 
 Or you can [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ixlab/vidformer/blob/main/misc/Colab_Vidformer.ipynb).
-> ⚠️ Due to how Colab networking works, vidformer can't stream/play results in Colab, only save them to disk. `cv2.vidplay()` will not work!
 
 ## Hello, world!
 
