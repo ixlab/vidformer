@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["filters"],"struct":["AddWeighted","ArrowedLine","Circle","Ellipse","Line","PutText","Rectangle","SetTo"]};
