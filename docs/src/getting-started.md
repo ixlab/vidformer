@@ -8,7 +8,7 @@ Walk through a demo using a hosted guest account: [![Open In Colab](https://cola
 
 ## Local:
 
-You can host a server yourself ([here](https://github.com/ixlab/vidformer/tree/main/vidformer-igni)).
+You can host a server yourself ([here](./install.md)).
 Installing locally allows for accessing the local file system and saving video results.
 
 * [Getting started with the `cv2` compatability layer](./getting-started-cv2.md)

@@ -88,7 +88,7 @@ def _server():
             _global_cv2_server = vf.Server(server_endpoint, api_key)
         else:
             raise Exception(
-                "No server set for the cv2 frontend. Set VF_IGNI_ENDPOINT and VF_IGNI_API_KEY environment variables or use cv2.set_server() before use."
+                "No server set for the cv2 frontend (https://ixlab.github.io/vidformer/install.html). Set VF_IGNI_ENDPOINT and VF_IGNI_API_KEY environment variables or use cv2.set_server() before use."
             )
     return _global_cv2_server
 
