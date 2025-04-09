@@ -18,7 +18,23 @@ cargo run --release -- server --config igni.toml
 
 ```bash
 # From vidformer project root
-docker build -t igni -f vidformer-igni/Dockerfile .
-cd vidformer-igni
-docker-compose -f docker-compose-prod.yaml up
+docker build -t igni -f Dockerfile .
+docker-compose -f vidformer-igni/docker-compose-prod.yaml up
+```
+
+For tls certs:
+```bash
+docker-compose -f vidformer-igni/docker-compose-prod.yaml run --rm certbot certonly --webroot --webroot-path /var/www/certbot/ -d api.example.com -d cdn.example.com
+```
+
+## Guest account setup (for colab notebook)
+
+```bash
+docker ps
+docker exec -it <igni container> bash
+vidformer-igni user add --name guest --permissions guest --api-key VF_GUEST
+vidformer-igni user ls
+vidformer-igni source add --user-id 98f6aa2a-e622-40bc-a0cd-e05f73f7e398 --name vf-sample-media/tos_720p.mp4 --stream-idx 0 --storage-service http --storage-config '{"endpoint":"https://f.dominik.win"}'
+vidformer-igni source add --user-id 98f6aa2a-e622-40bc-a0cd-e05f73f7e398 --name vf-sample-media/tos_720p-yolov8x-seg-masks.mkv --stream-idx 0 --storage-service http --storage-config '{"endpoint":"https://f.dominik.win"}'
+
 ```
