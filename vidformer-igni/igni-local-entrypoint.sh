@@ -15,4 +15,4 @@ echo "Starting local igni server"
 echo "    VF_IGNI_ENDPOINT=http://localhost:8080"
 echo "    VF_IGNI_API_KEY=local"
 
-/usr/local/bin/vidformer-igni server --config /etc/igni-local.toml
+/usr/local/bin/vidformer-igni server --config /etc/igni.toml

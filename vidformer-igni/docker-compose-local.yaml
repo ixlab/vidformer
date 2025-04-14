@@ -27,7 +27,7 @@ services:
       IGNI_DB: postgres://igni:igni@postgres:5432/igni
       RUST_LOG: warn
     ports:
-      - "127.0.0.1:8080:8080"
+      - "8080:8080"
     volumes:
       - ./igni-local.toml:/etc/igni.toml
       - ./igni-local-entrypoint.sh:/usr/local/bin/igni-local-entrypoint.sh
