@@ -11,5 +11,6 @@
 - [Filters](./filters.md)
     - [Built-in Filters](./builtin-filters.md)
     - [OpenCV/cv2](./opencv-filters.md)
+- [Hardware Acceleration](./hwaccel.md)
 - [Roadmap](./roadmap.md)
 - [FAQ](./faq.md)
