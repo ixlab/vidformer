@@ -1349,7 +1349,7 @@ pub fn create_spec_hls(
         host_prefix, namespace
     );
 
-    let stream_ts = sir::spec_domain(spec, context);
+    let stream_ts = sir::spec_timestamps(spec, context);
     let frame_rate = crate::spec::get_framerate(spec);
     let segment_duration = 2;
 

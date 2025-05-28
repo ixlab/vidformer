@@ -71,7 +71,7 @@ macro_rules! filter {
 fn test_placeholder() {
     struct MySpec {}
     impl spec::Spec for MySpec {
-        fn domain(&self, _context: &dyn spec::SpecContext) -> Vec<num_rational::Rational64> {
+        fn timestamps(&self, _context: &dyn spec::SpecContext) -> Vec<num_rational::Rational64> {
             (0..24 * 3).map(|i| Rational64::new(i, 24)).collect()
         }
 
@@ -125,7 +125,7 @@ fn test_placeholder() {
 fn test_bad_resolution() {
     struct MySpec {}
     impl spec::Spec for MySpec {
-        fn domain(&self, _context: &dyn spec::SpecContext) -> Vec<num_rational::Rational64> {
+        fn timestamps(&self, _context: &dyn spec::SpecContext) -> Vec<num_rational::Rational64> {
             (0..10).map(|i| Rational64::new(i, 24)).collect()
         }
 
@@ -182,7 +182,7 @@ fn test_bad_resolution() {
 fn test_non_existant_source() {
     struct MySpec {}
     impl spec::Spec for MySpec {
-        fn domain(&self, _context: &dyn spec::SpecContext) -> Vec<num_rational::Rational64> {
+        fn timestamps(&self, _context: &dyn spec::SpecContext) -> Vec<num_rational::Rational64> {
             (0..10).map(|i| Rational64::new(i, 24)).collect()
         }
 
@@ -239,7 +239,7 @@ fn test_non_existant_source() {
 fn test_no_source_file() {
     struct MySpec {}
     impl spec::Spec for MySpec {
-        fn domain(&self, _context: &dyn spec::SpecContext) -> Vec<num_rational::Rational64> {
+        fn timestamps(&self, _context: &dyn spec::SpecContext) -> Vec<num_rational::Rational64> {
             (0..1).map(|i| Rational64::new(i, 1)).collect()
         }
 
@@ -316,7 +316,7 @@ struct ClipSpec {
     num_frames: i64,
 }
 impl spec::Spec for ClipSpec {
-    fn domain(&self, _context: &dyn spec::SpecContext) -> Vec<num_rational::Rational64> {
+    fn timestamps(&self, _context: &dyn spec::SpecContext) -> Vec<num_rational::Rational64> {
         (0..self.num_frames)
             .map(|i| Rational64::new(i, 24))
             .collect()

@@ -1,7 +1,7 @@
 //! Specs declarativly define an edited video.
 //!
 //! A spec defines an output video (as a logical time-indexed array).
-//! It creates this array by defining its domain (the set of times at which the spec is defined) and a function that maps each time to a frame.
+//! It creates this array by defining its timestamps (the set of times at which the spec is defined) and a function that maps each time to a frame.
 //! The frame is represented as an [`FrameExpr`] expression.
 //!
 //! Specs are stateless and immutable. They are intended to be smaller than just storing the entire output video as an array.
@@ -18,16 +18,16 @@ pub trait SpecContext {}
 /// A spec defines a video from a sequence of transformations.
 /// A [`SpecContext`] is provided for information about the available source videos and arrays.
 pub trait Spec: Sync + Send {
-    /// Returns the domain of the spec.
+    /// Returns the timestamps of the outupt video.
     ///
-    /// The domain is the set of times at which the spec is defined.
+    /// The timestamps are the set of times at which the spec is defined.
     /// Each time corresponds to a single output frame at that timestamp.
     ///
     /// The output must:
     /// - Be sorted in ascending order
     /// - Contain no duplicate values
     /// - Begin with 0
-    fn domain(&self, context: &dyn SpecContext) -> Vec<Rational64>;
+    fn timestamps(&self, context: &dyn SpecContext) -> Vec<Rational64>;
 
     /// Returns the "logically" rendered frame at a given time.
     ///
@@ -39,7 +39,7 @@ pub(crate) fn get_framerate(spec: &dyn Spec) -> usize {
     // TODO: Not all framerates are widely supported in HLS. We should probably add a check for that.
 
     let context = crate::dve::EmptySpecCtx;
-    let frame_times = spec.domain(&context);
+    let frame_times = spec.timestamps(&context);
 
     let mut frame_deltas = frame_times.windows(2).map(|w| w[1] - w[0]);
 
@@ -61,7 +61,7 @@ pub struct JsonSpec {
 }
 
 impl Spec for JsonSpec {
-    fn domain(&self, _context: &dyn SpecContext) -> Vec<Rational64> {
+    fn timestamps(&self, _context: &dyn SpecContext) -> Vec<Rational64> {
         self.frames.iter().map(|(t, _)| *t).collect()
     }
 

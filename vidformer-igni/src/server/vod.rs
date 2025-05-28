@@ -306,7 +306,10 @@ pub(crate) async fn get_segment(
     }
 
     impl vidformer::spec::Spec for IgniSpec {
-        fn domain(&self, _: &dyn vidformer::spec::SpecContext) -> Vec<num_rational::Ratio<i64>> {
+        fn timestamps(
+            &self,
+            _: &dyn vidformer::spec::SpecContext,
+        ) -> Vec<num_rational::Ratio<i64>> {
             self.times.clone()
         }
 

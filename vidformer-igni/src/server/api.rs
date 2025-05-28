@@ -1432,7 +1432,10 @@ pub(crate) async fn get_frame(
     }
 
     impl vidformer::spec::Spec for IgniSpec {
-        fn domain(&self, _: &dyn vidformer::spec::SpecContext) -> Vec<num_rational::Ratio<i64>> {
+        fn timestamps(
+            &self,
+            _: &dyn vidformer::spec::SpecContext,
+        ) -> Vec<num_rational::Ratio<i64>> {
             vec![num_rational::Ratio::new(0, 1)]
         }
 
@@ -1625,7 +1628,10 @@ pub(crate) async fn export_spec(
     }
 
     impl vidformer::spec::Spec for IgniSpec {
-        fn domain(&self, _: &dyn vidformer::spec::SpecContext) -> Vec<num_rational::Ratio<i64>> {
+        fn timestamps(
+            &self,
+            _: &dyn vidformer::spec::SpecContext,
+        ) -> Vec<num_rational::Ratio<i64>> {
             self.times.clone()
         }
 

@@ -126,7 +126,7 @@ fn cmd_x() {
 
     struct MySpec {}
     impl spec::Spec for MySpec {
-        fn domain(&self, _context: &dyn spec::SpecContext) -> Vec<num_rational::Rational64> {
+        fn timestamps(&self, _context: &dyn spec::SpecContext) -> Vec<num_rational::Rational64> {
             (0..NUM_FRAMES).map(|i| Rational64::new(i, 24)).collect()
         }
 

@@ -163,11 +163,11 @@ pub(crate) struct ProcessSpan {
     pub(crate) output_ts_offset: Option<Rational64>,
 }
 
-pub(crate) fn spec_domain(
+pub(crate) fn spec_timestamps(
     spec: &dyn crate::spec::Spec,
     context: &crate::dve::Context,
 ) -> Vec<Rational64> {
-    spec.domain(&context.spec_ctx())
+    spec.timestamps(&context.spec_ctx())
 }
 
 impl ProcessSpan {
@@ -178,7 +178,7 @@ impl ProcessSpan {
     ) -> Self {
         let spec_ctx = context.spec_ctx();
 
-        let mut ts = spec.domain(&spec_ctx);
+        let mut ts = spec.timestamps(&spec_ctx);
         ts.sort();
         let ts = ts;
 
