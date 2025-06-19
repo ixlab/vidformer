@@ -315,6 +315,13 @@ def _inline_frame(arr):
     return Frame(f, fmt)
 
 
+def _check_opencv2(method_name):
+    if _opencv2 is None:
+        raise NotImplementedError(
+            f"{method_name} requires python OpenCV cv2. Either it's not installed or the import failed (such as a mission libGL.so.1)."
+        )
+
+
 class VideoCapture:
     def __init__(self, path: str):
         server = _server()
@@ -779,8 +786,7 @@ def getFontScaleFromHeight(*args, **kwargs):
     """
     cv.getFontScaleFromHeight(	fontFace, pixelHeight[, thickness]	)
     """
-    if _opencv2 is None:
-        raise NotImplementedError("getFontScaleFromHeight requires the cv2 module")
+    _check_opencv2("getFontScaleFromHeight")
     return _opencv2.getFontScaleFromHeight(*args, **kwargs)
 
 
@@ -788,8 +794,7 @@ def getTextSize(*args, **kwargs):
     """
     cv.getTextSize(	text, fontFace, fontScale, thickness	)
     """
-    if _opencv2 is None:
-        raise NotImplementedError("getTextSize requires the cv2 module")
+    _check_opencv2("getTextSize")
     return _opencv2.getTextSize(*args, **kwargs)
 
 
