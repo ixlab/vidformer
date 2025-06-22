@@ -41,7 +41,7 @@ impl super::Filter for PlaceholderFrame {
         unsafe {
             (*f).width = width as i32;
             (*f).height = height as i32;
-            (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_YUV420P;
+            (*f).format = ffi::AV_PIX_FMT_YUV420P;
 
             if ffi::av_frame_get_buffer(f, 0) < 0 {
                 panic!("ERROR could not allocate frame data");
@@ -79,7 +79,7 @@ impl super::Filter for PlaceholderFrame {
         Ok(FrameType::new(
             width as usize,
             height as usize,
-            ffi::AVPixelFormat_AV_PIX_FMT_YUV420P,
+            ffi::AV_PIX_FMT_YUV420P,
         ))
     }
 }
@@ -124,7 +124,7 @@ impl super::Filter for Scale {
                     Val::String(s) => {
                         let format_cstr = CString::new(s.as_str()).unwrap();
                         let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
-                        if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
+                        if format == ffi::AV_PIX_FMT_NONE {
                             return Err(Error::InvalidFilterArgValue(
                                 s.clone(),
                                 "Invalid pixel format".to_string(),
@@ -228,7 +228,7 @@ impl super::Filter for Scale {
                     Val::String(s) => {
                         let format_cstr = CString::new(s.as_str()).unwrap();
                         let format = unsafe { ffi::av_get_pix_fmt(format_cstr.as_ptr()) };
-                        if format == ffi::AVPixelFormat_AV_PIX_FMT_NONE {
+                        if format == ffi::AV_PIX_FMT_NONE {
                             return Err(Error::InvalidFilterArgValue(
                                 s.clone(),
                                 "Invalid pixel format".to_string(),
@@ -318,7 +318,7 @@ impl super::Filter for InlineMat {
         unsafe {
             (*f).width = width as i32;
             (*f).height = height as i32;
-            (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_RGB24;
+            (*f).format = ffi::AV_PIX_FMT_RGB24;
 
             if ffi::av_frame_get_buffer(f, 0) < 0 {
                 panic!("ERROR could not allocate frame data");
@@ -417,7 +417,7 @@ impl super::Filter for InlineMat {
         Ok(FrameType {
             width: width as usize,
             height: height as usize,
-            format: ffi::AVPixelFormat_AV_PIX_FMT_RGB24,
+            format: ffi::AV_PIX_FMT_RGB24,
         })
     }
 }
@@ -550,7 +550,7 @@ impl super::Filter for SliceMat {
         unsafe {
             (*f).width = (maxx - minx) as i32;
             (*f).height = (maxy - miny) as i32;
-            (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_RGB24;
+            (*f).format = ffi::AV_PIX_FMT_RGB24;
 
             if ffi::av_frame_get_buffer(f, 0) < 0 {
                 panic!("ERROR could not allocate frame data");
@@ -597,7 +597,7 @@ impl super::Filter for SliceMat {
             _ => return Err(Error::MissingFilterArg),
         };
 
-        if frame.format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+        if frame.format != ffi::AV_PIX_FMT_RGB24 {
             return Err(Error::InvalidFilterArgValue(
                 format!("{:?}", frame.format),
                 "Invalid pixel format".to_string(),
@@ -681,7 +681,7 @@ impl super::Filter for SliceWriteMat {
         unsafe {
             (*f).width = f1.width;
             (*f).height = f1.height;
-            (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_RGB24;
+            (*f).format = ffi::AV_PIX_FMT_RGB24;
 
             if ffi::av_frame_get_buffer(f, 0) < 0 {
                 panic!("ERROR could not allocate frame data");
@@ -743,14 +743,14 @@ impl super::Filter for SliceWriteMat {
             _ => return Err(Error::MissingFilterArg),
         };
 
-        if f1.format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+        if f1.format != ffi::AV_PIX_FMT_RGB24 {
             return Err(Error::InvalidFilterArgValue(
                 format!("{:?}", f1.format),
                 "Invalid pixel format".to_string(),
             ));
         }
 
-        if f2.format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+        if f2.format != ffi::AV_PIX_FMT_RGB24 {
             return Err(Error::InvalidFilterArgValue(
                 format!("{:?}", f2.format),
                 "Invalid pixel format".to_string(),
