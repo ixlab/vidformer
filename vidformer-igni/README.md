@@ -5,6 +5,15 @@ The vidformer server for the cloud.
 **Quick links:**
 * [🧑‍💻 Source Code](https://github.com/ixlab/vidformer/tree/main/vidformer-igni/)
 
+## Local Setup
+
+```bash
+git clone https://github.com/ixlab/vidformer
+cd vidformer
+docker build -t igni -f Dockerfile .
+docker-compose -f vidformer-igni/docker-compose-local.yaml up
+```
+
 ## Development Setup
 
 ```bash
@@ -14,7 +23,7 @@ cargo run -- user add --name test --api-key test --permissions test
 cargo run --release -- server --config igni.toml
 ```
 
-## Deployment
+## Server Deployment
 
 ```bash
 # From vidformer project root

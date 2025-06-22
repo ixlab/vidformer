@@ -38,6 +38,13 @@ Vidformer builds on open technologies you may already use:
 
 The easiest way to get started is using vidformer's `cv2` frontend, which allows most Python OpenCV visualization scripts to replace `import cv2` with `import vidformer.cv2 as cv2`:
 
+```bash
+git clone https://github.com/ixlab/vidformer
+cd vidformer
+docker build -t igni -f Dockerfile .
+docker-compose -f vidformer-igni/docker-compose-local.yaml up
+```
+
 ```python
 import vidformer.cv2 as cv2
 
