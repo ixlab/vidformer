@@ -21,7 +21,7 @@ serde_json = "1.0"
 uuid = { version = "1.7.0", features = ["v4",  "fast-rng"] }
 rayon = "1.9"
 thiserror = "2.0.3"
-opencv = { version = "0.94.1", default-features = false, features = ["clang-runtime", "imgproc"] }
+opencv = { version = "0.95.0", default-features = false, features = ["clang-runtime", "imgproc"] }
 crossbeam-channel = "0.5"
 parking_lot = "0.12.2"
 opendal = { version = "0.52", features = ["layers-blocking", "services-fs", "services-http"] }
