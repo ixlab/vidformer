@@ -21,7 +21,6 @@ It uses a declarative specification format to represent transformations. This en
 * **Lazy/Deferred Execution:** Video results can be retrieved on-demand, allowing for practically instantaneous playback of video results.
 
 Vidformer usually renders videos 2-3x faster than cv2, and hundreds of times faster when serving videos on-demand.
-![plots](./misc/benchmark-plots.png)
 
 Vidformer builds on open technologies you may already use:
   * **OpenCV:** A `cv2`-compatible interface ensures both you (and LLMs) can use  existing knowlege and code.
