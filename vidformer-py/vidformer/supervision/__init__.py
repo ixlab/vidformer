@@ -9,7 +9,13 @@ import supervision as _sv
 from supervision import Color, ColorLookup, ColorPalette, Detections
 from supervision.annotators.utils import resolve_color, resolve_text_background_xyxy
 from supervision.config import CLASS_NAME_DATA_FIELD
-from supervision.detection.utils import spread_out_boxes
+
+# supervision moved this between two versions, so we need to handle both cases
+try:
+    from supervision.detection.utils import spread_out_boxes
+except ImportError:
+    from supervision.detection.utils.boxes import spread_out_boxes
+
 from supervision.geometry.core import Position
 
 import vidformer.cv2 as vf_cv2
