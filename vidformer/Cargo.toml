@@ -24,6 +24,6 @@ thiserror = "2.0.3"
 opencv = { version = "0.95.0", default-features = false, features = ["clang-runtime", "imgproc"] }
 crossbeam-channel = "0.5"
 parking_lot = "0.12.2"
-opendal = { version = "0.52", features = ["layers-blocking", "services-fs", "services-http"] }
+opendal = { version = "0.54", features = ["layers-blocking", "services-fs", "services-http"] }
 tokio = { version = "1", features = ["full"] }
 flate2 = "1.0"
