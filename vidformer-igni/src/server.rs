@@ -511,6 +511,19 @@ async fn igni_http_req(
             let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
             vod::get_status(req, global, spec_id).await
         }
+        (hyper::Method::GET, _) // embedded-player
+            if {
+                Regex::new(r"^/vod/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/embedded-player$").unwrap().is_match(req.uri().path())
+            } =>
+        {
+            // TODO: Should we require a config option to enable this?
+            let r = Regex::new(
+                r"^/vod/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/embedded-player$",
+            );
+            let uri = req.uri().path().to_string();
+            let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            vod::get_embedded_player(req, global, spec_id).await
+        }
         (_, uri) if {
             uri.starts_with("/v2/")
         } => {

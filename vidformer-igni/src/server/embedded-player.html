@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Video</title>
+  <script src="{{HLS_JS_PATH}}"></script>
+  <style>
+    /* make it look decent in Slack’s iframe (and anywhere else) */
+    html, body { height: 100%; margin: 0; background: #000; }
+    .wrap { min-height: 100%; display: grid; place-items: center; padding: 0; }
+    video { width: 100%; height: auto; max-width: {{MAX_WIDTH}}px; outline: none; background: #000; }
+  </style>
+  <body>
+    <div class="wrap">
+      <video
+        id="video-{{UUID}}"
+        controls
+        playsinline
+        preload="metadata"
+      >
+        Sorry-your browser doesn’t support the video tag.
+      </video>
+      <script>
+        var video = document.getElementById('video-{{UUID}}');
+        var videoSrc = '{{VOD_PREFIX}}{{UUID}}/playlist.m3u8';
+
+        if (Hls.isSupported()) {{
+            var hls = new Hls();
+            hls.loadSource(videoSrc);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {{
+                video.play();
+            }});
+        }} else if (video.canPlayType('application/vnd.apple.mpegurl')) {{
+            video.src = videoSrc;
+            video.addEventListener('loadedmetadata', function() {{
+                video.play();
+            }});
+        }} else {{
+            console.error('This browser does not appear to support HLS.');
+        }}
+    </script>
+    </div>
+  </body>
+</html>
+

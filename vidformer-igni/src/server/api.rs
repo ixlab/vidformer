@@ -1733,7 +1733,7 @@ pub(crate) async fn export_spec(
             Some(encoder) => {
                 let encoder_opts: Vec<(String, String)> = match req.encoder_opts {
                     None => vec![],
-                    Some(opts) => opts.into_iter().map(|(k, v)| (k, v)).collect(),
+                    Some(opts) => opts.into_iter().collect(),
                 };
                 Some(vidformer::EncoderConfig {
                     codec_name: encoder,

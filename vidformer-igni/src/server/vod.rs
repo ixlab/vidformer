@@ -188,6 +188,61 @@ pub(crate) async fn get_status(
         .body(http_body_util::Full::new(hyper::body::Bytes::from(body)))?)
 }
 
+pub(crate) async fn get_embedded_player(
+    _req: hyper::Request<impl hyper::body::Body>,
+    global: std::sync::Arc<IgniServerGlobal>,
+    spec_id: &str,
+) -> Result<hyper::Response<http_body_util::Full<hyper::body::Bytes>>, IgniError> {
+    let spec_id = Uuid::parse_str(spec_id).unwrap();
+
+    let row: Option<schema::SpecRow> = sqlx::query_as("SELECT * FROM spec WHERE id = $1")
+        .bind(spec_id)
+        .fetch_optional(&global.pool)
+        .await?;
+
+    let spec = match row {
+        None => {
+            return Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::NOT_FOUND)
+                .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                    "Spec not found",
+                )))?);
+        }
+        Some(spec) => spec,
+    };
+
+    if spec.closed {
+        return Ok(hyper::Response::builder()
+            .status(hyper::StatusCode::FORBIDDEN)
+            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                "VOD is closed",
+            )))?);
+    }
+
+    let vod_prefix = &global.config.vod_prefix;
+
+    // TODO: Hacky
+    let hls_js_path = if vod_prefix.ends_with("/vod/") {
+        let mut s = vod_prefix.clone();
+        s.truncate(s.len() - 4);
+        s + "hls.js"
+    } else {
+        vod_prefix.clone() + "hls.js"
+    };
+
+    let template = include_str!("embedded-player.html");
+    let html = template
+        .replace("{{UUID}}", &spec_id.to_string())
+        .replace("{{VOD_PREFIX}}", &vod_prefix)
+        .replace("{{HLS_JS_PATH}}", &hls_js_path)
+        .replace("{{MAX_WIDTH}}", &spec.width.to_string());
+
+    Ok(hyper::Response::builder()
+        .header("Access-Control-Allow-Origin", "*")
+        .header("Content-Type", "text/html")
+        .body(http_body_util::Full::new(hyper::body::Bytes::from(html)))?)
+}
+
 pub(crate) async fn get_segment(
     _req: hyper::Request<impl hyper::body::Body>,
     global: std::sync::Arc<IgniServerGlobal>,
