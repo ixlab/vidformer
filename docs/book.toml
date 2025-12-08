@@ -1,7 +1,6 @@
 [book]
 authors = ["Dominik Winecki"]
 language = "en"
-multilingual = false
 src = "src"
 title = "vidformer - Video Data Transformation"
 
