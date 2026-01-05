@@ -10,7 +10,7 @@
 A research project providing infrastructure for video-native interfaces and accelerating computer vision visualization.
 Developed by the OSU Interactive Data Systems Lab.
 
-## 🎯 Why vidformer
+## Why vidformer
 
 Vidformer efficiently transforms videos, enabling faster annotation, editing, and processing of video data—without having to focus on performance.
 
@@ -30,7 +30,7 @@ Vidformer builds on open technologies you may already use:
   * **HTTP Live Streaming (HLS):** Serve transformed videos over a network directly into any media player.
   * **Apache OpenDAL:** Access source videos no matter where they are stored.
 
-## 🚀 Quick Start
+## Quick Start
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ixlab/vidformer/blob/main/misc/Colab_Vidformer.ipynb)
 
@@ -69,7 +69,7 @@ out.release()
 
 You can find details on this in our [Getting Started Guide](https://ixlab.github.io/vidformer/getting-started.html).
 
-## 📘 Documentation
+## Documentation
 
 * [🌐 Website](https://ixlab.github.io/vidformer/)
 * [🚀 Getting Started](https://ixlab.github.io/vidformer/getting-started.html)
