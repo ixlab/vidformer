@@ -9,7 +9,7 @@ vidformer-py is a Python 🐍 interface for [vidformer](https://github.com/ixlab
 * [🧑‍💻 Source Code](https://github.com/ixlab/vidformer/tree/main/vidformer-py/)
 """
 
-__version__ = "1.1.1"
+__version__ = "1.2.0"
 
 
 import base64
