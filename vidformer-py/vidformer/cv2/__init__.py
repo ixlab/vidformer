@@ -66,7 +66,13 @@ _set_to = vf.Filter("cv2.setTo")
 
 
 def _ts_to_fps(timestamps):
-    return int(1 / (timestamps[1] - timestamps[0]))  # TODO: Fix for non-integer fps
+    if len(timestamps) < 2:
+        return 0
+    fps = Fraction(len(timestamps), timestamps[-1] - timestamps[0])
+    if fps.denominator == 1:
+        return fps.numerator
+    return float(fps)
+
 
 
 def _fps_to_ts(fps, n_frames):
