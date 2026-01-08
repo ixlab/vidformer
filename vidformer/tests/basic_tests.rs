@@ -334,6 +334,26 @@ impl spec::Spec for ClipSpec {
     }
 }
 
+#[test]
+fn test_audio_stream_error() {
+    let fs_service = vidformer::service::Service::default();
+
+    let result = source::SourceVideoStreamMeta::profile(
+        "tos",
+        "../tos_720p.mp4",
+        1,
+        &fs_service,
+        None,
+    );
+
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(matches!(err, vidformer::Error::AVError(_)));
+    let err_msg = err.to_string();
+    assert!(err_msg.contains("Stream 1 is not a video stream"));
+    assert!(err_msg.contains("audio stream"));
+}
+
 fn tos_context() -> std::sync::Arc<vidformer::Context> {
     let fs_service = vidformer::service::Service::default();
 
