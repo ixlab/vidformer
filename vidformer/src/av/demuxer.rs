@@ -107,7 +107,7 @@ impl Demuxer {
 
         let op = service.blocking_operator(io_runtime_handle)?;
 
-        let reader: opendal::BlockingReader = op.reader(file_path).map_err(|e| {
+        let reader: opendal::blocking::Reader = op.reader(file_path).map_err(|e| {
             if e.kind() == opendal::ErrorKind::NotFound {
                 crate::Error::IOError(format!("File `{}` not found", file_path))
             } else {
@@ -115,7 +115,7 @@ impl Demuxer {
             }
         })?;
 
-        let reader: opendal::StdReader = match reader.into_std_read(0..file_size) {
+        let reader: opendal::blocking::StdReader = match reader.into_std_read(0..file_size) {
             Ok(reader) => reader,
             Err(err) => {
                 return Err(crate::Error::IOError(format!(
