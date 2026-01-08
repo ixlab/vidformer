@@ -425,6 +425,19 @@ class VideoWriter:
             self._f_time = Fraction(1, fps)
         elif isinstance(fps, Fraction):
             self._f_time = 1 / fps
+        elif isinstance(fps, float):
+            # 29.97
+            if abs(fps - 30000 / 1001) < 1e-6:
+                self._f_time = Fraction(1001, 30000)
+            # 23.976
+            elif abs(fps - 24000 / 1001) < 1e-6:
+                self._f_time = Fraction(1001, 24000)
+            # 59.94
+            elif abs(fps - 60000 / 1001) < 1e-6:
+                self._f_time = Fraction(1001, 60000)
+            else:
+                # Round to nearest integer fps
+                self._f_time = Fraction(1, int(round(fps)))
         else:
             raise Exception("fps must be an integer or a Fraction")
 
