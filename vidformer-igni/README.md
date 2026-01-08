@@ -43,7 +43,13 @@ docker ps
 docker exec -it <igni container> bash
 vidformer-igni user add --name guest --permissions guest --api-key VF_GUEST
 vidformer-igni user ls
+
+# ToS video
 vidformer-igni source add --user-id 98f6aa2a-e622-40bc-a0cd-e05f73f7e398 --name vf-sample-media/tos_720p.mp4 --stream-idx 0 --storage-service http --storage-config '{"endpoint":"https://f.dominik.win"}'
 vidformer-igni source add --user-id 98f6aa2a-e622-40bc-a0cd-e05f73f7e398 --name vf-sample-media/tos_720p-yolov8x-seg-masks.mkv --stream-idx 0 --storage-service http --storage-config '{"endpoint":"https://f.dominik.win"}'
 
+# Apollo 11 videos
+for i in $(seq -f "%02g" 1 23); do
+  vidformer-igni source add --user-id 98f6aa2a-e622-40bc-a0cd-e05f73f7e398 --name "vf-sample-media/apollo-11-mission/Apollo 11 $i.mp4" --stream-idx 0 --storage-service http --storage-config '{"endpoint":"https://f.dominik.win"}'
+done
 ```

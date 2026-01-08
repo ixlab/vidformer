@@ -338,13 +338,8 @@ impl spec::Spec for ClipSpec {
 fn test_audio_stream_error() {
     let fs_service = vidformer::service::Service::default();
 
-    let result = source::SourceVideoStreamMeta::profile(
-        "tos",
-        "../tos_720p.mp4",
-        1,
-        &fs_service,
-        None,
-    );
+    let result =
+        source::SourceVideoStreamMeta::profile("tos", "../tos_720p.mp4", 1, &fs_service, None);
 
     assert!(result.is_err());
     let err = result.unwrap_err();
