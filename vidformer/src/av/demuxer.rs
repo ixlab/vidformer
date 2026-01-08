@@ -234,8 +234,18 @@ impl Demuxer {
                     codec_parameters_ptr = local_codec_params;
                 }
             } else {
-                println!("Stream {i} is not a video");
-                continue;
+                // The requested stream is not a video stream
+                let codec_type = match local_codec_params.codec_type {
+                    ffi::AVMediaType_AVMEDIA_TYPE_AUDIO => "audio",
+                    ffi::AVMediaType_AVMEDIA_TYPE_SUBTITLE => "subtitle",
+                    ffi::AVMediaType_AVMEDIA_TYPE_DATA => "data",
+                    ffi::AVMediaType_AVMEDIA_TYPE_ATTACHMENT => "attachment",
+                    _ => "unknown",
+                };
+                return Err(crate::Error::AVError(format!(
+                    "Stream {} is not a video stream (it is a {} stream). Please specify a valid video stream index.",
+                    i, codec_type
+                )));
             }
         }
 
