@@ -503,6 +503,9 @@ class VideoWriter:
         if len(self._feb) >= self._batch_size:
             self._flush()
 
+    def isOpened(self):
+        return True
+
     def release(self):
         self._flush(True)
         if self._path is not None:

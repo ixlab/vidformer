@@ -126,6 +126,7 @@ def rw(cv2):
 
     path = tmp_path("mp4")
     out = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+    assert out.isOpened()
 
     count = 0
     while True:
