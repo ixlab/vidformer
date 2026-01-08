@@ -74,7 +74,6 @@ def _ts_to_fps(timestamps):
     return float(fps)
 
 
-
 def _fps_to_ts(fps, n_frames):
     assert type(fps) is int
     return [Fraction(i, fps) for i in range(n_frames)]
@@ -363,6 +362,14 @@ class VideoCapture:
             return len(self._source)
         elif prop == CAP_PROP_POS_FRAMES:
             return self._next_frame_idx
+        elif prop == CAP_PROP_POS_MSEC:
+            ts = self._source.ts()
+            if self._next_frame_idx >= len(ts):
+                # Past the end, return the last timestamp
+                if len(ts) > 0:
+                    return float(ts[-1] * 1000)
+                return 0.0
+            return float(ts[self._next_frame_idx] * 1000)
 
         raise Exception(f"Unknown property {prop}")
 
@@ -439,7 +446,7 @@ class VideoWriter:
                 # Round to nearest integer fps
                 self._f_time = Fraction(1, int(round(fps)))
         else:
-            raise Exception("fps must be an integer or a Fraction")
+            raise Exception("fps must be an integer, float, or Fraction")
 
         assert isinstance(size, tuple) or isinstance(size, list)
         assert len(size) == 2

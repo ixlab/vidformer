@@ -752,6 +752,51 @@ def test_seek_vf():
     seek(vf_cv2)
 
 
+def get_pos_msec(cv2):
+    # test getting position in milliseconds
+    cap = cv2.VideoCapture(TEST_VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+
+    # At start, should be at position 0
+    pos_msec = cap.get(cv2.CAP_PROP_POS_MSEC)
+    assert pos_msec == 0.0
+
+    # Seek to frame 24 (1 second at 24fps)
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 24)
+    pos_msec = cap.get(cv2.CAP_PROP_POS_MSEC)
+    expected_msec = 24 * (1000 / fps)
+    assert abs(pos_msec - expected_msec) < 1.0  # within 1ms
+
+    # Seek to 5000ms using set, then verify with get
+    cap.set(cv2.CAP_PROP_POS_MSEC, 5000)
+    pos_msec = cap.get(cv2.CAP_PROP_POS_MSEC)
+    assert abs(pos_msec - 5000) < 2 * (1000 / fps)  # within two frame durations
+
+    # Seek to frame 1000
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 1000)
+    pos_msec = cap.get(cv2.CAP_PROP_POS_MSEC)
+    expected_msec = 1000 * (1000 / fps)
+    assert abs(pos_msec - expected_msec) < 2 * (
+        1000 / fps
+    )  # within two frame durations
+
+    # Read a frame and verify position advances
+    pos_before = cap.get(cv2.CAP_PROP_POS_MSEC)
+    ret, frame = cap.read()
+    assert ret
+    pos_after = cap.get(cv2.CAP_PROP_POS_MSEC)
+    assert pos_after > pos_before
+
+    cap.release()
+
+
+# We can not run this with ocv_cv2 since OpenCV's get CAP_PROP_POS_MSEC is quite inaccurate
+def test_get_pos_msec_vf():
+    get_pos_msec(vf_cv2)
+
+
 def test_getFontScaleFromHeight():
     import cv2 as ocv_cv2
 
