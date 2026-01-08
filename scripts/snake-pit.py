@@ -25,7 +25,7 @@ sp.run(["docker-compose", "-f", igni_docker_compose, "up", "-d"], check=True)
 time.sleep(10)  # Give the database time to apply the init scripts
 
 # Igni admin cli
-# These just make sure the binary runs without crashin and can talk to the server
+# These just make sure the binary runs without crashing and can talk to the server
 # Mostly a canary to make sure a schema change didn't break the admin cli
 print("Running Igni admin cli checks")
 vidformer_igni_bin = os.path.join(project_dir, "target", "debug", "vidformer-igni")
