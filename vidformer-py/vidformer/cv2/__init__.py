@@ -427,6 +427,9 @@ class VideoWriter:
         server = _server()
         assert isinstance(server, vf.Server)
         assert path is None or type(path) is str
+        if path is not None and server.is_vod_only():
+            path = None
+
         self._path = path
         if isinstance(fps, int):
             self._f_time = Fraction(1, fps)
