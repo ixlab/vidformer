@@ -95,7 +95,8 @@ def test_constants():
     assert ocv_cv2.INTER_LINEAR == vf_cv2.INTER_LINEAR
     assert ocv_cv2.INTER_CUBIC == vf_cv2.INTER_CUBIC
     assert ocv_cv2.INTER_AREA == vf_cv2.INTER_AREA
-    assert ocv_cv2.INTER_LANCOZOS4 == vf_cv2.INTER_LANCOZOS4
+    if hasattr(ocv_cv2, "INTER_LANCOZOS4"): # I guess some versions don't have it?
+        assert ocv_cv2.INTER_LANCOZOS4 == vf_cv2.INTER_LANCOZOS4
     assert ocv_cv2.INTER_LINEAR_EXACT == vf_cv2.INTER_LINEAR_EXACT
     assert ocv_cv2.INTER_NEAREST_EXACT == vf_cv2.INTER_NEAREST_EXACT
 
