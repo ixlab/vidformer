@@ -48,6 +48,15 @@ LINE_4 = 4
 LINE_8 = 8
 LINE_AA = 16
 
+INTER_NEAREST = 0
+INTER_LINEAR = 1
+INTER_CUBIC = 2
+INTER_AREA = 3
+INTER_LANCOZOS4 = 4
+INTER_LINEAR_EXACT = 5
+INTER_NEAREST_EXACT = 6
+INTER_MAX = 7
+
 _inline_mat = vf.Filter("_inline_mat")
 _slice_mat = vf.Filter("_slice_mat")
 _slice_write_mat = vf.Filter("_slice_write_mat")
@@ -620,13 +629,18 @@ def zeros(shape, dtype=np.uint8):
     return Frame(f, fmt)
 
 
-def resize(src, dsize):
+def resize(src, dsize, interpolation=None):
     src = frameify(src)
     src._mut()
 
     assert isinstance(dsize, tuple) or isinstance(dsize, list)
     assert len(dsize) == 2
     width, height = dsize
+
+    # TODO: We don't do anything with interpolation yet
+    assert interpolation is None or (
+        interpolation >= INTER_NEAREST and interpolation <= INTER_MAX
+    )
 
     f = _filter_scale(src._f, width=width, height=height)
     fmt = {"width": width, "height": height, "pix_fmt": src._fmt["pix_fmt"]}

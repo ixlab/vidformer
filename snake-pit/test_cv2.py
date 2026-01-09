@@ -91,6 +91,14 @@ def test_constants():
     assert ocv_cv2.LINE_8 == vf_cv2.LINE_8
     assert ocv_cv2.LINE_AA == vf_cv2.LINE_AA
 
+    assert ocv_cv2.INTER_NEAREST == vf_cv2.INTER_NEAREST
+    assert ocv_cv2.INTER_LINEAR == vf_cv2.INTER_LINEAR
+    assert ocv_cv2.INTER_CUBIC == vf_cv2.INTER_CUBIC
+    assert ocv_cv2.INTER_AREA == vf_cv2.INTER_AREA
+    assert ocv_cv2.INTER_LANCOZOS4 == vf_cv2.INTER_LANCOZOS4
+    assert ocv_cv2.INTER_LINEAR_EXACT == vf_cv2.INTER_LINEAR_EXACT
+    assert ocv_cv2.INTER_NEAREST_EXACT == vf_cv2.INTER_NEAREST_EXACT
+
 
 def test_cap_all_frames():
     """Make sure VideoCapture can read all frames of a video correctly."""
@@ -292,6 +300,23 @@ def test_resize():
     assert fmt["height"] == 250
     assert fmt["pix_fmt"] == "rgb24"
     os.remove(path)
+
+    # Test that adding an interpolation argument works, but make sure it doesn't do anything
+    for interpolation in [
+        vf_cv2.INTER_NEAREST,
+        vf_cv2.INTER_LINEAR,
+        vf_cv2.INTER_CUBIC,
+        vf_cv2.INTER_AREA,
+        vf_cv2.INTER_LANCOZOS4,
+        vf_cv2.INTER_LINEAR_EXACT,
+        vf_cv2.INTER_NEAREST_EXACT,
+        vf_cv2.INTER_MAX,
+    ]:
+        frame_resized = vf_cv2.resize(frame, (300, 250), interpolation=interpolation)
+        assert type(frame_resized) is vf_cv2.Frame
+        assert frame_resized.shape[0] == 250
+        assert frame_resized.shape[1] == 300
+        assert frame_resized.shape[2] == 3
 
 
 def test_resize_numpy():
