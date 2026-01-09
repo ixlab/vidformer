@@ -378,7 +378,7 @@ class VideoCapture:
             assert value >= 0 and value < len(self._source.ts())
             self._next_frame_idx = value
         elif prop == CAP_PROP_POS_MSEC:
-            t = Fraction(value, 1000)
+            t = Fraction(int(value), 1000)
             ts = self._source.ts()
             next_frame_idx = bisect_right(ts, t)
             self._next_frame_idx = next_frame_idx

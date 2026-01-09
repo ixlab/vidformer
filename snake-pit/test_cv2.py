@@ -720,7 +720,7 @@ def seek(cv2):
         elif count == 25:
             cap.set(cv2.CAP_PROP_POS_FRAMES, 1000)
         elif count == 50:
-            cap.set(cv2.CAP_PROP_POS_MSEC, 20000)
+            cap.set(cv2.CAP_PROP_POS_MSEC, 20000.0)
         elif count == 75:
             cap.set(cv2.CAP_PROP_POS_FRAMES, 2000)
         elif count == 100:
