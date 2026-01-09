@@ -588,7 +588,7 @@ def imwrite(path, img, *args):
     server.export_spec(spec.id(), path, encoder=encoder)
 
 
-def vidplay(video, method="html"):
+def vidplay(video, method="display"):
     """
     Play a vidformer video specification.
     """

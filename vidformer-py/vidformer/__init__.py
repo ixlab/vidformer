@@ -45,9 +45,22 @@ def _wait_for_url(url, max_attempts=150, delay=0.1):
     return None
 
 
-def _play(namespace, hls_video_url, hls_js_url, method="html", status_url=None):
+def _play(namespace, hls_video_url, hls_js_url, method="display", status_url=None):
     # The namespace is so multiple videos in one tab don't conflict
 
+    if method == "display":
+        from IPython.display import display
+
+        display(
+            _play(
+                namespace,
+                hls_video_url,
+                hls_js_url,
+                method="html",
+                status_url=status_url,
+            )
+        )
+        return
     if method == "html":
         from IPython.display import HTML
 
