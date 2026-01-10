@@ -71,6 +71,7 @@ _filter_line = vf.Filter("cv2.line")
 _filter_circle = vf.Filter("cv2.circle")
 _filter_addWeighted = vf.Filter("cv2.addWeighted")
 _filter_ellipse = vf.Filter("cv2.ellipse")
+_filter_polylines = vf.Filter("cv2.polylines")
 _set_to = vf.Filter("cv2.setTo")
 
 
