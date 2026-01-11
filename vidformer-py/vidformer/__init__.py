@@ -223,6 +223,7 @@ class _FrameExpressionBlock:
     def insert_data_expr(self, data):
         if type(data) is tuple:
             data = list(data)
+
         if type(data) is bool:
             self._exprs.append(0x01000000_00000000 | int(data))
             return len(self._exprs) - 1
@@ -289,7 +290,6 @@ class _FrameExpressionBlock:
                     | (data[2] & 0xFFFF)
                 )
                 return len(self._exprs) - 1
-            out = len(self._exprs)
             member_idxs = []
             for member in data:
                 if _feb_expr_coded_as_scalar(member):
@@ -297,6 +297,7 @@ class _FrameExpressionBlock:
                 else:
                     member_idxs.append(self.insert_data_expr(member))
 
+            out = len(self._exprs)
             self._exprs.append(0x42000000_00000000 | len(data))
 
             for i in range(len(data)):
@@ -891,7 +892,7 @@ class FilterExpr:
         for k, v in self._kwargs.items():
             val = f'"{v}"' if type(v) is str else str(v)
             args.append(f"{k}={val}")
-        return f"{self._filter._name}({', '.join(args)})"
+        return f"{self._filter._func}({', '.join(args)})"
 
     def _to_json_spec(self):
         args = []
@@ -900,7 +901,7 @@ class FilterExpr:
         kwargs = {}
         for k, v in self._kwargs.items():
             kwargs[k] = _json_arg(v)
-        return {"Filter": {"name": self._filter._name, "args": args, "kwargs": kwargs}}
+        return {"Filter": {"name": self._filter._func, "args": args, "kwargs": kwargs}}
 
     def _sources(self):
         s = set()
@@ -913,7 +914,7 @@ class FilterExpr:
         return s
 
     def _filters(self):
-        f = {self._filter._name: self._filter}
+        f = {self._filter._func: self._filter}
         for arg in self._args:
             if type(arg) is FilterExpr:
                 f = {**f, **arg._filters()}
