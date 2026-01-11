@@ -49,7 +49,7 @@ Drawing Functions:
 |getFontScaleFromHeight|🔸|
 |getTextSize|🔸|
 |line|✅|
-|polylines|❌|
+|polylines|✅|
 |putText|✅|
 |rectangle|✅|
 
