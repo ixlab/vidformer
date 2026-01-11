@@ -95,7 +95,7 @@ def test_constants():
     assert ocv_cv2.INTER_LINEAR == vf_cv2.INTER_LINEAR
     assert ocv_cv2.INTER_CUBIC == vf_cv2.INTER_CUBIC
     assert ocv_cv2.INTER_AREA == vf_cv2.INTER_AREA
-    if hasattr(ocv_cv2, "INTER_LANCOZOS4"): # I guess some versions don't have it?
+    if hasattr(ocv_cv2, "INTER_LANCOZOS4"):  # I guess some versions don't have it?
         assert ocv_cv2.INTER_LANCOZOS4 == vf_cv2.INTER_LANCOZOS4
     assert ocv_cv2.INTER_LINEAR_EXACT == vf_cv2.INTER_LINEAR_EXACT
     assert ocv_cv2.INTER_NEAREST_EXACT == vf_cv2.INTER_NEAREST_EXACT
@@ -702,6 +702,105 @@ def test_ellipse_ocv():
 
 def test_ellipse_vf():
     ellipse(vf_cv2)
+
+
+def polylines(cv2):
+    cap = cv2.VideoCapture(TEST_VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+
+    count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret or count > 100:
+            break
+
+        # Draw a triangle
+        pts = np.array([[100, 50], [50, 150], [150, 150]], np.int32)
+        pts = pts.reshape((-1, 1, 2))
+        cv2.polylines(frame, [pts], True, (0, 255, 0, 255), 3)
+
+        out.write(frame)
+        count += 1
+
+    cap.release()
+    out.release()
+
+    assert os.path.exists(path)
+    os.path.exists(path)
+    fmt = ffprobe_fmt(path)
+    assert fmt["width"] == width
+    assert fmt["height"] == height
+    assert fmt["pix_fmt"] == "yuv420p"
+    os.remove(path)
+
+
+def test_polylines_ocv():
+    polylines(ocv_cv2)
+
+
+def test_polylines_vf():
+    polylines(vf_cv2)
+
+
+def test_polylines_numpy():
+    width, height = 300, 200
+
+    frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+
+    # Draw a triangle
+    pts = np.array([[100, 50], [50, 150], [150, 150]], np.int32)
+    pts = pts.reshape((-1, 1, 2))
+    vf_cv2.polylines(frame, [pts], True, (0, 255, 0, 255), 3)
+
+    assert frame.shape[0] == height
+    assert frame.shape[1] == width
+    assert frame.shape[2] == 3
+
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
+
+
+def test_polylines_open():
+    """Test polylines with isClosed=False"""
+    width, height = 300, 200
+
+    frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+
+    # Draw an open polyline
+    pts = np.array([[50, 50], [100, 100], [150, 50], [200, 100]], np.int32)
+    pts = pts.reshape((-1, 1, 2))
+    vf_cv2.polylines(frame, [pts], False, (255, 0, 0, 255), 2)
+
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
+
+
+def test_polylines_multiple():
+    """Test drawing multiple polylines at once"""
+    width, height = 300, 200
+
+    frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+
+    # Draw two separate polygons
+    pts1 = np.array([[50, 50], [100, 50], [75, 100]], np.int32).reshape((-1, 1, 2))
+    pts2 = np.array([[150, 50], [200, 50], [175, 100]], np.int32).reshape((-1, 1, 2))
+    vf_cv2.polylines(frame, [pts1, pts2], True, (0, 0, 255, 255), 2)
+
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
 
 
 def test_circle_numpy():

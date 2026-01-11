@@ -22,6 +22,7 @@ pub fn filters() -> BTreeMap<String, Box<dyn filter::Filter>> {
     filters.insert("cv2.ellipse".to_string(), Box::new(Ellipse {}));
     filters.insert("cv2.setTo".to_string(), Box::new(SetTo {}));
     filters.insert("cv2.addWeighted".to_string(), Box::new(AddWeighted {}));
+    filters.insert("cv2.polylines".to_string(), Box::new(Polylines {}));
     filters
 }
 
@@ -1290,5 +1291,213 @@ impl Filter for AddWeighted {
         }
 
         Ok(opts.src1.unwrap_frame_type())
+    }
+}
+
+pub struct Polylines {}
+
+struct PolylinesArgs {
+    img: filter_utils::FrameArg,
+    pts: Vec<Vec<(i32, i32)>>,
+    is_closed: bool,
+    color: [f64; 4],
+    thickness: i32,
+    linetype: i32,
+    shift: i32,
+}
+
+impl Polylines {
+    fn args(
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> Result<PolylinesArgs, String> {
+        let signature = filter_utils::FunctionSignature {
+            parameters: vec![
+                Parameter::Positional { name: "img" },
+                Parameter::Positional { name: "pts" },
+                Parameter::Positional { name: "isClosed" },
+                Parameter::Positional { name: "color" },
+                Parameter::PositionalOptional {
+                    name: "thickness",
+                    default_value: Val::Int(1),
+                },
+                Parameter::PositionalOptional {
+                    name: "lineType",
+                    default_value: Val::Int(8),
+                },
+                Parameter::PositionalOptional {
+                    name: "shift",
+                    default_value: Val::Int(0),
+                },
+            ],
+        };
+
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
+
+        let img = match parsed_args.get("img") {
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
+            x => {
+                dbg! {x};
+                return Err("Expected 'img' to be a Frame".into());
+            }
+        };
+
+        // pts is a list of polygons, each polygon is a list of points
+        let pts = match parsed_args.get("pts") {
+            Some(Val::List(polygons)) => {
+                let mut result = Vec::new();
+                for polygon in polygons {
+                    match polygon {
+                        Val::List(points) => {
+                            let mut poly_points = Vec::new();
+                            for point in points {
+                                match point {
+                                    Val::List(coords) => {
+                                        if coords.len() != 2 {
+                                            return Err(
+                                                "Each point must have exactly 2 coordinates".into(),
+                                            );
+                                        }
+                                        let x = match &coords[0] {
+                                            Val::Int(v) => *v as i32,
+                                            _ => {
+                                                return Err(
+                                                    "Point coordinates must be integers".into()
+                                                )
+                                            }
+                                        };
+                                        let y = match &coords[1] {
+                                            Val::Int(v) => *v as i32,
+                                            _ => {
+                                                return Err(
+                                                    "Point coordinates must be integers".into()
+                                                )
+                                            }
+                                        };
+                                        poly_points.push((x, y));
+                                    }
+                                    _ => return Err("Expected point to be a list".into()),
+                                }
+                            }
+                            result.push(poly_points);
+                        }
+                        _ => return Err("Expected polygon to be a list of points".into()),
+                    }
+                }
+                result
+            }
+            _ => return Err("Expected 'pts' to be a list of polygons".into()),
+        };
+
+        // isClosed is a boolean
+        let is_closed = match parsed_args.get("isClosed") {
+            Some(Val::Bool(value)) => *value,
+            _ => return Err("Expected 'isClosed' to be a boolean".into()),
+        };
+
+        // color is a list of four floats
+        let color = filter_utils::get_color(&parsed_args)?;
+
+        // thickness is an integer
+        let thickness = match parsed_args.get("thickness") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'thickness' to be an integer".into()),
+        };
+
+        // lineType is an integer
+        let linetype = match parsed_args.get("lineType") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'lineType' to be an integer".into()),
+        };
+
+        // shift is an integer
+        let shift = match parsed_args.get("shift") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'shift' to be an integer".into()),
+        };
+
+        Ok(PolylinesArgs {
+            img,
+            pts,
+            is_closed,
+            color,
+            thickness,
+            linetype,
+            shift,
+        })
+    }
+}
+
+impl filter::Filter for Polylines {
+    fn filter(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::Frame, dve::Error> {
+        let opts: PolylinesArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        let img = opts.img.unwrap_frame();
+        let (width, height) = (img.width, img.height);
+        debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+
+        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
+
+        // Convert pts to opencv format
+        let mut pts_vec: opencv::core::Vector<opencv::core::Vector<opencv::core::Point>> =
+            opencv::core::Vector::new();
+        for polygon in &opts.pts {
+            let mut poly_vec: opencv::core::Vector<opencv::core::Point> =
+                opencv::core::Vector::new();
+            for (x, y) in polygon {
+                poly_vec.push(opencv::core::Point::new(*x, *y));
+            }
+            pts_vec.push(poly_vec);
+        }
+
+        let color =
+            opencv::core::Scalar::new(opts.color[0], opts.color[1], opts.color[2], opts.color[3]);
+
+        imgproc::polylines(
+            &mut mat,
+            &pts_vec,
+            opts.is_closed,
+            color,
+            opts.thickness,
+            opts.linetype,
+            opts.shift,
+        )
+        .unwrap();
+
+        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        Ok(filter::Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::FrameType, dve::Error> {
+        let opts: PolylinesArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(dve::Error::AVError("Expected RGB24 frame".into()));
+        }
+
+        Ok(opts.img.unwrap_frame_type())
     }
 }

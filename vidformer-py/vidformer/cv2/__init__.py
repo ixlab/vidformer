@@ -71,6 +71,7 @@ _filter_line = vf.Filter("cv2.line")
 _filter_circle = vf.Filter("cv2.circle")
 _filter_addWeighted = vf.Filter("cv2.addWeighted")
 _filter_ellipse = vf.Filter("cv2.ellipse")
+_filter_polylines = vf.Filter("cv2.polylines")
 _set_to = vf.Filter("cv2.setTo")
 
 
@@ -957,5 +958,46 @@ def fillPoly(*args, **kwargs):
     raise NotImplementedError("fillPoly is not yet implemented in the cv2 frontend")
 
 
-def polylines(*args, **kwargs):
-    raise NotImplementedError("polylines is not yet implemented in the cv2 frontend")
+def polylines(img, pts, isClosed, color, thickness=None, lineType=None, shift=None):
+    """
+    cv.polylines(img, pts, isClosed, color[, thickness[, lineType[, shift]]]) -> img
+    """
+    img = frameify(img)
+    img._mut()
+
+    assert isinstance(pts, list) or isinstance(pts, np.ndarray)
+    # pts is a list of arrays of points
+    # each array is a polygon with shape (N, 1, 2) or (N, 2)
+    pts_converted = []
+    for poly in pts:
+        if isinstance(poly, np.ndarray):
+            poly = poly.tolist()
+        # Flatten if shape is (N, 1, 2)
+        poly_flat = []
+        for pt in poly:
+            if isinstance(pt, list) and len(pt) == 1:
+                pt = pt[0]
+            poly_flat.append([int(pt[0]), int(pt[1])])
+        pts_converted.append(poly_flat)
+
+    assert isinstance(isClosed, bool)
+
+    assert len(color) == 3 or len(color) == 4
+    color = [float(x) for x in color]
+    if len(color) == 3:
+        color.append(255.0)
+
+    args = []
+    if thickness is not None:
+        assert isinstance(thickness, int)
+        args.append(thickness)
+    if lineType is not None:
+        assert isinstance(lineType, int)
+        assert thickness is not None
+        args.append(lineType)
+    if shift is not None:
+        assert isinstance(shift, int)
+        assert lineType is not None
+        args.append(shift)
+
+    img._f = _filter_polylines(img._f, pts_converted, isClosed, color, *args)
