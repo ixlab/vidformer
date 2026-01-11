@@ -473,6 +473,10 @@ class VideoWriter:
         self._idx = 0
         self._feb = vf._FrameExpressionBlock()
 
+        # writer_init_callback
+        if server.cv2_writer_init_callback() is not None:
+            server.cv2_writer_init_callback()(self)
+
     def _flush(self, terminal=False):
         server = _server()
         if len(self._feb) > 0:

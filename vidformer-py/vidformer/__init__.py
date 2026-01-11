@@ -449,7 +449,9 @@ class Spec:
 
 
 class Server:
-    def __init__(self, endpoint: str, api_key: str, vod_only=False):
+    def __init__(
+        self, endpoint: str, api_key: str, vod_only=False, cv2_writer_init_callback=None
+    ):
         if not endpoint.startswith("http://") and not endpoint.startswith("https://"):
             raise Exception("Endpoint must start with http:// or https://")
         if endpoint.endswith("/"):
@@ -468,9 +470,13 @@ class Server:
         response = response.json()
         assert response["status"] == "ok"
         self._vod_only = vod_only
+        self._cv2_writer_init_callback = cv2_writer_init_callback
 
     def is_vod_only(self) -> bool:
         return self._vod_only
+
+    def cv2_writer_init_callback(self):
+        return self._cv2_writer_init_callback
 
     def get_source(self, id: str) -> Source:
         assert type(id) is str
