@@ -5,7 +5,7 @@ You can deploy the server locally with docker:
 git clone https://github.com/ixlab/vidformer
 cd vidformer
 docker build -t igni -f Dockerfile .
-docker-compose -f vidformer-igni/docker-compose-local.yaml up
+docker-compose -f vidformer-igni/deploy/docker-compose.local.yaml up
 ```
 
 Vidformer-py can be installed with pip:
@@ -27,7 +27,7 @@ cv2.set_server(vf.Server("<ENDPOINT>", "<API_KEY>"))
 Admin commands can be run from inside the server container:
 
 ```bash
-docker-compose -f vidformer-igni/docker-compose-local.yaml exec igni bash
+docker-compose -f vidformer-igni/deploy/docker-compose.local.yaml exec igni bash
 vidformer-igni user ls
 ```
 

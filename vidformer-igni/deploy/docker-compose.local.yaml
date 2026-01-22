@@ -17,24 +17,23 @@ services:
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
-      - ./valkey.conf:/usr/local/etc/valkey/valkey.conf
+      - ./config/valkey.conf:/usr/local/etc/valkey/valkey.conf
     command: valkey-server /usr/local/etc/valkey/valkey.conf
   igni:
     image: igni
     container_name: igni_app
-    entrypoint: ["/bin/bash", "/usr/local/bin/igni-local-entrypoint.sh"]
+    entrypoint: ["/bin/bash", "/usr/local/bin/entrypoint.local.sh"]
     environment:
       IGNI_DB: postgres://igni:igni@postgres:5432/igni
       RUST_LOG: warn
     ports:
       - "8080:8080"
     volumes:
-      - ./igni-local.toml:/etc/igni.toml
-      - ./igni-local-entrypoint.sh:/usr/local/bin/igni-local-entrypoint.sh
+      - ./config/igni-local.toml:/etc/igni.toml
+      - ./entrypoint.local.sh:/usr/local/bin/entrypoint.local.sh
     depends_on:
       - postgres
       - valkey
     restart: unless-stopped
 volumes:
   postgres_data:
-  nginx_logs:

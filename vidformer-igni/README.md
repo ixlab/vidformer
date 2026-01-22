@@ -11,16 +11,17 @@ The vidformer server for the cloud.
 git clone https://github.com/ixlab/vidformer
 cd vidformer
 docker build -t igni -f Dockerfile .
-docker-compose -f vidformer-igni/docker-compose-local.yaml up
+docker-compose -f vidformer-igni/deploy/docker-compose.local.yaml up
 ```
 
 ## Development Setup
 
 ```bash
-docker-compose -f docker-compose-db.yaml up
+cd vidformer-igni
+docker-compose -f deploy/docker-compose.db.yaml up
 export 'IGNI_DB=postgres://igni:igni@localhost:5432/igni'
 cargo run -- user add --name test --api-key test --permissions test
-cargo run --release -- server --config igni.toml
+cargo run --release -- server --config deploy/config/igni-local.toml
 ```
 
 ## Server Deployment
@@ -28,12 +29,12 @@ cargo run --release -- server --config igni.toml
 ```bash
 # From vidformer project root
 docker build -t igni -f Dockerfile .
-docker-compose -f vidformer-igni/docker-compose-prod.yaml up
+docker-compose -f vidformer-igni/deploy/docker-compose.prod.yaml up
 ```
 
 For tls certs:
 ```bash
-docker-compose -f vidformer-igni/docker-compose-prod.yaml run --rm certbot certonly --webroot --webroot-path /var/www/certbot/ -d api.example.com -d cdn.example.com
+docker-compose -f vidformer-igni/deploy/docker-compose.prod.yaml run --rm certbot certonly --webroot --webroot-path /var/www/certbot/ -d api.example.com -d cdn.example.com
 ```
 
 ## Guest account setup (for colab notebook)

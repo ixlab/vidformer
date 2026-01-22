@@ -18,7 +18,7 @@ except requests.exceptions.ConnectionError:
 
 # Postgres
 print("Starting Postgres")
-igni_docker_compose = os.path.join(igni_dir, "docker-compose-db.yaml")
+igni_docker_compose = os.path.join(igni_dir, "deploy", "docker-compose.db.yaml")
 sp.run(["docker-compose", "-f", igni_docker_compose, "down"], check=True)
 sp.run(["docker-compose", "-f", igni_docker_compose, "up", "-d"], check=True)
 
@@ -149,7 +149,7 @@ igni_proc = sp.Popen(
         vidformer_igni_bin,
         "server",
         "--config",
-        f"{project_dir}/vidformer-igni/igni.toml",
+        f"{project_dir}/vidformer-igni/deploy/config/igni-local.toml",
     ],
     cwd=igni_dir,
     env=igni_env,

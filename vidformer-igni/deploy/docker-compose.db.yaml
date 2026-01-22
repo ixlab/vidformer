@@ -17,7 +17,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - ./valkey.conf:/usr/local/etc/valkey/valkey.conf
+      - ./config/valkey.conf:/usr/local/etc/valkey/valkey.conf
     command: valkey-server /usr/local/etc/valkey/valkey.conf
 # volumes:
 #   postgres_data:

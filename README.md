@@ -41,7 +41,7 @@ The easiest way to get started is using vidformer's `cv2` frontend, which allows
 git clone https://github.com/ixlab/vidformer
 cd vidformer
 docker build -t igni -f Dockerfile .
-docker-compose -f vidformer-igni/docker-compose-local.yaml up
+docker-compose -f vidformer-igni/deploy/docker-compose.local.yaml up
 ```
 
 ```python
