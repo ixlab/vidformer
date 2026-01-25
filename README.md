@@ -10,6 +10,24 @@ A research project for accelerating video/data visualization.
 
 Developed by the OSU Interactive Data Systems Lab.
 
+## Quick Start
+
+To quickly try out Vidformer you can:
+
+*  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ixlab/vidformer/blob/main/misc/Colab_Vidformer.ipynb)
+* try the online [Vidformer Playground](https://f.dominik.win/vidformer-playground/index.html)
+
+Or, you can deploy it yourself:
+
+```bash
+git clone https://github.com/ixlab/vidformer
+cd vidformer
+docker build -t igni -f Dockerfile .
+docker-compose -f vidformer-igni/docker-compose-local.yaml up
+```
+
+You can find details on this in our [Getting Started Guide](https://ixlab.github.io/vidformer/getting-started.html).
+
 ## Why vidformer
 
 Vidformer efficiently transforms videos, enabling faster annotation, editing, and processing of video data—without having to focus on performance. Just swap `import cv2` with `import vidformer.cv2 as cv2` to see video outputs instantly.
@@ -29,24 +47,6 @@ Vidformer builds on open technologies you may already use:
   * **Jupyter:** View transformed videos instantly right in your notebook.
   * **HTTP Live Streaming (HLS):** Serve transformed videos over a network directly into any media player.
   * **Apache OpenDAL:** Access source videos no matter where they are stored.
-
-## Quick Start
-
-To quickly try out Vidformer you can:
-
-*  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ixlab/vidformer/blob/main/misc/Colab_Vidformer.ipynb)
-* try the online [Vidformer Playground](https://f.dominik.win/vidformer-playground/index.html)
-
-Or, you can deploy it yourself:
-
-```bash
-git clone https://github.com/ixlab/vidformer
-cd vidformer
-docker build -t igni -f Dockerfile .
-docker-compose -f vidformer-igni/docker-compose-local.yaml up
-```
-
-You can find details on this in our [Getting Started Guide](https://ixlab.github.io/vidformer/getting-started.html).
 
 ## Documentation
 
