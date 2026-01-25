@@ -6,8 +6,8 @@
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ixlab/vidformer/blob/main/misc/Colab_Vidformer.ipynb)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/ixlab/vidformer/blob/main/LICENSE)
 
+A research project for accelerating video/data visualization.
 
-A research project providing infrastructure for video-native interfaces and accelerating computer vision visualization.
 Developed by the OSU Interactive Data Systems Lab.
 
 ## Why vidformer
@@ -20,7 +20,7 @@ It uses a declarative specification format to represent transformations. This en
   
 * **Lazy/Deferred Execution:** Video results can be retrieved on-demand, allowing for practically instantaneous playback of video results.
 
-Vidformer usually renders videos 2-3x faster than cv2, and hundreds of times faster when serving videos on-demand.
+Vidformer usually renders videos 2-3x faster than cv2, and hundreds of times faster (*practically instantly*) when serving videos on-demand.
 
 Vidformer builds on open technologies you may already use:
   * **OpenCV:** A `cv2`-compatible interface ensures both you (and LLMs) can use  existing knowlege and code.
@@ -101,4 +101,4 @@ If you're working on any of the later four, vidformer may be for you.
 **License:** Vidformer is open source under [Apache-2.0](./LICENSE).
 Contributions are welcome.
 
-**Acknowledgements:** Vidformer is supported by the U.S. National Science Foundation under Awards #2118240 and #1910356.
+**Acknowledgements:** Vidformer is based upon work supported by the National Science Foundation under Awards #2118240 and #1910356.
