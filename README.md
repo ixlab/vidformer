@@ -12,13 +12,13 @@ Developed by the OSU Interactive Data Systems Lab.
 
 ## Why vidformer
 
-Vidformer efficiently transforms videos, enabling faster annotation, editing, and processing of video data—without having to focus on performance.
+Vidformer efficiently transforms videos, enabling faster annotation, editing, and processing of video data—without having to focus on performance. Just swap `import cv2` with `import vidformer.cv2 as cv2` to see video outputs instantly.
 
-It uses a declarative specification format to represent transformations. This enables:
+Vidformer uses a declarative specification format to represent transformations. This enables:
 
 * **Transparent Optimization:** Vidformer optimizes the execution of declarative specifications just like a relational database optimizes relational queries.
   
-* **Lazy/Deferred Execution:** Video results can be retrieved on-demand, allowing for practically instantaneous playback of video results.
+* **Lazy/Deferred Renderjng:** Video results can be retrieved on-demand, allowing for practically instantaneous playback of video results.
 
 Vidformer usually renders videos 2-3x faster than cv2, and hundreds of times faster (*practically instantly*) when serving videos on-demand.
 
@@ -32,39 +32,18 @@ Vidformer builds on open technologies you may already use:
 
 ## Quick Start
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ixlab/vidformer/blob/main/misc/Colab_Vidformer.ipynb)
+To quickly try out Vidformer you can:
 
+*  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ixlab/vidformer/blob/main/misc/Colab_Vidformer.ipynb)
+* try the online [Vidformer Playground](https://f.dominik.win/vidformer-playground/index.html)
 
-The easiest way to get started is using vidformer's `cv2` frontend, which allows most Python OpenCV visualization scripts to replace `import cv2` with `import vidformer.cv2 as cv2`:
+Or, you can deploy it yourself:
 
 ```bash
 git clone https://github.com/ixlab/vidformer
 cd vidformer
 docker build -t igni -f Dockerfile .
 docker-compose -f vidformer-igni/docker-compose-local.yaml up
-```
-
-```python
-import vidformer.cv2 as cv2
-
-cap = cv2.VideoCapture("my_input.mp4")
-fps = cap.get(cv2.CAP_PROP_FPS)
-width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-out = cv2.VideoWriter("my_output.mp4", cv2.VideoWriter_fourcc(*"mp4v"),
-                        fps, (width, height))
-while True:
-    ret, frame = cap.read()
-    if not ret:
-      break
-
-    cv2.putText(frame, "Hello, World!", (100, 100), cv2.FONT_HERSHEY_SIMPLEX,
-                1, (255, 0, 0), 1)
-    out.write(frame)
-
-cap.release()
-out.release()
 ```
 
 You can find details on this in our [Getting Started Guide](https://ixlab.github.io/vidformer/getting-started.html).
