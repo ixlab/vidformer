@@ -1,13 +1,13 @@
 """
 vidformer.cv2 is the cv2 frontend for [vidformer](https://github.com/ixlab/vidformer).
 
-> ⚠️ This module is a work in progress. See the [implemented functions list](https://ixlab.github.io/vidformer/opencv-filters.html).
+> ⚠️ This module is a work in progress. See the [implemented functions list](https://ixlab.github.io/vidformer/docs/opencv-filters.html).
 
 **Quick links:**
 * [📦 PyPI](https://pypi.org/project/vidformer/)
-* [📘 Documentation - vidformer-py](https://ixlab.github.io/vidformer/vidformer-py/pdoc/)
-* [📘 Documentation - vidformer.cv2](https://ixlab.github.io/vidformer/vidformer-py/pdoc/vidformer/cv2.html)
-* [📘 Documentation - vidformer.supervision](https://ixlab.github.io/vidformer/vidformer-py/pdoc/vidformer/supervision.html)
+* [📘 Documentation - vidformer-py](https://ixlab.github.io/vidformer/vidformer-py/)
+* [📘 Documentation - vidformer.cv2](https://ixlab.github.io/vidformer/vidformer-py/vidformer/cv2.html)
+* [📘 Documentation - vidformer.supervision](https://ixlab.github.io/vidformer/vidformer-py/vidformer/supervision.html)
 * [🧑‍💻 Source Code](https://github.com/ixlab/vidformer/tree/main/vidformer-py/)
 """
 
@@ -103,7 +103,7 @@ def _server():
             _global_cv2_server = vf.Server(server_endpoint, api_key)
         else:
             raise Exception(
-                "No server set for the cv2 frontend (https://ixlab.github.io/vidformer/install.html). Set VF_IGNI_ENDPOINT and VF_IGNI_API_KEY environment variables or use cv2.set_server() before use."
+                "No server set for the cv2 frontend (https://ixlab.github.io/vidformer/docs/install.html). Set VF_IGNI_ENDPOINT and VF_IGNI_API_KEY environment variables or use cv2.set_server() before use."
             )
     return _global_cv2_server
 

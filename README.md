@@ -27,7 +27,7 @@ docker build -t igni -f Dockerfile .
 docker-compose -f vidformer-igni/docker-compose-local.yaml up
 ```
 
-You can find details on this in our [Getting Started Guide](https://ixlab.github.io/vidformer/getting-started.html).
+You can find details on this in our [Getting Started Guide](https://ixlab.github.io/vidformer/docs/getting-started.html).
 
 ## Why vidformer
 
@@ -52,9 +52,9 @@ Vidformer builds on open technologies you may already use:
 ## Documentation
 
 * [🌐 Website](https://ixlab.github.io/vidformer/)
-* [🌐 Docs](https://ixlab.github.io/vidformer/book/)
-* [🚀 Getting Started](https://ixlab.github.io/vidformer/getting-started.html)
-* [🐍 vidformer-py](https://ixlab.github.io/vidformer/vidformer-py.html)
+* [🌐 Docs](https://ixlab.github.io/vidformer/docs/)
+* [🚀 Getting Started](https://ixlab.github.io/vidformer/docs/getting-started.html)
+* [🐍 vidformer-py](https://ixlab.github.io/vidformer/docs/vidformer-py.html)
 * [🛠️ vidformer core](https://ixlab.github.io/vidformer/vidformer/)
 
 ## About the project
@@ -80,7 +80,7 @@ Vidformer builds on open technologies you may already use:
 - [*./snake-pit*](./snake-pit/): The main vidformer test suite
 - [*./docs*](./docs/): The [vidformer website](https://ixlab.github.io/vidformer/)
 
-Vidformer components are detailed [here](https://ixlab.github.io/vidformer/modules.html).
+Vidformer components are detailed [here](https://ixlab.github.io/vidformer/docs/modules.html).
 
 ❌ vidformer is ***NOT***:
 * A conventional video editor (like Premiere Pro or Final Cut)

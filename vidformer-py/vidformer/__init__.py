@@ -3,9 +3,9 @@ vidformer-py is a Python 🐍 interface for [vidformer](https://github.com/ixlab
 
 **Quick links:**
 * [📦 PyPI](https://pypi.org/project/vidformer/)
-* [📘 Documentation - vidformer-py](https://ixlab.github.io/vidformer/vidformer-py/pdoc/)
-* [📘 Documentation - vidformer.cv2](https://ixlab.github.io/vidformer/vidformer-py/pdoc/vidformer/cv2.html)
-* [📘 Documentation - vidformer.supervision](https://ixlab.github.io/vidformer/vidformer-py/pdoc/vidformer/supervision.html)
+* [📘 Documentation - vidformer-py](https://ixlab.github.io/vidformer/vidformer-py/)
+* [📘 Documentation - vidformer.cv2](https://ixlab.github.io/vidformer/vidformer-py/vidformer/cv2.html)
+* [📘 Documentation - vidformer.supervision](https://ixlab.github.io/vidformer/vidformer-py/vidformer/supervision.html)
 * [🧑‍💻 Source Code](https://github.com/ixlab/vidformer/tree/main/vidformer-py/)
 """
 
