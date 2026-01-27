@@ -73,12 +73,13 @@ Vidformer builds on open technologies you may already use:
 ```
 
 **File Layout**:
-- [*./vidformer*](./vidformer/): The core transformation library
-- [*./vidformer-py*](./vidformer-py/): A Python video editing client
-- [*./vidformer-cli*](./vidformer-cli/): A command-line interface
-- [*./vidformer-igni*](./vidformer-igni/): The second generation vidformer server
+- [*./vidformer*](./vidformer/): The core rendering library
+- [*./vidformer-py*](./vidformer-py/): The python frontend
+- [*./vidformer-igni*](./vidformer-igni/): The vidformer server
 - [*./snake-pit*](./snake-pit/): The main vidformer test suite
-- [*./docs*](./docs/): The [vidformer website](https://ixlab.github.io/vidformer/)
+- [*./vidformer-cli*](./vidformer-cli/): Vidformer binary for testing
+- [*./landing-page*](./landing-page/): The [main page](https://ixlab.github.io/vidformer/)
+- [*./docs*](./docs/): The [project docs](https://ixlab.github.io/vidformer/docs/)
 
 Vidformer components are detailed [here](https://ixlab.github.io/vidformer/docs/modules.html).
 
