@@ -52,6 +52,7 @@ Vidformer builds on open technologies you may already use:
 ## Documentation
 
 * [🌐 Website](https://ixlab.github.io/vidformer/)
+* [🌐 Docs](https://ixlab.github.io/vidformer/book/)
 * [🚀 Getting Started](https://ixlab.github.io/vidformer/getting-started.html)
 * [🐍 vidformer-py](https://ixlab.github.io/vidformer/vidformer-py.html)
 * [🛠️ vidformer core](https://ixlab.github.io/vidformer/vidformer/)
