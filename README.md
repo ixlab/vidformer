@@ -16,7 +16,7 @@ Developed by the OSU Interactive Data Systems Lab.
 To quickly try out Vidformer you can:
 
 *  [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ixlab/vidformer/blob/main/misc/Colab_Vidformer.ipynb)
-* try the online [Vidformer Playground](https://f.dominik.win/vidformer-playground/index.html)
+* try the online [Vidformer Playground](https://ixlab.github.io/vidformer/playground/)
 
 Or, you can deploy it yourself:
 
@@ -79,6 +79,7 @@ Vidformer builds on open technologies you may already use:
 - [*./snake-pit*](./snake-pit/): The main vidformer test suite
 - [*./vidformer-cli*](./vidformer-cli/): Vidformer binary for testing
 - [*./landing-page*](./landing-page/): The [main page](https://ixlab.github.io/vidformer/)
+- [*./playground*](./playground/): The [online playground](https://ixlab.github.io/vidformer/playground/)
 - [*./docs*](./docs/): The [project docs](https://ixlab.github.io/vidformer/docs/)
 
 Vidformer components are detailed [here](https://ixlab.github.io/vidformer/docs/modules.html).
