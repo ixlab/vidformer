@@ -28,14 +28,19 @@ jobs:
       run: cargo doc --no-deps -p vidformer
     - name: Install mdbook
       run: cargo install mdbook
-    - name: Build docs
-      run: pushd docs && mdbook build && popd && cp -r docs/book/* target/doc
+    - name: Build mdbook
+      run: pushd docs && mdbook build && popd
     - name: Install vidformer-py # needed to import dependencies when building docs
       run: pip3 install ./vidformer-py
     - name: Install pdoc
       run: pip3 install pdoc
     - name: Build pdoc
       run: pushd vidformer-py/ && pdoc vidformer/ -o ../target/doc/vidformer-py/pdoc/ && popd
+    - name: Assemble site
+      run: |
+        cp -r landing-page/* target/doc/
+        mkdir -p target/doc/books
+        cp -r docs/book/* target/doc/books/
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
       with:

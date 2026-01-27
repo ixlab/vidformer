@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="keywords" content="Vidformer, video processing, video querying, declarative video editing, OpenCV, computer vision, video visualization">
+  <meta name="description" content="Vidformer: Drop-in declarative optimization for video data visualization. Get instant video playback with a one-line code change.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vidformer: Instant Video Visualization</title>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+
+  <!-- Embedded Playground Dependencies -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+
+  <style>
+    .playground-container {
+      display: flex;
+      gap: 16px;
+      margin-top: 1.5rem;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #282a36;
+      height: 450px;
+    }
+    .playground-editor {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .playground-editor .CodeMirror {
+      flex: 1;
+      font-size: 13px;
+      line-height: 1.5;
+      border-radius: 0;
+    }
+    .playground-editor .CodeMirror-scroll {
+      min-height: 100%;
+    }
+    .playground-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      background: #1e1f29;
+      border-bottom: 1px solid #44475a;
+    }
+    .playground-run-btn {
+      background: #50fa7b;
+      color: #282a36;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+    .playground-run-btn:hover:not(:disabled) {
+      background: #5af78e;
+    }
+    .playground-run-btn:disabled {
+      background: #6272a4;
+      cursor: not-allowed;
+    }
+    .playground-run-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+    .playground-status {
+      font-size: 0.8rem;
+      color: #6272a4;
+    }
+    .playground-status.loading {
+      color: #f1fa8c;
+    }
+    .playground-status.ready {
+      color: #50fa7b;
+    }
+    .playground-status.error {
+      color: #ff5555;
+    }
+    .playground-output {
+      width: 45%;
+      min-width: 300px;
+      display: flex;
+      flex-direction: column;
+      background: #1e1f29;
+    }
+    .playground-video {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      min-height: 250px;
+    }
+    .playground-video video {
+      max-width: 100%;
+      max-height: 100%;
+    }
+    .playground-video-placeholder {
+      text-align: center;
+      color: #6272a4;
+      padding: 20px;
+    }
+    .playground-video-placeholder svg {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+    .playground-console {
+      max-height: 120px;
+      overflow-y: auto;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 11px;
+      padding: 8px 12px;
+      background: #21222c;
+      border-top: 1px solid #44475a;
+      color: #f8f8f2;
+    }
+    .playground-console .log {
+      margin-bottom: 2px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .playground-console .log.error { color: #ff5555; }
+    .playground-console .log.success { color: #50fa7b; }
+    .playground-console .log.info { color: #8be9fd; }
+    .playground-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #44475a;
+      border-top-color: #50fa7b;
+      border-radius: 50%;
+      animation: playground-spin 1s linear infinite;
+    }
+    @keyframes playground-spin {
+      to { transform: rotate(360deg); }
+    }
+    @media (max-width: 900px) {
+      .playground-container {
+        flex-direction: column;
+      }
+      .playground-output {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <section class="hero">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <h1 class="title is-1 publication-title">Vidformer: Drop-in Declarative Optimization for Rendering Video-Native Query Results</h1>
+            <div class="is-size-5 publication-authors">
+              <span class="author-block">
+                <a href="https://dominik.win">Dominik Winecki</a> <a href="https://orcid.org/0009-0009-8632-3102" target="_blank"><i class="ai ai-orcid" style="color: #a6ce39;"></i></a>,</span>
+              <span class="author-block">
+                <a href="https://arnab.org">Arnab Nandi</a> <a href="https://orcid.org/0000-0002-4138-603X" target="_blank"><i class="ai ai-orcid" style="color: #a6ce39;"></i></a></span>
+            </div>
+
+            <div class="column has-text-centered">
+              <div class="publication-links">
+                <span class="link-block">
+                  <a href="https://arxiv.org/abs/2601.17221" class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                    </span>
+                    <span>arXiv</span>
+                  </a>
+                </span>
+                <span class="link-block">
+                  <a href="https://github.com/ixlab/vidformer"
+                    class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                      <i class="fab fa-github"></i>
+                    </span>
+                    <span>Code</span>
+                  </a>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="hero teaser">
+    <div class="container is-max-desktop">
+      <div class="hero-body has-text-centered">
+        <img src="static/images/teaser.png" alt="Vidformer architecture diagram" style="max-width: 650px; width: 100%;" />
+      </div>
+
+      <h2 class="subtitle has-text-centered">
+        <em>Vidformer</em> is a drop-in rendering accelerator for video data visualization enabling <em>instantaneous</em> video playback.
+      </h2>
+      <br />
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-one-third">
+          <p class="title is-4">2-3×</p>
+          <p class="subtitle is-6">faster full rendering</p>
+        </div>
+        <div class="column is-one-third">
+          <p class="title is-4">~400×</p>
+          <p class="subtitle is-6">faster time-to-playback</p>
+        </div>
+        <div class="column is-one-third">
+          <p class="title is-4">&lt;1s</p>
+          <p class="subtitle is-6">to first frame, any video length</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <section class="section">
+    <div class="container is-max-desktop">
+
+      <div class="columns is-centered">
+        <div class="column is-full-width">
+          <h2 class="title is-3">Accelerating Visualization Scripts</h2>
+
+          <p>
+            Python and OpenCV are the de facto tools for video data visualization.
+            Just change <code style="background: #f5f5f5; color: #333; padding: 2px 6px; border-radius: 4px;"><span style="color: #0000ff;">import</span> cv2</code> to <code style="background: #f5f5f5; color: #333; padding: 2px 6px; border-radius: 4px;"><span style="color: #0000ff;">import</span> vidformer.cv2 <span style="color: #0000ff;">as</span> cv2</code> for practically instantaneous playback, no matter how long your video is.
+          </p>
+
+          <div class="playground-container" id="playground">
+            <div class="playground-editor">
+              <div class="playground-toolbar">
+                <button class="playground-run-btn" id="playgroundRunBtn">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  Run
+                </button>
+                <span class="playground-status" id="playgroundStatus">Click Run to start</span>
+              </div>
+              <textarea id="playgroundCode"># Animated text on Big Buck Bunny
+import vidformer.cv2 as cv2
+import math
+
+# Note: Guest API key only allows sample videos
+cap = cv2.VideoCapture("https://f.dominik.win/vf-sample-media/bbb_720p.mp4")
+fps = cap.get(cv2.CAP_PROP_FPS)
+width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+out = cv2.VideoWriter(None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+
+i = 0
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # Animate text in a circle
+    angle = i * 0.1
+    x = int(300 + 80 * math.cos(angle))
+    y = int(200 + 80 * math.sin(angle))
+
+    cv2.putText(frame, "Hello, Vidformer!", (x, y),
+                cv2.FONT_HERSHEY_SIMPLEX, 2.0, (255, 0, 0), 3)
+    cv2.putText(frame, f"Frame {i}", (20, height - 50),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3)
+    out.write(frame)
+    i += 1
+
+cap.release()
+out.release()
+print(f"Rendered {i} frames!")</textarea>
+            </div>
+            <div class="playground-output">
+              <div class="playground-video" id="playgroundVideo">
+                <div class="playground-video-placeholder" id="playgroundPlaceholder">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9 8l7 4-7 4z"/></svg>
+                  <p>Click <strong>Run</strong> to render a video</p>
+                  <p style="font-size: 0.8em; margin-top: 8px;">First run loads Python (~10s)</p>
+                </div>
+              </div>
+              <div class="playground-console" id="playgroundConsole"></div>
+            </div>
+          </div>
+
+          <p style="margin-top: 1rem;">
+            For more examples, try the <a href="https://f.dominik.win/vidformer-playground/index.html" target="_blank">playground</a> or
+            <a href="https://colab.research.google.com/github/ixlab/vidformer/blob/main/misc/Colab_Vidformer.ipynb" target="_blank">
+              <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" style="vertical-align: middle;" />
+            </a>
+          </p>
+
+        </div>
+  </section>
+
+  <section class="section">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column is-full-width">
+          <h2 class="title is-3">How Vidformer Works</h2>
+
+          <p>
+            Vidformer uses a declarative data model to combine three techniques:
+          </p>
+
+          <br />
+
+          <div class="columns">
+            <div class="column">
+              <h4 class="title is-5">1) Declarative Lifting</h4>
+              <p>An API shim uses symbolic computation to losslessly lift imparative code into a declarative specification. The code actually runs, but with mock frames.</p>
+            </div>
+            <div class="column">
+              <h4 class="title is-5">2) Declarative Optimization</h4>
+              <p>A rendering engine optimizes and parallelizes rendering of the declarative specification. It can handle worst-case access patterns, not just typical ones.</p>
+            </div>
+            <div class="column">
+              <h4 class="title is-5">3) Video Results on Demand</h4>
+               <p>Videos are served through a VOD protocol where segments are rendered on-demand. The video stream grows as the script runs.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container is-max-desktop">
+
+      <div class="columns is-centered">
+        <div class="column is-full-width">
+          <h2 class="title is-3">"<em>Show me ...</em>" Conversational Video Querying</h2>
+
+          <div class="columns is-vcentered">
+            <div class="column is-half">
+              <p>
+                Combining LLMs with <em>Vidformer</em> enables truly interactive conversational video querying. Ask natural language questions
+                about your video data and receive newly-rendered video results in seconds.
+              </p>
+            </div>
+            <div class="column is-half">
+              <figure class="image">
+                <img src="static/images/slack_demo.png" alt="Slack bot demo showing conversational video querying with Apollo 11 footage" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                <figcaption class="has-text-centered" style="margin-top: 0.5em; font-size: 0.9em; color: #666;">
+                  A query, invoked via Slack, searching 9+ hours of Apollo 11 footage—video playback began <em>within 6 seconds.</em>
+                </figcaption>
+              </figure>
+            </div>
+          </div>
+
+        </div>
+  </section>
+
+  <section class="section" id="BibTeX">
+    <div class="container is-max-desktop content">
+      <h2 class="title">BibTeX</h2>
+      <pre><code>@misc{winecki2026_vidformer,
+      title={Vidformer: Drop-in Declarative Optimization for Rendering Video-Native Query Results}, 
+      author={Dominik Winecki and Arnab Nandi},
+      year={2026},
+      eprint={2601.17221},
+      archivePrefix={arXiv},
+      primaryClass={cs.DB},
+      url={https://arxiv.org/abs/2601.17221}, 
+}</code></pre>
+    </div>
+  </section>
+
+  <footer class="footer mt-6">
+    <div class="container">
+      <div class="columns is-centered">
+        <div class="column is-8">
+          <div class="content">
+            <p>
+              This material is based upon work supported by the National Science Foundation under Awards #2118240 and
+              #1910356. Any
+              opinions, findings and conclusions or recommendations expressed in this material are those of the
+              author(s) and do not necessarily reflect the views of the National Science Foundation.
+            </p>
+            <p>
+              This website is adapted from <a href="https://github.com/nerfies/nerfies.github.io">Nerfies</a> (CC BY-SA 4.0).
+              Some icons by <a href="https://fontawesome.com/" target="_blank">Font Awesome</a> (CC BY 4.0).
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Embedded Playground Script -->
+  <script>
+  (function() {
+    let worker = null;
+    let editor = null;
+    let hlsInstance = null;
+    let workerReady = false;
+    let isRunning = false;
+
+    const runBtn = document.getElementById('playgroundRunBtn');
+    const statusEl = document.getElementById('playgroundStatus');
+    const consoleEl = document.getElementById('playgroundConsole');
+    const videoEl = document.getElementById('playgroundVideo');
+    const placeholderEl = document.getElementById('playgroundPlaceholder');
+
+    // Initialize CodeMirror
+    editor = CodeMirror.fromTextArea(document.getElementById('playgroundCode'), {
+      mode: 'python',
+      theme: 'dracula',
+      lineNumbers: true,
+      indentUnit: 4,
+      tabSize: 4,
+      lineWrapping: true
+    });
+
+    function log(msg, type = '') {
+      const div = document.createElement('div');
+      div.className = 'log ' + type;
+      div.textContent = msg;
+      consoleEl.appendChild(div);
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    function setStatus(text, state) {
+      statusEl.textContent = text;
+      statusEl.className = 'playground-status ' + (state || '');
+    }
+
+    function initWorker() {
+      setStatus('Loading Python environment...', 'loading');
+      runBtn.disabled = true;
+
+      worker = new Worker('./static/js/playground-worker.js');
+
+      worker.onmessage = function(e) {
+        const { type, message, level, hlsUrl, statusUrl, output } = e.data;
+
+        switch (type) {
+          case 'log':
+            log(message, level);
+            break;
+          case 'ready':
+            workerReady = true;
+            isRunning = false;
+            setStatus('Ready', 'ready');
+            runBtn.disabled = false;
+            runBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Run';
+            // Auto-run after init
+            runCode();
+            break;
+          case 'videoReady':
+            log('Video stream ready!', 'success');
+            showVideo(hlsUrl, statusUrl);
+            break;
+          case 'stdout':
+            if (output) {
+              output.split('\n').filter(l => l).forEach(l => log(l));
+            }
+            break;
+          case 'done':
+            setStatus('Done!', 'ready');
+            log('Completed!', 'success');
+            isRunning = false;
+            runBtn.disabled = false;
+            runBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Run';
+            break;
+          case 'error':
+            log('Error: ' + message, 'error');
+            setStatus('Error', 'error');
+            isRunning = false;
+            runBtn.disabled = false;
+            runBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Run';
+            break;
+        }
+      };
+
+      worker.onerror = function(e) {
+        log('Worker error: ' + e.message, 'error');
+        setStatus('Error', 'error');
+      };
+
+      worker.postMessage({ type: 'init' });
+    }
+
+    function runCode() {
+      if (isRunning) return;
+
+      if (!workerReady) {
+        // First run - initialize worker
+        consoleEl.innerHTML = '';
+        initWorker();
+        return;
+      }
+
+      consoleEl.innerHTML = '';
+      log('Running...', 'info');
+      setStatus('Running...', 'loading');
+      isRunning = true;
+      runBtn.disabled = true;
+      runBtn.innerHTML = '<div class="playground-spinner" style="width:14px;height:14px;border-width:2px;"></div> Running';
+
+      worker.postMessage({ type: 'run', code: editor.getValue() });
+    }
+
+    function showVideo(hlsUrl, statusUrl) {
+      if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+      }
+
+      placeholderEl.innerHTML = '<div class="playground-spinner"></div><p style="margin-top:12px;">Rendering...</p>';
+
+      function pollStatus() {
+        fetch(statusUrl)
+          .then(r => r.json())
+          .then(res => {
+            if (res.ready) {
+              attachHls(hlsUrl);
+            } else {
+              setTimeout(pollStatus, 500);
+            }
+          })
+          .catch(() => setTimeout(pollStatus, 1000));
+      }
+
+      function attachHls(url) {
+        videoEl.innerHTML = '';
+        const video = document.createElement('video');
+        video.controls = true;
+        video.autoplay = true;
+        video.muted = true;
+        video.style.maxWidth = '100%';
+        video.style.maxHeight = '100%';
+        videoEl.appendChild(video);
+
+        if (Hls.isSupported()) {
+          hlsInstance = new Hls();
+          hlsInstance.loadSource(url);
+          hlsInstance.attachMedia(video);
+          hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+            video.play().catch(() => {});
+          });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = url;
+          video.addEventListener('loadedmetadata', () => {
+            video.play().catch(() => {});
+          });
+        }
+      }
+
+      pollStatus();
+    }
+
+    runBtn.addEventListener('click', runCode);
+  })();
+  </script>
+</body>
+
+</html>

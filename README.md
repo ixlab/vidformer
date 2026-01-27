@@ -7,6 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/ixlab/vidformer/blob/main/LICENSE)
 
 A research project for accelerating video/data visualization.
+See the [preprint on arXiv](https://arxiv.org/abs/2601.17221) for details.
 
 Developed by the OSU Interactive Data Systems Lab.
 
@@ -56,6 +57,19 @@ Vidformer builds on open technologies you may already use:
 * [🛠️ vidformer core](https://ixlab.github.io/vidformer/vidformer/)
 
 ## About the project
+
+**Cite:**
+```
+@misc{winecki2026_vidformer,
+      title={Vidformer: Drop-in Declarative Optimization for Rendering Video-Native Query Results},
+      author={Dominik Winecki and Arnab Nandi},
+      year={2026},
+      eprint={2601.17221},
+      archivePrefix={arXiv},
+      primaryClass={cs.DB},
+      url={https://arxiv.org/abs/2601.17221},
+}
+```
 
 **File Layout**:
 - [*./vidformer*](./vidformer/): The core transformation library
