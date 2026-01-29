@@ -478,16 +478,13 @@ def test_empty_stream_endpoint():
     stream_url = f"{ENDPOINT}vod/{spec_id}/stream.m3u8"
     response = requests.get(stream_url)
     response.raise_for_status()
-    assert (
-        response.text
-        == """#EXTM3U
+    assert response.text == """#EXTM3U
 #EXT-X-PLAYLIST-TYPE:EVENT
 #EXT-X-TARGETDURATION:2
 #EXT-X-VERSION:4
 #EXT-X-MEDIA-SEQUENCE:0
 #EXT-X-START:TIME-OFFSET=0
 """
-    )
     assert response.headers["Content-Type"].lower() == "application/vnd.apple.mpegurl"
 
 
@@ -500,9 +497,7 @@ def test_single_segment_stream_endpoint():
     stream_url = f"{ENDPOINT}vod/{spec_id}/stream.m3u8"
     response = requests.get(stream_url)
     response.raise_for_status()
-    assert (
-        response.text
-        == f"""#EXTM3U
+    assert response.text == f"""#EXTM3U
 #EXT-X-PLAYLIST-TYPE:EVENT
 #EXT-X-TARGETDURATION:2
 #EXT-X-VERSION:4
@@ -512,7 +507,6 @@ def test_single_segment_stream_endpoint():
 {ENDPOINT}vod/{spec_id}/segment-0.ts
 #EXT-X-ENDLIST
 """
-    )
     assert response.headers["Content-Type"].lower() == "application/vnd.apple.mpegurl"
 
 

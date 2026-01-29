@@ -401,7 +401,7 @@ class LabelAnnotator:
         ).astype(int)
 
         for label, center_coords in zip(labels, anchors_coordinates):
-            (text_w, text_h) = vf_cv2.getTextSize(
+            text_w, text_h = vf_cv2.getTextSize(
                 text=label,
                 fontFace=CV2_FONT,
                 fontScale=self.text_scale,

@@ -1336,13 +1336,21 @@ def test_color_rectangle_blue():
     ).numpy()
 
     # Compare - they should match
-    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Blue rectangle mismatch: OpenCV vs vidformer"
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), f"Blue rectangle mismatch: OpenCV vs vidformer"
 
     # Verify the drawn region is actually blue (B=255, G=0, R=0 in BGR)
     drawn_region_ocv = frame_ocv[50, 50]
-    assert drawn_region_ocv[0] == 255, f"OpenCV blue channel should be 255, got {drawn_region_ocv[0]}"
-    assert drawn_region_ocv[1] == 0, f"OpenCV green channel should be 0, got {drawn_region_ocv[1]}"
-    assert drawn_region_ocv[2] == 0, f"OpenCV red channel should be 0, got {drawn_region_ocv[2]}"
+    assert (
+        drawn_region_ocv[0] == 255
+    ), f"OpenCV blue channel should be 255, got {drawn_region_ocv[0]}"
+    assert (
+        drawn_region_ocv[1] == 0
+    ), f"OpenCV green channel should be 0, got {drawn_region_ocv[1]}"
+    assert (
+        drawn_region_ocv[2] == 0
+    ), f"OpenCV red channel should be 0, got {drawn_region_ocv[2]}"
 
 
 def test_color_rectangle_green():
@@ -1360,13 +1368,21 @@ def test_color_rectangle_green():
     ).numpy()
 
     # Compare - they should match
-    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Green rectangle mismatch: OpenCV vs vidformer"
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), f"Green rectangle mismatch: OpenCV vs vidformer"
 
     # Verify the drawn region is actually green (B=0, G=255, R=0 in BGR)
     drawn_region_ocv = frame_ocv[50, 50]
-    assert drawn_region_ocv[0] == 0, f"OpenCV blue channel should be 0, got {drawn_region_ocv[0]}"
-    assert drawn_region_ocv[1] == 255, f"OpenCV green channel should be 255, got {drawn_region_ocv[1]}"
-    assert drawn_region_ocv[2] == 0, f"OpenCV red channel should be 0, got {drawn_region_ocv[2]}"
+    assert (
+        drawn_region_ocv[0] == 0
+    ), f"OpenCV blue channel should be 0, got {drawn_region_ocv[0]}"
+    assert (
+        drawn_region_ocv[1] == 255
+    ), f"OpenCV green channel should be 255, got {drawn_region_ocv[1]}"
+    assert (
+        drawn_region_ocv[2] == 0
+    ), f"OpenCV red channel should be 0, got {drawn_region_ocv[2]}"
 
 
 def test_color_rectangle_red():
@@ -1384,13 +1400,21 @@ def test_color_rectangle_red():
     ).numpy()
 
     # Compare - they should match
-    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Red rectangle mismatch: OpenCV vs vidformer"
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), f"Red rectangle mismatch: OpenCV vs vidformer"
 
     # Verify the drawn region is actually red (B=0, G=0, R=255 in BGR)
     drawn_region_ocv = frame_ocv[50, 50]
-    assert drawn_region_ocv[0] == 0, f"OpenCV blue channel should be 0, got {drawn_region_ocv[0]}"
-    assert drawn_region_ocv[1] == 0, f"OpenCV green channel should be 0, got {drawn_region_ocv[1]}"
-    assert drawn_region_ocv[2] == 255, f"OpenCV red channel should be 255, got {drawn_region_ocv[2]}"
+    assert (
+        drawn_region_ocv[0] == 0
+    ), f"OpenCV blue channel should be 0, got {drawn_region_ocv[0]}"
+    assert (
+        drawn_region_ocv[1] == 0
+    ), f"OpenCV green channel should be 0, got {drawn_region_ocv[1]}"
+    assert (
+        drawn_region_ocv[2] == 255
+    ), f"OpenCV red channel should be 255, got {drawn_region_ocv[2]}"
 
 
 def test_color_circle_blue():
@@ -1408,7 +1432,9 @@ def test_color_circle_blue():
     ).numpy()
 
     # Compare - they should match
-    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Blue circle mismatch: OpenCV vs vidformer"
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), f"Blue circle mismatch: OpenCV vs vidformer"
 
 
 def test_color_line_red():
@@ -1426,7 +1452,9 @@ def test_color_line_red():
     ).numpy()
 
     # Compare - they should match
-    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Red line mismatch: OpenCV vs vidformer"
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), f"Red line mismatch: OpenCV vs vidformer"
 
 
 def test_color_putText_green():
@@ -1436,16 +1464,25 @@ def test_color_putText_green():
 
     # OpenCV
     frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
-    ocv_cv2.putText(frame_ocv, "Test", (10, 50), ocv_cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+    ocv_cv2.putText(
+        frame_ocv, "Test", (10, 50), ocv_cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2
+    )
 
     # Vidformer - capture return value for numpy array input
     frame_vf = vf_cv2.putText(
         np.zeros((height, width, 3), dtype=np.uint8),
-        "Test", (10, 50), vf_cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2
+        "Test",
+        (10, 50),
+        vf_cv2.FONT_HERSHEY_SIMPLEX,
+        1,
+        color,
+        2,
     ).numpy()
 
     # Compare - they should match
-    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Green text mismatch: OpenCV vs vidformer"
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), f"Green text mismatch: OpenCV vs vidformer"
 
 
 def test_color_ellipse_yellow():
@@ -1459,11 +1496,20 @@ def test_color_ellipse_yellow():
 
     # Vidformer - capture return value for numpy array input
     frame_vf = vf_cv2.ellipse(
-        np.zeros((height, width, 3), dtype=np.uint8), (50, 50), (30, 20), 0, 0, 360, color, -1
+        np.zeros((height, width, 3), dtype=np.uint8),
+        (50, 50),
+        (30, 20),
+        0,
+        0,
+        360,
+        color,
+        -1,
     ).numpy()
 
     # Compare - they should match
-    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Yellow ellipse mismatch: OpenCV vs vidformer"
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), f"Yellow ellipse mismatch: OpenCV vs vidformer"
 
 
 def test_color_polylines_cyan():
@@ -1471,7 +1517,9 @@ def test_color_polylines_cyan():
     width, height = 100, 100
     color = (255, 255, 0)  # BGR cyan (B+G)
 
-    pts = np.array([[20, 20], [80, 20], [80, 80], [20, 80]], np.int32).reshape((-1, 1, 2))
+    pts = np.array([[20, 20], [80, 20], [80, 80], [20, 80]], np.int32).reshape(
+        (-1, 1, 2)
+    )
 
     # OpenCV
     frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
@@ -1483,7 +1531,9 @@ def test_color_polylines_cyan():
     ).numpy()
 
     # Compare - they should match
-    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Cyan polyline mismatch: OpenCV vs vidformer"
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), f"Cyan polyline mismatch: OpenCV vs vidformer"
 
 
 def test_color_arrowedLine_magenta():
@@ -1501,7 +1551,9 @@ def test_color_arrowedLine_magenta():
     ).numpy()
 
     # Compare - they should match
-    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Magenta arrowed line mismatch: OpenCV vs vidformer"
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), f"Magenta arrowed line mismatch: OpenCV vs vidformer"
 
 
 def test_color_rectangle_with_alpha():
@@ -1519,7 +1571,9 @@ def test_color_rectangle_with_alpha():
     ).numpy()
 
     # Compare - they should match
-    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Blue rectangle with alpha mismatch"
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), f"Blue rectangle with alpha mismatch"
 
 
 @pytest.mark.parametrize(
@@ -1549,7 +1603,9 @@ def test_color_parametrized_rectangle(color, name):
     ).numpy()
 
     # Compare - they should match
-    assert np.allclose(frame_ocv, frame_vf, atol=1), f"{name} rectangle mismatch: OpenCV vs vidformer"
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), f"{name} rectangle mismatch: OpenCV vs vidformer"
 
 
 # =============================================================================
@@ -1564,17 +1620,51 @@ def test_slice_writeback_putText():
 
     # OpenCV
     canvas_ocv = np.zeros((height, width * 2, 3), dtype=np.uint8)
-    ocv_cv2.putText(canvas_ocv[0:height, 0:width], "Left", (10, 50), ocv_cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-    ocv_cv2.putText(canvas_ocv[0:height, width:width*2], "Right", (10, 50), ocv_cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+    ocv_cv2.putText(
+        canvas_ocv[0:height, 0:width],
+        "Left",
+        (10, 50),
+        ocv_cv2.FONT_HERSHEY_SIMPLEX,
+        1,
+        color,
+        2,
+    )
+    ocv_cv2.putText(
+        canvas_ocv[0:height, width : width * 2],
+        "Right",
+        (10, 50),
+        ocv_cv2.FONT_HERSHEY_SIMPLEX,
+        1,
+        color,
+        2,
+    )
 
     # Vidformer
     canvas_vf = vf_cv2.zeros((height, width * 2, 3))
-    vf_cv2.putText(canvas_vf[0:height, 0:width], "Left", (10, 50), vf_cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-    vf_cv2.putText(canvas_vf[0:height, width:width*2], "Right", (10, 50), vf_cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+    vf_cv2.putText(
+        canvas_vf[0:height, 0:width],
+        "Left",
+        (10, 50),
+        vf_cv2.FONT_HERSHEY_SIMPLEX,
+        1,
+        color,
+        2,
+    )
+    vf_cv2.putText(
+        canvas_vf[0:height, width : width * 2],
+        "Right",
+        (10, 50),
+        vf_cv2.FONT_HERSHEY_SIMPLEX,
+        1,
+        color,
+        2,
+    )
     canvas_vf = canvas_vf.numpy()
 
     # Compare - they should match
-    assert np.allclose(canvas_ocv, canvas_vf, atol=1), "Slice writeback putText mismatch"
+    assert np.allclose(
+        canvas_ocv, canvas_vf, atol=1
+    ), "Slice writeback putText mismatch"
 
 
 def test_slice_writeback_rectangle():
@@ -1585,16 +1675,22 @@ def test_slice_writeback_rectangle():
     # OpenCV
     canvas_ocv = np.zeros((height, width * 2, 3), dtype=np.uint8)
     ocv_cv2.rectangle(canvas_ocv[0:height, 0:width], (10, 10), (90, 90), color, -1)
-    ocv_cv2.rectangle(canvas_ocv[0:height, width:width*2], (10, 10), (90, 90), color, 3)
+    ocv_cv2.rectangle(
+        canvas_ocv[0:height, width : width * 2], (10, 10), (90, 90), color, 3
+    )
 
     # Vidformer
     canvas_vf = vf_cv2.zeros((height, width * 2, 3))
     vf_cv2.rectangle(canvas_vf[0:height, 0:width], (10, 10), (90, 90), color, -1)
-    vf_cv2.rectangle(canvas_vf[0:height, width:width*2], (10, 10), (90, 90), color, 3)
+    vf_cv2.rectangle(
+        canvas_vf[0:height, width : width * 2], (10, 10), (90, 90), color, 3
+    )
     canvas_vf = canvas_vf.numpy()
 
     # Compare - they should match
-    assert np.allclose(canvas_ocv, canvas_vf, atol=1), "Slice writeback rectangle mismatch"
+    assert np.allclose(
+        canvas_ocv, canvas_vf, atol=1
+    ), "Slice writeback rectangle mismatch"
 
 
 def test_slice_writeback_circle():
@@ -1605,12 +1701,12 @@ def test_slice_writeback_circle():
     # OpenCV
     canvas_ocv = np.zeros((height, width * 2, 3), dtype=np.uint8)
     ocv_cv2.circle(canvas_ocv[0:height, 0:width], (50, 50), 30, color, -1)
-    ocv_cv2.circle(canvas_ocv[0:height, width:width*2], (50, 50), 30, color, 2)
+    ocv_cv2.circle(canvas_ocv[0:height, width : width * 2], (50, 50), 30, color, 2)
 
     # Vidformer
     canvas_vf = vf_cv2.zeros((height, width * 2, 3))
     vf_cv2.circle(canvas_vf[0:height, 0:width], (50, 50), 30, color, -1)
-    vf_cv2.circle(canvas_vf[0:height, width:width*2], (50, 50), 30, color, 2)
+    vf_cv2.circle(canvas_vf[0:height, width : width * 2], (50, 50), 30, color, 2)
     canvas_vf = canvas_vf.numpy()
 
     # Compare - they should match
@@ -1624,24 +1720,34 @@ def test_slice_writeback_combined():
     # OpenCV - multiple drawing operations on slices
     canvas_ocv = np.zeros((height, width * 2, 3), dtype=np.uint8)
     # First operation on left half
-    ocv_cv2.rectangle(canvas_ocv[0:height, 0:width], (10, 10), (90, 90), (0, 255, 0), -1)
+    ocv_cv2.rectangle(
+        canvas_ocv[0:height, 0:width], (10, 10), (90, 90), (0, 255, 0), -1
+    )
     # Second operation on right half
-    ocv_cv2.circle(canvas_ocv[0:height, width:width*2], (50, 50), 30, (255, 0, 0), -1)
+    ocv_cv2.circle(
+        canvas_ocv[0:height, width : width * 2], (50, 50), 30, (255, 0, 0), -1
+    )
     # Third operation on left half again (should layer on top)
     ocv_cv2.circle(canvas_ocv[0:height, 0:width], (50, 50), 20, (0, 0, 255), -1)
     # Fourth operation on right half again
-    ocv_cv2.rectangle(canvas_ocv[0:height, width:width*2], (20, 20), (80, 80), (255, 255, 0), 2)
+    ocv_cv2.rectangle(
+        canvas_ocv[0:height, width : width * 2], (20, 20), (80, 80), (255, 255, 0), 2
+    )
 
     # Vidformer - same operations
     canvas_vf = vf_cv2.zeros((height, width * 2, 3))
     vf_cv2.rectangle(canvas_vf[0:height, 0:width], (10, 10), (90, 90), (0, 255, 0), -1)
-    vf_cv2.circle(canvas_vf[0:height, width:width*2], (50, 50), 30, (255, 0, 0), -1)
+    vf_cv2.circle(canvas_vf[0:height, width : width * 2], (50, 50), 30, (255, 0, 0), -1)
     vf_cv2.circle(canvas_vf[0:height, 0:width], (50, 50), 20, (0, 0, 255), -1)
-    vf_cv2.rectangle(canvas_vf[0:height, width:width*2], (20, 20), (80, 80), (255, 255, 0), 2)
+    vf_cv2.rectangle(
+        canvas_vf[0:height, width : width * 2], (20, 20), (80, 80), (255, 255, 0), 2
+    )
     canvas_vf = canvas_vf.numpy()
 
     # Compare - they should match
-    assert np.allclose(canvas_ocv, canvas_vf, atol=1), "Slice writeback combined use case mismatch"
+    assert np.allclose(
+        canvas_ocv, canvas_vf, atol=1
+    ), "Slice writeback combined use case mismatch"
 
     # Verify that content is actually drawn (not all black)
     assert np.sum(canvas_ocv) > 0, "OpenCV canvas should have content"
@@ -1656,12 +1762,12 @@ def test_slice_writeback_line():
     # OpenCV
     canvas_ocv = np.zeros((height, width * 2, 3), dtype=np.uint8)
     ocv_cv2.line(canvas_ocv[0:height, 0:width], (10, 10), (90, 90), color, 3)
-    ocv_cv2.line(canvas_ocv[0:height, width:width*2], (90, 10), (10, 90), color, 3)
+    ocv_cv2.line(canvas_ocv[0:height, width : width * 2], (90, 10), (10, 90), color, 3)
 
     # Vidformer
     canvas_vf = vf_cv2.zeros((height, width * 2, 3))
     vf_cv2.line(canvas_vf[0:height, 0:width], (10, 10), (90, 90), color, 3)
-    vf_cv2.line(canvas_vf[0:height, width:width*2], (90, 10), (10, 90), color, 3)
+    vf_cv2.line(canvas_vf[0:height, width : width * 2], (90, 10), (10, 90), color, 3)
     canvas_vf = canvas_vf.numpy()
 
     # Compare - they should match
