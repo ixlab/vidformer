@@ -1314,3 +1314,239 @@ def test_frame_array_slice_write(s):
     assert isinstance(vf_frame, vf_cv2.Frame)
     assert vf_frame.shape == frame_orig.shape
     assert np.all(vf_frame.numpy() == frame_orig)
+
+
+# =============================================================================
+# Color matching tests - verify vidformer produces same colors as OpenCV
+# =============================================================================
+
+
+def test_color_rectangle_blue():
+    """Test that BGR blue (255, 0, 0) draws as blue in both OpenCV and vidformer"""
+    width, height = 100, 100
+    color = (255, 0, 0)  # BGR blue
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.rectangle(frame_ocv, (10, 10), (90, 90), color, -1)
+
+    # Vidformer - capture return value for numpy array input
+    frame_vf = vf_cv2.rectangle(
+        np.zeros((height, width, 3), dtype=np.uint8), (10, 10), (90, 90), color, -1
+    ).numpy()
+
+    # Compare - they should match
+    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Blue rectangle mismatch: OpenCV vs vidformer"
+
+    # Verify the drawn region is actually blue (B=255, G=0, R=0 in BGR)
+    drawn_region_ocv = frame_ocv[50, 50]
+    assert drawn_region_ocv[0] == 255, f"OpenCV blue channel should be 255, got {drawn_region_ocv[0]}"
+    assert drawn_region_ocv[1] == 0, f"OpenCV green channel should be 0, got {drawn_region_ocv[1]}"
+    assert drawn_region_ocv[2] == 0, f"OpenCV red channel should be 0, got {drawn_region_ocv[2]}"
+
+
+def test_color_rectangle_green():
+    """Test that BGR green (0, 255, 0) draws as green in both OpenCV and vidformer"""
+    width, height = 100, 100
+    color = (0, 255, 0)  # BGR green
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.rectangle(frame_ocv, (10, 10), (90, 90), color, -1)
+
+    # Vidformer - capture return value for numpy array input
+    frame_vf = vf_cv2.rectangle(
+        np.zeros((height, width, 3), dtype=np.uint8), (10, 10), (90, 90), color, -1
+    ).numpy()
+
+    # Compare - they should match
+    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Green rectangle mismatch: OpenCV vs vidformer"
+
+    # Verify the drawn region is actually green (B=0, G=255, R=0 in BGR)
+    drawn_region_ocv = frame_ocv[50, 50]
+    assert drawn_region_ocv[0] == 0, f"OpenCV blue channel should be 0, got {drawn_region_ocv[0]}"
+    assert drawn_region_ocv[1] == 255, f"OpenCV green channel should be 255, got {drawn_region_ocv[1]}"
+    assert drawn_region_ocv[2] == 0, f"OpenCV red channel should be 0, got {drawn_region_ocv[2]}"
+
+
+def test_color_rectangle_red():
+    """Test that BGR red (0, 0, 255) draws as red in both OpenCV and vidformer"""
+    width, height = 100, 100
+    color = (0, 0, 255)  # BGR red
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.rectangle(frame_ocv, (10, 10), (90, 90), color, -1)
+
+    # Vidformer - capture return value for numpy array input
+    frame_vf = vf_cv2.rectangle(
+        np.zeros((height, width, 3), dtype=np.uint8), (10, 10), (90, 90), color, -1
+    ).numpy()
+
+    # Compare - they should match
+    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Red rectangle mismatch: OpenCV vs vidformer"
+
+    # Verify the drawn region is actually red (B=0, G=0, R=255 in BGR)
+    drawn_region_ocv = frame_ocv[50, 50]
+    assert drawn_region_ocv[0] == 0, f"OpenCV blue channel should be 0, got {drawn_region_ocv[0]}"
+    assert drawn_region_ocv[1] == 0, f"OpenCV green channel should be 0, got {drawn_region_ocv[1]}"
+    assert drawn_region_ocv[2] == 255, f"OpenCV red channel should be 255, got {drawn_region_ocv[2]}"
+
+
+def test_color_circle_blue():
+    """Test that BGR blue (255, 0, 0) draws as blue circle"""
+    width, height = 100, 100
+    color = (255, 0, 0)  # BGR blue
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.circle(frame_ocv, (50, 50), 30, color, -1)
+
+    # Vidformer - capture return value for numpy array input
+    frame_vf = vf_cv2.circle(
+        np.zeros((height, width, 3), dtype=np.uint8), (50, 50), 30, color, -1
+    ).numpy()
+
+    # Compare - they should match
+    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Blue circle mismatch: OpenCV vs vidformer"
+
+
+def test_color_line_red():
+    """Test that BGR red (0, 0, 255) draws as red line"""
+    width, height = 100, 100
+    color = (0, 0, 255)  # BGR red
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.line(frame_ocv, (10, 50), (90, 50), color, 5)
+
+    # Vidformer - capture return value for numpy array input
+    frame_vf = vf_cv2.line(
+        np.zeros((height, width, 3), dtype=np.uint8), (10, 50), (90, 50), color, 5
+    ).numpy()
+
+    # Compare - they should match
+    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Red line mismatch: OpenCV vs vidformer"
+
+
+def test_color_putText_green():
+    """Test that BGR green (0, 255, 0) draws as green text"""
+    width, height = 200, 100
+    color = (0, 255, 0)  # BGR green
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.putText(frame_ocv, "Test", (10, 50), ocv_cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+
+    # Vidformer - capture return value for numpy array input
+    frame_vf = vf_cv2.putText(
+        np.zeros((height, width, 3), dtype=np.uint8),
+        "Test", (10, 50), vf_cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2
+    ).numpy()
+
+    # Compare - they should match
+    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Green text mismatch: OpenCV vs vidformer"
+
+
+def test_color_ellipse_yellow():
+    """Test that BGR yellow (0, 255, 255) draws as yellow ellipse"""
+    width, height = 100, 100
+    color = (0, 255, 255)  # BGR yellow (G+R)
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.ellipse(frame_ocv, (50, 50), (30, 20), 0, 0, 360, color, -1)
+
+    # Vidformer - capture return value for numpy array input
+    frame_vf = vf_cv2.ellipse(
+        np.zeros((height, width, 3), dtype=np.uint8), (50, 50), (30, 20), 0, 0, 360, color, -1
+    ).numpy()
+
+    # Compare - they should match
+    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Yellow ellipse mismatch: OpenCV vs vidformer"
+
+
+def test_color_polylines_cyan():
+    """Test that BGR cyan (255, 255, 0) draws as cyan polyline"""
+    width, height = 100, 100
+    color = (255, 255, 0)  # BGR cyan (B+G)
+
+    pts = np.array([[20, 20], [80, 20], [80, 80], [20, 80]], np.int32).reshape((-1, 1, 2))
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.polylines(frame_ocv, [pts], True, color, 3)
+
+    # Vidformer - capture return value for numpy array input
+    frame_vf = vf_cv2.polylines(
+        np.zeros((height, width, 3), dtype=np.uint8), [pts], True, color, 3
+    ).numpy()
+
+    # Compare - they should match
+    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Cyan polyline mismatch: OpenCV vs vidformer"
+
+
+def test_color_arrowedLine_magenta():
+    """Test that BGR magenta (255, 0, 255) draws as magenta arrowed line"""
+    width, height = 100, 100
+    color = (255, 0, 255)  # BGR magenta (B+R)
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.arrowedLine(frame_ocv, (10, 50), (90, 50), color, 3)
+
+    # Vidformer - capture return value for numpy array input
+    frame_vf = vf_cv2.arrowedLine(
+        np.zeros((height, width, 3), dtype=np.uint8), (10, 50), (90, 50), color, 3
+    ).numpy()
+
+    # Compare - they should match
+    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Magenta arrowed line mismatch: OpenCV vs vidformer"
+
+
+def test_color_rectangle_with_alpha():
+    """Test that 4-channel BGR+alpha color works correctly"""
+    width, height = 100, 100
+    color = (255, 0, 0, 255)  # BGR blue with alpha
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.rectangle(frame_ocv, (10, 10), (90, 90), color, -1)
+
+    # Vidformer - capture return value for numpy array input
+    frame_vf = vf_cv2.rectangle(
+        np.zeros((height, width, 3), dtype=np.uint8), (10, 10), (90, 90), color, -1
+    ).numpy()
+
+    # Compare - they should match
+    assert np.allclose(frame_ocv, frame_vf, atol=1), f"Blue rectangle with alpha mismatch"
+
+
+@pytest.mark.parametrize(
+    "color,name",
+    [
+        ((255, 0, 0), "blue"),
+        ((0, 255, 0), "green"),
+        ((0, 0, 255), "red"),
+        ((255, 255, 0), "cyan"),
+        ((255, 0, 255), "magenta"),
+        ((0, 255, 255), "yellow"),
+        ((255, 255, 255), "white"),
+        ((128, 128, 128), "gray"),
+    ],
+)
+def test_color_parametrized_rectangle(color, name):
+    """Parametrized test for various BGR colors"""
+    width, height = 100, 100
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.rectangle(frame_ocv, (10, 10), (90, 90), color, -1)
+
+    # Vidformer - capture return value for numpy array input
+    frame_vf = vf_cv2.rectangle(
+        np.zeros((height, width, 3), dtype=np.uint8), (10, 10), (90, 90), color, -1
+    ).numpy()
+
+    # Compare - they should match
+    assert np.allclose(frame_ocv, frame_vf, atol=1), f"{name} rectangle mismatch: OpenCV vs vidformer"
