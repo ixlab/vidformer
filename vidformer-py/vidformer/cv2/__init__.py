@@ -140,8 +140,8 @@ def _top_level_pix_fmt(pix_fmt):
 
 
 class Frame:
-    def __init__(self, f, fmt):
-        self._f = f
+    def __init__(self, f, fmt, parent=None, slice_bounds=None):
+        self._f_internal = f
         self._fmt = fmt
         channels = 3 if _top_level_pix_fmt(fmt["pix_fmt"]) == "rgb24" else 1
         self.shape = (fmt["height"], fmt["width"], channels)
@@ -149,6 +149,25 @@ class Frame:
         # denotes that the frame has not yet been modified
         # when a frame is modified, it is converted to rgb24 first
         self._modified = False
+
+        # For slice views: track parent frame and bounds for write-back
+        self._parent = parent
+        self._slice_bounds = slice_bounds  # (miny, maxy, minx, maxx)
+
+    @property
+    def _f(self):
+        return self._f_internal
+
+    @_f.setter
+    def _f(self, value):
+        self._f_internal = value
+        # If this is a slice view, propagate changes back to parent
+        if self._parent is not None:
+            miny, maxy, minx, maxx = self._slice_bounds
+            self._parent._mut()
+            self._parent._f = _slice_write_mat(
+                self._parent._f, self._f_internal, miny, maxy, minx, maxx
+            )
 
     def _mut(self):
         if self._modified:
@@ -170,6 +189,7 @@ class Frame:
             self._fmt["pix_fmt"] = "gray"
 
     def copy(self):
+        # Copy creates an independent frame (no parent reference)
         return Frame(self._f, self._fmt.copy())
 
     def numpy(self):
@@ -229,7 +249,8 @@ class Frame:
         fmt = self._fmt.copy()
         fmt["width"] = maxx - minx
         fmt["height"] = maxy - miny
-        return Frame(f, fmt)
+        # Create slice with parent reference for write-back propagation
+        return Frame(f, fmt, parent=self, slice_bounds=(miny, maxy, minx, maxx))
 
     def __setitem__(self, key, value):
         if type(key) is tuple:
