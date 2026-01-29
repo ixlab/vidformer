@@ -1550,3 +1550,142 @@ def test_color_parametrized_rectangle(color, name):
 
     # Compare - they should match
     assert np.allclose(frame_ocv, frame_vf, atol=1), f"{name} rectangle mismatch: OpenCV vs vidformer"
+
+
+# =============================================================================
+# Slice write-back tests - verify modifications to slices propagate to parent
+# =============================================================================
+
+
+def test_slice_writeback_putText():
+    """Test that drawing on a slice propagates back to the parent frame"""
+    width, height = 200, 100
+    color = (255, 255, 255)  # white
+
+    # OpenCV
+    canvas_ocv = np.zeros((height, width * 2, 3), dtype=np.uint8)
+    ocv_cv2.putText(canvas_ocv[0:height, 0:width], "Left", (10, 50), ocv_cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+    ocv_cv2.putText(canvas_ocv[0:height, width:width*2], "Right", (10, 50), ocv_cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+
+    # Vidformer
+    canvas_vf = vf_cv2.zeros((height, width * 2, 3))
+    vf_cv2.putText(canvas_vf[0:height, 0:width], "Left", (10, 50), vf_cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+    vf_cv2.putText(canvas_vf[0:height, width:width*2], "Right", (10, 50), vf_cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+    canvas_vf = canvas_vf.numpy()
+
+    # Compare - they should match
+    assert np.allclose(canvas_ocv, canvas_vf, atol=1), "Slice writeback putText mismatch"
+
+
+def test_slice_writeback_rectangle():
+    """Test that drawing rectangles on slices propagates back to parent"""
+    width, height = 100, 100
+    color = (0, 255, 0)  # green
+
+    # OpenCV
+    canvas_ocv = np.zeros((height, width * 2, 3), dtype=np.uint8)
+    ocv_cv2.rectangle(canvas_ocv[0:height, 0:width], (10, 10), (90, 90), color, -1)
+    ocv_cv2.rectangle(canvas_ocv[0:height, width:width*2], (10, 10), (90, 90), color, 3)
+
+    # Vidformer
+    canvas_vf = vf_cv2.zeros((height, width * 2, 3))
+    vf_cv2.rectangle(canvas_vf[0:height, 0:width], (10, 10), (90, 90), color, -1)
+    vf_cv2.rectangle(canvas_vf[0:height, width:width*2], (10, 10), (90, 90), color, 3)
+    canvas_vf = canvas_vf.numpy()
+
+    # Compare - they should match
+    assert np.allclose(canvas_ocv, canvas_vf, atol=1), "Slice writeback rectangle mismatch"
+
+
+def test_slice_writeback_circle():
+    """Test that drawing circles on slices propagates back to parent"""
+    width, height = 100, 100
+    color = (255, 0, 0)  # blue
+
+    # OpenCV
+    canvas_ocv = np.zeros((height, width * 2, 3), dtype=np.uint8)
+    ocv_cv2.circle(canvas_ocv[0:height, 0:width], (50, 50), 30, color, -1)
+    ocv_cv2.circle(canvas_ocv[0:height, width:width*2], (50, 50), 30, color, 2)
+
+    # Vidformer
+    canvas_vf = vf_cv2.zeros((height, width * 2, 3))
+    vf_cv2.circle(canvas_vf[0:height, 0:width], (50, 50), 30, color, -1)
+    vf_cv2.circle(canvas_vf[0:height, width:width*2], (50, 50), 30, color, 2)
+    canvas_vf = canvas_vf.numpy()
+
+    # Compare - they should match
+    assert np.allclose(canvas_ocv, canvas_vf, atol=1), "Slice writeback circle mismatch"
+
+
+def test_slice_writeback_combined():
+    """Test multiple different drawing operations on slices of the same canvas"""
+    width, height = 100, 100
+
+    # OpenCV - multiple drawing operations on slices
+    canvas_ocv = np.zeros((height, width * 2, 3), dtype=np.uint8)
+    # First operation on left half
+    ocv_cv2.rectangle(canvas_ocv[0:height, 0:width], (10, 10), (90, 90), (0, 255, 0), -1)
+    # Second operation on right half
+    ocv_cv2.circle(canvas_ocv[0:height, width:width*2], (50, 50), 30, (255, 0, 0), -1)
+    # Third operation on left half again (should layer on top)
+    ocv_cv2.circle(canvas_ocv[0:height, 0:width], (50, 50), 20, (0, 0, 255), -1)
+    # Fourth operation on right half again
+    ocv_cv2.rectangle(canvas_ocv[0:height, width:width*2], (20, 20), (80, 80), (255, 255, 0), 2)
+
+    # Vidformer - same operations
+    canvas_vf = vf_cv2.zeros((height, width * 2, 3))
+    vf_cv2.rectangle(canvas_vf[0:height, 0:width], (10, 10), (90, 90), (0, 255, 0), -1)
+    vf_cv2.circle(canvas_vf[0:height, width:width*2], (50, 50), 30, (255, 0, 0), -1)
+    vf_cv2.circle(canvas_vf[0:height, 0:width], (50, 50), 20, (0, 0, 255), -1)
+    vf_cv2.rectangle(canvas_vf[0:height, width:width*2], (20, 20), (80, 80), (255, 255, 0), 2)
+    canvas_vf = canvas_vf.numpy()
+
+    # Compare - they should match
+    assert np.allclose(canvas_ocv, canvas_vf, atol=1), "Slice writeback combined use case mismatch"
+
+    # Verify that content is actually drawn (not all black)
+    assert np.sum(canvas_ocv) > 0, "OpenCV canvas should have content"
+    assert np.sum(canvas_vf) > 0, "Vidformer canvas should have content"
+
+
+def test_slice_writeback_line():
+    """Test that drawing lines on slices propagates back to parent"""
+    width, height = 100, 100
+    color = (0, 0, 255)  # red
+
+    # OpenCV
+    canvas_ocv = np.zeros((height, width * 2, 3), dtype=np.uint8)
+    ocv_cv2.line(canvas_ocv[0:height, 0:width], (10, 10), (90, 90), color, 3)
+    ocv_cv2.line(canvas_ocv[0:height, width:width*2], (90, 10), (10, 90), color, 3)
+
+    # Vidformer
+    canvas_vf = vf_cv2.zeros((height, width * 2, 3))
+    vf_cv2.line(canvas_vf[0:height, 0:width], (10, 10), (90, 90), color, 3)
+    vf_cv2.line(canvas_vf[0:height, width:width*2], (90, 10), (10, 90), color, 3)
+    canvas_vf = canvas_vf.numpy()
+
+    # Compare - they should match
+    assert np.allclose(canvas_ocv, canvas_vf, atol=1), "Slice writeback line mismatch"
+
+
+def test_slice_writeback_nested():
+    """Test nested slices (slice of a slice)"""
+    width, height = 200, 200
+    color = (0, 255, 0)  # green
+
+    # OpenCV
+    canvas_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    # Get a slice, then a slice of that slice
+    quadrant = canvas_ocv[0:100, 0:100]
+    sub_quadrant = quadrant[25:75, 25:75]
+    ocv_cv2.rectangle(sub_quadrant, (10, 10), (40, 40), color, -1)
+
+    # Vidformer
+    canvas_vf = vf_cv2.zeros((height, width, 3))
+    quadrant_vf = canvas_vf[0:100, 0:100]
+    sub_quadrant_vf = quadrant_vf[25:75, 25:75]
+    vf_cv2.rectangle(sub_quadrant_vf, (10, 10), (40, 40), color, -1)
+    canvas_vf = canvas_vf.numpy()
+
+    # Compare - they should match
+    assert np.allclose(canvas_ocv, canvas_vf, atol=1), "Nested slice writeback mismatch"
