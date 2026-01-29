@@ -38,11 +38,11 @@ jobs:
       run: pushd vidformer-py/ && pdoc vidformer/ -o ../target/doc/vidformer-py/ && popd
     - name: Assemble site
       run: |
-        cp -r landing-page/* target/doc/
+        cp -r misc/landing-page/* target/doc/
         mkdir -p target/doc/docs
         cp -r docs/book/* target/doc/docs/
         mkdir -p target/doc/playground
-        cp -r playground/* target/doc/playground/
+        cp -r misc/playground/* target/doc/playground/
     - name: Deploy to GitHub Pages
       uses: peaceiris/actions-gh-pages@v3
       with:
