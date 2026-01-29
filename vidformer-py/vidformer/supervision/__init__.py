@@ -61,7 +61,7 @@ class BoxAnnotator:
                 img=scene,
                 pt1=(x1, y1),
                 pt2=(x2, y2),
-                color=color.as_rgb(),
+                color=color.as_bgr(),
                 thickness=self.thickness,
             )
         return scene
@@ -129,14 +129,14 @@ class RoundBoxAnnotator:
                     angle=0,
                     startAngle=start_angle,
                     endAngle=end_angle,
-                    color=color.as_rgb(),
+                    color=color.as_bgr(),
                     thickness=self.thickness,
                 )
                 vf_cv2.line(
                     img=scene,
                     pt1=line[0],
                     pt2=line[1],
-                    color=color.as_rgb(),
+                    color=color.as_bgr(),
                     thickness=self.thickness,
                 )
         return scene
@@ -177,12 +177,12 @@ class BoxCornerAnnotator:
             for x, y in corners:
                 x_end = x + self.corner_length if x == x1 else x - self.corner_length
                 vf_cv2.line(
-                    scene, (x, y), (x_end, y), color.as_rgb(), thickness=self.thickness
+                    scene, (x, y), (x_end, y), color.as_bgr(), thickness=self.thickness
                 )
 
                 y_end = y + self.corner_length if y == y1 else y - self.corner_length
                 vf_cv2.line(
-                    scene, (x, y), (x, y_end), color.as_rgb(), thickness=self.thickness
+                    scene, (x, y), (x, y_end), color.as_bgr(), thickness=self.thickness
                 )
         return scene
 
@@ -221,7 +221,7 @@ class ColorAnnotator:
                 img=scene_with_boxes,
                 pt1=(x1, y1),
                 pt2=(x2, y2),
-                color=color.as_rgb(),
+                color=color.as_bgr(),
                 thickness=-1,
             )
 
@@ -266,7 +266,7 @@ class CircleAnnotator:
                 img=scene,
                 center=center,
                 radius=int(distance),
-                color=color.as_rgb(),
+                color=color.as_bgr(),
                 thickness=self.thickness,
             )
 
@@ -310,7 +310,7 @@ class DotAnnotator:
             )
             center = (int(xy[detection_idx, 0]), int(xy[detection_idx, 1]))
 
-            vf_cv2.circle(scene, center, self.radius, color.as_rgb(), -1)
+            vf_cv2.circle(scene, center, self.radius, color.as_bgr(), -1)
             if self.outline_thickness:
                 outline_color = resolve_color(
                     color=self.outline_color,
@@ -326,7 +326,7 @@ class DotAnnotator:
                     scene,
                     center,
                     self.radius,
-                    outline_color.as_rgb(),
+                    outline_color.as_bgr(),
                     self.outline_thickness,
                 )
         return scene
@@ -480,7 +480,7 @@ class LabelAnnotator:
             self.draw_rounded_rectangle(
                 scene=scene,
                 xyxy=box_xyxy,
-                color=background_color.as_rgb(),
+                color=background_color.as_bgr(),
                 border_radius=self.border_radius,
             )
 
@@ -492,7 +492,7 @@ class LabelAnnotator:
                 org=(text_x, text_y),
                 fontFace=CV2_FONT,
                 fontScale=self.text_scale,
-                color=text_color.as_rgb(),
+                color=text_color.as_bgr(),
                 thickness=self.text_thickness,
                 lineType=vf_cv2.LINE_AA,
             )

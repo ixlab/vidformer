@@ -684,6 +684,7 @@ def rectangle(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
         args.append(shift)
 
     img._f = _filter_rectangle(img._f, pt1, pt2, color, *args)
+    return img
 
 
 def putText(
@@ -732,6 +733,7 @@ def putText(
         args.append(bottomLeftOrigin)
 
     img._f = _filter_putText(img._f, text, org, fontFace, fontScale, color, *args)
+    return img
 
 
 def arrowedLine(
@@ -771,6 +773,7 @@ def arrowedLine(
         args.append(tipLength)
 
     img._f = _filter_arrowedLine(img._f, pt1, pt2, color, *args)
+    return img
 
 
 def line(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
@@ -801,6 +804,7 @@ def line(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
         args.append(shift)
 
     img._f = _filter_line(img._f, pt1, pt2, color, *args)
+    return img
 
 
 def circle(img, center, radius, color, thickness=None, lineType=None, shift=None):
@@ -831,6 +835,7 @@ def circle(img, center, radius, color, thickness=None, lineType=None, shift=None
         args.append(shift)
 
     img._f = _filter_circle(img._f, center, radius, color, *args)
+    return img
 
 
 def getFontScaleFromHeight(*args, **kwargs):
@@ -927,6 +932,7 @@ def ellipse(
         lineType,
         shift,
     )
+    return img
 
 
 # Stubs for unimplemented functions
@@ -1001,3 +1007,4 @@ def polylines(img, pts, isClosed, color, thickness=None, lineType=None, shift=No
         args.append(shift)
 
     img._f = _filter_polylines(img._f, pts_converted, isClosed, color, *args)
+    return img

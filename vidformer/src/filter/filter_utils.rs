@@ -135,7 +135,9 @@ pub(crate) fn get_color(parsed_args: &BTreeMap<&'static str, Val>) -> Result<[f6
                 list[2].clone(),
                 list[3].clone(),
             ) {
-                (Val::Float(r), Val::Float(g), Val::Float(b), Val::Float(a)) => [r, g, b, a],
+                // Input is BGR (OpenCV convention), convert to RGB for internal use
+                // by swapping the first and third channels
+                (Val::Float(b), Val::Float(g), Val::Float(r), Val::Float(a)) => [r, g, b, a],
                 _ => return Err("Expected 'color' to be a list of four floats".into()),
             }
         }
