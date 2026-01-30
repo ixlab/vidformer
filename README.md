@@ -73,26 +73,12 @@ Vidformer builds on open technologies you may already use:
 ```
 
 **File Layout**:
-- [*./vidformer*](./vidformer/): The core rendering library
+- [*./vidformer*](./vidformer/): The core rendering library (Rust)
 - [*./vidformer-py*](./vidformer-py/): The Python frontend
 - [*./vidformer-igni*](./vidformer-igni/): The vidformer server
-- [*./snake-pit*](./snake-pit/): The main vidformer test suite
-- [*./vidformer-cli*](./vidformer-cli/): Vidformer binary for testing
 - [*./docs*](./docs/): The [project docs](https://ixlab.github.io/vidformer/docs/)
-- [*./misc/landing-page*](./misc/landing-page/): The [main page](https://ixlab.github.io/vidformer/)
-- [*./misc/playground*](./misc/playground/): The [online playground](https://ixlab.github.io/vidformer/playground/)
 
 Vidformer components are detailed [here](https://ixlab.github.io/vidformer/docs/modules.html).
-
-❌ vidformer is ***NOT***:
-* A conventional video editor (like Premiere Pro or Final Cut)
-* A video database/VDBMS
-* A natural language query interface for video
-* A computer vision library (like OpenCV)
-* A computer vision AI model (like CLIP or Yolo)
-
-However, vidformer is strongly complementary to each of these.
-If you're working on any of the latter four, vidformer may be for you.
 
 **License:** Vidformer is open source under [Apache-2.0](./LICENSE).
 Contributions are welcome.

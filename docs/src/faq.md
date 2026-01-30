@@ -1,5 +1,16 @@
 # FAQ
 
+### What is vidformer NOT?
+
+vidformer is strongly complementary to many tools, but is not:
+* A conventional video editor (like Premiere Pro or Final Cut)
+* A video database/VDBMS
+* A natural language query interface for video
+* A computer vision library (like OpenCV)
+* A computer vision AI model (like CLIP or YOLO)
+
+If you're working on any of the latter four, vidformer may be useful for accelerating your visualization workflows.
+
 ### What video formats does vidformer support?
 
 In short, essentially everything.

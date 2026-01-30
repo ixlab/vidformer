@@ -2,8 +2,6 @@
 
 See [vidformer.cv2 API docs](https://ixlab.github.io/vidformer/vidformer-py/vidformer/cv2.html).
 
-> ⚠️ The `cv2` module is a work in progress. If you find a bug or need a missing feature implemented feel free to [file an issue](https://github.com/ixlab/vidformer/issues) or contribute yourself!
-
 ![cv2 showcase](./showcase_vidformer.png)
 
 Legend:

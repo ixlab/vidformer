@@ -1,14 +1,5 @@
 # Getting Started
 
-Vidformer can be run in a cloud deployment or locally.
+The fastest way to try vidformer is with the hosted demo: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ixlab/vidformer/blob/main/misc/Colab_Vidformer.ipynb)
 
-## In the cloud (start here):
-
-Walk through a demo using a hosted guest account: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ixlab/vidformer/blob/main/misc/Colab_Vidformer.ipynb)
-
-## Local:
-
-You can host a server yourself ([here](./install.md)).
-Installing locally allows for accessing the local file system and saving video results.
-
-* [Getting started with the `cv2` compatibility layer](./getting-started-cv2.md)
+For local development, see [Local Install](./install.md), then follow the [cv2 walkthrough](./getting-started-cv2.md).

@@ -7,12 +7,7 @@ The vidformer server for the cloud.
 
 ## Local Setup
 
-```bash
-git clone https://github.com/ixlab/vidformer
-cd vidformer
-docker build -t igni -f Dockerfile .
-docker-compose -f vidformer-igni/docker-compose-local.yaml up
-```
+See the [install guide](https://ixlab.github.io/vidformer/docs/install.html).
 
 ## Development Setup
 

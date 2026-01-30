@@ -1,8 +1,6 @@
 """
 vidformer.cv2 is the cv2 frontend for [vidformer](https://github.com/ixlab/vidformer).
 
-> ⚠️ This module is a work in progress. See the [implemented functions list](https://ixlab.github.io/vidformer/docs/opencv-filters.html).
-
 **Quick links:**
 * [📦 PyPI](https://pypi.org/project/vidformer/)
 * [📘 Documentation - vidformer-py](https://ixlab.github.io/vidformer/vidformer-py/)

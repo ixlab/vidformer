@@ -2,8 +2,6 @@
 
 This is a walkthrough of getting started with the vidformer OpenCV `cv2` compatibility layer.
 
-> ⚠️ Adding `cv2` functions is a work in progress. See the [cv2 filters page](./opencv-filters.md) for which functions have been implemented.
-
 ## Installation
 
 See [Installation guide](./install.md)
