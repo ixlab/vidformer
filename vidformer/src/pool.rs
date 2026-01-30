@@ -179,25 +179,31 @@ impl Pool {
     }
 
     pub(crate) fn should_stall(&self, decoder_id: &str) -> bool {
-        // Is there a frame in the need set which is not in the members set but is in our future set?
-        // If not, stall
-
         let decoder = self.decoders.get(decoder_id).unwrap();
 
-        let need_set = self
-            .need_set()
-            .into_iter()
-            .cloned()
-            .collect::<BTreeSet<_>>();
-        let dec_future_set = decoder.future_iframerefs();
-        let members_set = self.members.keys().cloned().collect::<BTreeSet<_>>();
+        for pts in &decoder.future_frames {
+            let iframe_ref = IFrameRef {
+                sourceref: decoder.source.clone(),
+                pts: *pts,
+            };
 
-        let missing_frames = need_set
-            .difference(&members_set)
-            .cloned()
-            .collect::<BTreeSet<_>>();
+            if self.members.contains_key(&iframe_ref) {
+                continue;
+            }
 
-        missing_frames.intersection(&dec_future_set).count() == 0
+            if let Some(frame_uses) = self.iframe_refs_in_out_idx.get(&iframe_ref) {
+                for gen in frame_uses {
+                    if *gen >= self.done_gens_past
+                        && *gen < self.next_gen
+                        && !self.done_gens_recent.contains(gen)
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        true
     }
 
     pub(crate) fn decoded(&mut self, decoder_id: &str, frame: IFrameRef, avframe: Arc<AVFrame>) {

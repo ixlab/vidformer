@@ -199,18 +199,6 @@ pub(crate) struct DecoderState {
     pub past_frames: BTreeSet<Rational64>,
 }
 
-impl DecoderState {
-    pub(crate) fn future_iframerefs(&self) -> BTreeSet<IFrameRef> {
-        self.future_frames
-            .iter()
-            .map(|t| IFrameRef {
-                sourceref: self.source.clone(),
-                pts: *t,
-            })
-            .collect()
-    }
-}
-
 pub(crate) fn run_decoder(
     context: &Context,
     stat: &StatRunner,
