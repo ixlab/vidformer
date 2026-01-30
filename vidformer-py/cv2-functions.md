@@ -78,4 +78,4 @@ Vidformer's cv2 output compared to native OpenCV ([source code](https://github.c
 
 ![Difference between outputs](./showcase_diff.png)
 
-The differences mainly come from Vidformer using FFfmpeg's swscale for resize, not OpenCV's resize.
+The differences mainly come from Vidformer using FFmpeg's swscale for resize instead of OpenCV's resize.
