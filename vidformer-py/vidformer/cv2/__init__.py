@@ -48,6 +48,14 @@ LINE_4 = 4
 LINE_8 = 8
 LINE_AA = 16
 
+MARKER_CROSS = 0
+MARKER_TILTED_CROSS = 1
+MARKER_STAR = 2
+MARKER_DIAMOND = 3
+MARKER_SQUARE = 4
+MARKER_TRIANGLE_UP = 5
+MARKER_TRIANGLE_DOWN = 6
+
 INTER_NEAREST = 0
 INTER_LINEAR = 1
 INTER_CUBIC = 2
@@ -72,6 +80,10 @@ _filter_circle = vf.Filter("cv2.circle")
 _filter_addWeighted = vf.Filter("cv2.addWeighted")
 _filter_ellipse = vf.Filter("cv2.ellipse")
 _filter_polylines = vf.Filter("cv2.polylines")
+_filter_fillPoly = vf.Filter("cv2.fillPoly")
+_filter_fillConvexPoly = vf.Filter("cv2.fillConvexPoly")
+_filter_drawContours = vf.Filter("cv2.drawContours")
+_filter_drawMarker = vf.Filter("cv2.drawMarker")
 _set_to = vf.Filter("cv2.setTo")
 
 
@@ -691,17 +703,20 @@ def rectangle(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
     if len(color) == 3:
         color.append(255.0)
 
+    if shift is not None and lineType is None:
+        lineType = LINE_8
+    if lineType is not None and thickness is None:
+        thickness = 1
+
     args = []
     if thickness is not None:
         assert isinstance(thickness, int)
         args.append(thickness)
     if lineType is not None:
         assert isinstance(lineType, int)
-        assert thickness is not None
         args.append(lineType)
     if shift is not None:
         assert isinstance(shift, int)
-        assert shift is not None
         args.append(shift)
 
     img._f = _filter_rectangle(img._f, pt1, pt2, color, *args)
@@ -740,17 +755,20 @@ def putText(
     if len(color) == 3:
         color.append(255.0)
 
+    if bottomLeftOrigin is not None and lineType is None:
+        lineType = LINE_8
+    if lineType is not None and thickness is None:
+        thickness = 1
+
     args = []
     if thickness is not None:
         assert isinstance(thickness, int)
         args.append(thickness)
     if lineType is not None:
         assert isinstance(lineType, int)
-        assert thickness is not None
         args.append(lineType)
     if bottomLeftOrigin is not None:
         assert isinstance(bottomLeftOrigin, bool)
-        assert lineType is not None
         args.append(bottomLeftOrigin)
 
     img._f = _filter_putText(img._f, text, org, fontFace, fontScale, color, *args)
@@ -776,22 +794,26 @@ def arrowedLine(
     if len(color) == 3:
         color.append(255.0)
 
+    if tipLength is not None and shift is None:
+        shift = 0
+    if shift is not None and line_type is None:
+        line_type = LINE_8
+    if line_type is not None and thickness is None:
+        thickness = 1
+
     args = []
     if thickness is not None:
         assert isinstance(thickness, int)
         args.append(thickness)
     if line_type is not None:
         assert isinstance(line_type, int)
-        assert thickness is not None
         args.append(line_type)
     if shift is not None:
         assert isinstance(shift, int)
-        assert shift is not None
         args.append(shift)
     if tipLength is not None:
-        assert isinstance(tipLength, float)
-        assert shift is not None
-        args.append(tipLength)
+        assert isinstance(tipLength, (int, float))
+        args.append(float(tipLength))
 
     img._f = _filter_arrowedLine(img._f, pt1, pt2, color, *args)
     return img
@@ -811,17 +833,20 @@ def line(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
     if len(color) == 3:
         color.append(255.0)
 
+    if shift is not None and lineType is None:
+        lineType = LINE_8
+    if lineType is not None and thickness is None:
+        thickness = 1
+
     args = []
     if thickness is not None:
         assert isinstance(thickness, int)
         args.append(thickness)
     if lineType is not None:
         assert isinstance(lineType, int)
-        assert thickness is not None
         args.append(lineType)
     if shift is not None:
         assert isinstance(shift, int)
-        assert shift is not None
         args.append(shift)
 
     img._f = _filter_line(img._f, pt1, pt2, color, *args)
@@ -842,17 +867,20 @@ def circle(img, center, radius, color, thickness=None, lineType=None, shift=None
     if len(color) == 3:
         color.append(255.0)
 
+    if shift is not None and lineType is None:
+        lineType = LINE_8
+    if lineType is not None and thickness is None:
+        thickness = 1
+
     args = []
     if thickness is not None:
         assert isinstance(thickness, int)
         args.append(thickness)
     if lineType is not None:
         assert isinstance(lineType, int)
-        assert thickness is not None
         args.append(lineType)
     if shift is not None:
         assert isinstance(shift, int)
-        assert shift is not None
         args.append(shift)
 
     img._f = _filter_circle(img._f, center, radius, color, *args)
@@ -960,29 +988,205 @@ def ellipse(
 
 
 def clipLine(*args, **kwargs):
-    raise NotImplementedError("clipLine is not yet implemented in the cv2 frontend")
+    """
+    cv.clipLine(imgRect, pt1, pt2) -> retval, pt1, pt2
+    """
+    _check_opencv2("clipLine")
+    return _opencv2.clipLine(*args, **kwargs)
 
 
-def drawContours(*args, **kwargs):
-    raise NotImplementedError("drawContours is not yet implemented in the cv2 frontend")
+def drawContours(
+    img,
+    contours,
+    contourIdx,
+    color,
+    thickness=None,
+    lineType=None,
+    hierarchy=None,
+    maxLevel=None,
+    offset=None,
+):
+    """
+    cv.drawContours(image, contours, contourIdx, color[, thickness[, lineType[, hierarchy[, maxLevel[, offset]]]]]) -> image
+    """
+    img = frameify(img)
+    img._mut()
+
+    # Convert contours to list format
+    contours_converted = []
+    for contour in contours:
+        contours_converted.append(_convert_single_polygon(contour))
+
+    assert isinstance(contourIdx, int)
+    color = _convert_color(color)
+
+    if offset is not None and maxLevel is None:
+        maxLevel = 0
+    if maxLevel is not None and hierarchy is None:
+        hierarchy = []
+    if hierarchy is not None and lineType is None:
+        lineType = LINE_8
+    if lineType is not None and thickness is None:
+        thickness = 1
+
+    args = []
+    if thickness is not None:
+        assert isinstance(thickness, int)
+        args.append(thickness)
+    if lineType is not None:
+        assert isinstance(lineType, int)
+        args.append(lineType)
+    if hierarchy is not None:
+        if isinstance(hierarchy, np.ndarray):
+            hierarchy = hierarchy.tolist()
+        args.append(hierarchy)
+    if maxLevel is not None:
+        assert isinstance(maxLevel, int)
+        args.append(maxLevel)
+    if offset is not None:
+        assert isinstance(offset, (list, tuple)) and len(offset) == 2
+        args.append([int(offset[0]), int(offset[1])])
+
+    img._f = _filter_drawContours(img._f, contours_converted, contourIdx, color, *args)
+    return img
 
 
-def drawMarker(*args, **kwargs):
-    raise NotImplementedError("drawMarker is not yet implemented in the cv2 frontend")
+def drawMarker(
+    img,
+    position,
+    color,
+    markerType=None,
+    markerSize=None,
+    thickness=None,
+    line_type=None,
+):
+    """
+    cv.drawMarker(img, position, color[, markerType[, markerSize[, thickness[, line_type]]]]) -> img
+    """
+    img = frameify(img)
+    img._mut()
+
+    assert isinstance(position, (list, tuple)) and len(position) == 2
+    position = [int(position[0]), int(position[1])]
+    color = _convert_color(color)
+
+    if line_type is not None and thickness is None:
+        thickness = 1
+    if thickness is not None and markerSize is None:
+        markerSize = 20
+    if markerSize is not None and markerType is None:
+        markerType = MARKER_CROSS
+
+    args = []
+    if markerType is not None:
+        assert isinstance(markerType, int)
+        args.append(markerType)
+    if markerSize is not None:
+        assert isinstance(markerSize, int)
+        args.append(markerSize)
+    if thickness is not None:
+        assert isinstance(thickness, int)
+        args.append(thickness)
+    if line_type is not None:
+        assert isinstance(line_type, int)
+        args.append(line_type)
+
+    img._f = _filter_drawMarker(img._f, position, color, *args)
+    return img
 
 
 def ellipse2Poly(*args, **kwargs):
-    raise NotImplementedError("ellipse2Poly is not yet implemented in the cv2 frontend")
+    """
+    cv.ellipse2Poly(center, axes, angle, arcStart, arcEnd, delta) -> pts
+    """
+    _check_opencv2("ellipse2Poly")
+    return _opencv2.ellipse2Poly(*args, **kwargs)
 
 
-def fillConvexPoly(*args, **kwargs):
-    raise NotImplementedError(
-        "fillConvexPoly is not yet implemented in the cv2 frontend"
-    )
+def _convert_polygon_list(pts):
+    """Convert a list of polygons to the internal format."""
+    assert isinstance(pts, list) or isinstance(pts, np.ndarray)
+    pts_converted = []
+    for poly in pts:
+        pts_converted.append(_convert_single_polygon(poly))
+    return pts_converted
 
 
-def fillPoly(*args, **kwargs):
-    raise NotImplementedError("fillPoly is not yet implemented in the cv2 frontend")
+def _convert_single_polygon(poly):
+    """Convert a single polygon to the internal format."""
+    if isinstance(poly, np.ndarray):
+        poly = poly.tolist()
+    # Flatten if shape is (N, 1, 2)
+    poly_flat = []
+    for pt in poly:
+        if isinstance(pt, list) and len(pt) == 1:
+            pt = pt[0]
+        poly_flat.append([int(pt[0]), int(pt[1])])
+    return poly_flat
+
+
+def _convert_color(color):
+    """Convert color to the internal format (4 floats)."""
+    assert len(color) == 3 or len(color) == 4
+    color = [float(x) for x in color]
+    if len(color) == 3:
+        color.append(255.0)
+    return color
+
+
+def fillConvexPoly(img, points, color, lineType=None, shift=None):
+    """
+    cv.fillConvexPoly(img, points, color[, lineType[, shift]]) -> img
+    """
+    img = frameify(img)
+    img._mut()
+
+    points_converted = _convert_single_polygon(points)
+    color = _convert_color(color)
+
+    if shift is not None and lineType is None:
+        lineType = LINE_8
+
+    args = []
+    if lineType is not None:
+        assert isinstance(lineType, int)
+        args.append(lineType)
+    if shift is not None:
+        assert isinstance(shift, int)
+        args.append(shift)
+
+    img._f = _filter_fillConvexPoly(img._f, points_converted, color, *args)
+    return img
+
+
+def fillPoly(img, pts, color, lineType=None, shift=None, offset=None):
+    """
+    cv.fillPoly(img, pts, color[, lineType[, shift[, offset]]]) -> img
+    """
+    img = frameify(img)
+    img._mut()
+
+    pts_converted = _convert_polygon_list(pts)
+    color = _convert_color(color)
+
+    if offset is not None and shift is None:
+        shift = 0
+    if shift is not None and lineType is None:
+        lineType = LINE_8
+
+    args = []
+    if lineType is not None:
+        assert isinstance(lineType, int)
+        args.append(lineType)
+    if shift is not None:
+        assert isinstance(shift, int)
+        args.append(shift)
+    if offset is not None:
+        assert isinstance(offset, (list, tuple)) and len(offset) == 2
+        args.append([int(offset[0]), int(offset[1])])
+
+    img._f = _filter_fillPoly(img._f, pts_converted, color, *args)
+    return img
 
 
 def polylines(img, pts, isClosed, color, thickness=None, lineType=None, shift=None):
@@ -992,27 +1196,14 @@ def polylines(img, pts, isClosed, color, thickness=None, lineType=None, shift=No
     img = frameify(img)
     img._mut()
 
-    assert isinstance(pts, list) or isinstance(pts, np.ndarray)
-    # pts is a list of arrays of points
-    # each array is a polygon with shape (N, 1, 2) or (N, 2)
-    pts_converted = []
-    for poly in pts:
-        if isinstance(poly, np.ndarray):
-            poly = poly.tolist()
-        # Flatten if shape is (N, 1, 2)
-        poly_flat = []
-        for pt in poly:
-            if isinstance(pt, list) and len(pt) == 1:
-                pt = pt[0]
-            poly_flat.append([int(pt[0]), int(pt[1])])
-        pts_converted.append(poly_flat)
-
+    pts_converted = _convert_polygon_list(pts)
     assert isinstance(isClosed, bool)
+    color = _convert_color(color)
 
-    assert len(color) == 3 or len(color) == 4
-    color = [float(x) for x in color]
-    if len(color) == 3:
-        color.append(255.0)
+    if shift is not None and lineType is None:
+        lineType = LINE_8
+    if lineType is not None and thickness is None:
+        thickness = 1
 
     args = []
     if thickness is not None:
@@ -1020,11 +1211,9 @@ def polylines(img, pts, isClosed, color, thickness=None, lineType=None, shift=No
         args.append(thickness)
     if lineType is not None:
         assert isinstance(lineType, int)
-        assert thickness is not None
         args.append(lineType)
     if shift is not None:
         assert isinstance(shift, int)
-        assert lineType is not None
         args.append(shift)
 
     img._f = _filter_polylines(img._f, pts_converted, isClosed, color, *args)
