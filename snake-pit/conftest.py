@@ -1,9 +1,4 @@
-"""
-Pytest configuration for vidformer integration tests.
-
-This replaces the snake-pit.py orchestration script with proper pytest fixtures.
-Run tests with: pytest snake-pit/ -vv
-"""
+"""Pytest configuration for vidformer integration tests."""
 
 import os
 import subprocess as sp
@@ -12,10 +7,8 @@ import time
 import pytest
 import requests
 
-# Paths
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
-# Fail fast if running from wrong directory
 _cwd = os.getcwd()
 _snake_pit_dir = os.path.join(PROJECT_DIR, "snake-pit")
 if _cwd != _snake_pit_dir:
@@ -26,6 +19,7 @@ if _cwd != _snake_pit_dir:
         f"  Run: cd {_snake_pit_dir} && pytest -vv",
         returncode=1,
     )
+
 IGNI_DIR = os.path.join(PROJECT_DIR, "vidformer-igni")
 IGNI_BIN = os.path.join(PROJECT_DIR, "target", "debug", "vidformer-igni")
 DOCKER_COMPOSE_FILE = os.path.join(IGNI_DIR, "docker-compose-db.yaml")
@@ -44,7 +38,7 @@ def _port_in_use(port: int) -> bool:
 
 
 def _wait_for_postgres(timeout: int = 30) -> None:
-    """Wait for PostgreSQL to be ready and accepting connections."""
+    """Wait for PostgreSQL to be ready."""
     start = time.time()
     while time.time() - start < timeout:
         result = sp.run(
@@ -76,30 +70,21 @@ def docker_services(igni_env):
     print("\nStarting Postgres + Valkey containers...")
     sp.run(["docker-compose", "-f", DOCKER_COMPOSE_FILE, "down"], check=True)
     sp.run(["docker-compose", "-f", DOCKER_COMPOSE_FILE, "up", "-d"], check=True)
-
-    # Wait for database to be ready
     _wait_for_postgres()
 
     yield
 
-    # Cleanup
     print("\nStopping containers...")
     sp.run(["docker-compose", "-f", DOCKER_COMPOSE_FILE, "down"], check=True)
 
 
 @pytest.fixture(scope="session")
 def igni_cli_setup(docker_services, igni_env):
-    """
-    Run Igni admin CLI checks and create test fixtures.
-
-    This is a canary to ensure schema changes don't break the admin CLI.
-    """
+    """Run Igni admin CLI checks and create test fixtures."""
     print("\nRunning Igni admin CLI checks...")
 
-    # Check CLI connects to the database
     sp.run([IGNI_BIN, "ping"], check=True, capture_output=True, env=igni_env)
 
-    # Add a test user
     test_user = sp.run(
         [
             IGNI_BIN,
@@ -118,7 +103,6 @@ def igni_cli_setup(docker_services, igni_env):
     )
     test_user_id = test_user.stdout.decode().strip().split("\n")[0]
 
-    # Test source CRUD
     source = sp.run(
         [
             IGNI_BIN,
@@ -149,8 +133,7 @@ def igni_cli_setup(docker_services, igni_env):
         env=igni_env,
     )
 
-    # Test spec CRUD
-    spec = sp.run(
+    sp.run(
         [
             IGNI_BIN,
             "spec",
@@ -174,7 +157,6 @@ def igni_cli_setup(docker_services, igni_env):
     )
     sp.run([IGNI_BIN, "spec", "ls"], check=True, capture_output=True, env=igni_env)
 
-    # Test user CRUD
     tmp_user = sp.run(
         [
             IGNI_BIN,
@@ -210,17 +192,14 @@ def igni_server(igni_cli_setup, igni_env):
         env=igni_env,
     )
 
-    # Wait for server to be ready
     sp.run(["wait-for-it", "localhost:8080", "--timeout=15"], check=True)
     print("Igni server started")
 
-    # Set environment variables for tests
     os.environ["VF_IGNI_ENDPOINT"] = "http://localhost:8080"
     os.environ["VF_IGNI_API_KEY"] = "test"
 
     yield proc
 
-    # Cleanup
     print("\nStopping Igni server...")
     proc.terminate()
     proc.wait()
@@ -228,10 +207,5 @@ def igni_server(igni_cli_setup, igni_env):
 
 @pytest.fixture(autouse=True)
 def _require_igni(igni_server):
-    """
-    Auto-use fixture that ensures the Igni server is running for all tests.
-
-    This fixture is automatically applied to every test, triggering the
-    entire fixture chain (docker_services -> igni_cli_setup -> igni_server).
-    """
+    """Ensure the Igni server is running for all tests."""
     pass
