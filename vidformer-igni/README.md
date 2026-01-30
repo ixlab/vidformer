@@ -31,7 +31,7 @@ docker build -t igni -f Dockerfile .
 docker-compose -f vidformer-igni/docker-compose-prod.yaml up
 ```
 
-For tls certs:
+For TLS certs:
 ```bash
 docker-compose -f vidformer-igni/docker-compose-prod.yaml run --rm certbot certonly --webroot --webroot-path /var/www/certbot/ -d api.example.com -d cdn.example.com
 ```

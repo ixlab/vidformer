@@ -611,7 +611,7 @@ class MaskStreamWriter:
         mask = detections.mask
         assert (
             mask.shape[1:] == self._shape
-        ), f"mask shape ({mask.shape[:1]}) must match the shape of the video ({self._shape})"
+        ), f"mask shape ({mask.shape[1:]}) must match the shape of the video ({self._shape})"
         for i in range(mask.shape[0]):
             frame_uint8 = detections.mask[i].astype(np.uint8)
             self._writer.write(frame_uint8)

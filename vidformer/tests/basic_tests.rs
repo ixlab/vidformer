@@ -191,7 +191,7 @@ fn test_non_existant_source() {
             _context: &dyn spec::SpecContext,
             _t: &num_rational::Rational64,
         ) -> sir::FrameExpr {
-            filter!(PlaceholderFrame; frame!("non-existant-source", iloc_index!(0)) ; width=int!(1920), height=int!(1080))
+            filter!(PlaceholderFrame; frame!("non-existent-source", iloc_index!(0)) ; width=int!(1920), height=int!(1080))
         }
     }
 

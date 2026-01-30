@@ -10,8 +10,8 @@ vidformer is a highly modular suite of tools that work together:
 - [*libvidformer*](./libvidformer.md): The core data-oriented declarative video editing library
   - An embedded video processing execution engine with low-level interfaces
   - Systems code, written in Rust 🦀
-  - **You should use if:** You are building a VDBMS or other multimodal data-system *infrastructure*.
-  - **You should *not* use if:** You just want to use vidformer in your workflows or projects.
+  - **You should use this if:** You are building a VDBMS or other multimodal data-system *infrastructure*.
+  - **You should *not* use this if:** You just want to use vidformer in your workflows or projects.
 
 - [*vidformer-igni*](./vidformer-igni.md): The vidformer server
   - A multi-tenant scale-out server

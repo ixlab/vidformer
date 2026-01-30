@@ -1,4 +1,4 @@
-//! Specs declarativly define an edited video.
+//! Specs declaratively define an edited video.
 //!
 //! A spec defines an output video (as a logical time-indexed array).
 //! It creates this array by defining its timestamps (the set of times at which the spec is defined) and a function that maps each time to a frame.
@@ -18,7 +18,7 @@ pub trait SpecContext {}
 /// A spec defines a video from a sequence of transformations.
 /// A [`SpecContext`] is provided for information about the available source videos and arrays.
 pub trait Spec: Sync + Send {
-    /// Returns the timestamps of the outupt video.
+    /// Returns the timestamps of the output video.
     ///
     /// The timestamps are the set of times at which the spec is defined.
     /// Each time corresponds to a single output frame at that timestamp.

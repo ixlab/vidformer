@@ -275,7 +275,7 @@ pub(crate) fn run_decoder(
 
                 if !decoder_state.future_frames.contains(&iframeref.pts) {
                     warn!(
-                        "Decoded frame pts={} not extected in {}:gop{}",
+                        "Decoded frame pts={} not expected in {}:gop{}",
                         iframeref.pts, source, gop_idx
                     );
                     return Err(Error::AVError(format!(
@@ -362,7 +362,7 @@ fn run_filter(
                 output_channel.send(result).unwrap();
             }
             Ok(None) => {
-                debug!("Filter recieved kill signal");
+                debug!("Filter received kill signal");
                 return Ok(());
             }
             Err(crossbeam_channel::RecvError) => {
@@ -378,7 +378,7 @@ pub struct IFrameRef {
     pub pts: Rational64,
 }
 
-/// Config for a spesific run of a vidformer spec
+/// Config for a specific run of a vidformer spec
 ///
 /// This is a collection of settings that are used to execute a spec.
 /// This combines information about the output with internal performance knobs.
@@ -613,7 +613,7 @@ pub enum RangeTsFormat {
     StreamLocal,
 }
 
-/// A range spesifier
+/// A range specifier
 ///
 /// `start` and `end` are the start and end of the range in the timebase of the input, inclusive.
 #[derive(Clone)]
@@ -697,10 +697,10 @@ impl ExecContext {
             let context = self.context.clone();
             let config = self.config.clone();
             let stat = self.stat.clone();
-            let reciever = self.to_filter_channel.1.clone();
+            let receiver = self.to_filter_channel.1.clone();
             let sender = self.from_filter_channel.0.clone();
             let filter_thread =
-                std::thread::spawn(move || run_filter(&context, &config, &stat, reciever, sender));
+                std::thread::spawn(move || run_filter(&context, &config, &stat, receiver, sender));
             self.filter_join_handles.push(filter_thread);
         }
 
@@ -734,7 +734,7 @@ impl ExecContext {
             }
 
             // Process filtered frames
-            let r = self.recieve_filtered_frames();
+            let r = self.receive_filtered_frames();
             if let Err(e) = r {
                 return_err = Some(e);
                 break 'control_loop;
@@ -881,11 +881,11 @@ impl ExecContext {
         }
     }
 
-    fn recieve_filtered_frames(&mut self) -> Result<(), Error> {
+    fn receive_filtered_frames(&mut self) -> Result<(), Error> {
         loop {
             match self.from_filter_channel.1.try_recv() {
                 Ok(result) => {
-                    debug!("Recieved gen {} from filter", result.gen);
+                    debug!("Received gen {} from filter", result.gen);
                     debug_assert!(self.filtering_gens.contains(&result.gen));
                     self.filtering_gens.remove(&result.gen);
 
@@ -964,7 +964,7 @@ impl ExecContext {
             if let Some((sourceref, gop_idx)) = new_decoder {
                 let source = sourceref.clone();
                 let decoder_id = crate::util::rand_uuid();
-                let decooder_id_join_handle_copy = decoder_id.clone();
+                let decoder_id_join_handle_copy = decoder_id.clone();
                 let pool = self.pool.clone();
                 let context = self.context.clone();
                 let stat = self.stat.clone();
@@ -1007,7 +1007,7 @@ impl ExecContext {
                     .unwrap();
 
                 self.dec_join_handles
-                    .insert(decooder_id_join_handle_copy, dec_join_handle);
+                    .insert(decoder_id_join_handle_copy, dec_join_handle);
             }
         }
 

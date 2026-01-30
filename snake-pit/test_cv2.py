@@ -1671,7 +1671,7 @@ def test_frameify():
     os.remove(path)
 
 
-def test_frame_array_slicing_appolo():
+def test_frame_array_slicing_apollo():
     frame_orig = ocv_cv2.imread(TEST_IMG_PATH)[:1000, :1000]
     path = tmp_path("png")
     ocv_cv2.imwrite(path, frame_orig)

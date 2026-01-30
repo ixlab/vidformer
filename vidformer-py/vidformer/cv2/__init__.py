@@ -366,7 +366,7 @@ def _inline_frame(arr):
 def _check_opencv2(method_name):
     if _opencv2 is None:
         raise NotImplementedError(
-            f"{method_name} requires python OpenCV cv2. Either it's not installed or the import failed (such as a mission libGL.so.1)."
+            f"{method_name} requires Python OpenCV cv2. Either it's not installed or the import failed (such as a missing libGL.so.1)."
         )
 
 

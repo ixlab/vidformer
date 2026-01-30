@@ -8,7 +8,7 @@ docker build -t igni -f Dockerfile .
 docker-compose -f vidformer-igni/docker-compose-local.yaml up
 ```
 
-Vidformer-py can be installed with pip:
+vidformer-py can be installed with pip:
 ```bash
 pip3 install vidformer
 ```

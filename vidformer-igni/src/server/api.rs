@@ -100,7 +100,7 @@ pub(crate) async fn get_source(
         })
         .collect();
 
-    // Important, do not ever respond back to a user with a storage_confg!
+    // Important, do not ever respond back to a user with a storage_config!
     let res = serde_json::json!(
         {
             "id": source.id,
@@ -861,7 +861,7 @@ async fn push_frame_req(
     let pos = req.0;
     let n_frames = req.2.len();
 
-    // Check if we're pushing too many framesreq
+    // Check if we're pushing too many frames
     if let Some(err) = user
         .permissions
         .limit_err_max("spec:max_frames", pos as i64 + n_frames as i64)

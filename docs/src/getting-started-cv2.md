@@ -1,6 +1,6 @@
 # Getting Started - cv2
 
-This is a walkthrough of getting started with vidformer OpenCV `cv2` compatability layer.
+This is a walkthrough of getting started with the vidformer OpenCV `cv2` compatibility layer.
 
 > ⚠️ Adding `cv2` functions is a work in progress. See the [cv2 filters page](./opencv-filters.md) for which functions have been implemented.
 
@@ -77,4 +77,4 @@ out.release()
 cv2.vidplay(out)
 ```
 
-> ⚠️ By default `cv2.vidplay()` will return a video which plays in a Jupyter Notebook. If running outside a jupyter notebook you can pass `method="link"` to return a link instead.
+> ⚠️ By default `cv2.vidplay()` will display a video in a Jupyter notebook. If running outside a Jupyter notebook you can pass `method="link"` to return a link instead.

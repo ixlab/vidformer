@@ -59,7 +59,7 @@ Scale(
 ```
 
 By default missing `width`, `height` and `format` values are set to match `frame`.
-`pix_fmt` must match ffmpeg's name for a pixel format.
+`pix_fmt` must match FFmpeg's name for a pixel format.
 
 For example:
 

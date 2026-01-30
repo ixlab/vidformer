@@ -64,7 +64,7 @@ impl UserPermissions {
 
         let limits_frac = [
             ("spec:max_vod_segment_length", (3, 1)),
-            ("spec:min_vod_segment_legth", (1, 1)),
+            ("spec:min_vod_segment_length", (1, 1)),
             ("spec:max_frame_rate", (60, 1)),
             ("spec:min_frame_rate", (1, 1)),
         ]
@@ -136,7 +136,7 @@ impl UserPermissions {
 
         let limits_frac = [
             ("spec:max_vod_segment_length", (3, 1)),
-            ("spec:min_vod_segment_legth", (1, 1)),
+            ("spec:min_vod_segment_length", (1, 1)),
             ("spec:max_frame_rate", (30, 1)),
             ("spec:min_frame_rate", (1, 1)),
         ]
@@ -435,7 +435,7 @@ async fn igni_http_req_error_handler(
     match igni_http_req(req, global).await {
         Ok(ok) => Ok(ok),
         Err(err) => {
-            // An error occured which is not an explicitly handled error
+            // An error occurred which is not an explicitly handled error
             // Log the error and return a 500 response
             // Do not leak the error to the client
             error!(

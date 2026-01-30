@@ -20,12 +20,12 @@ We guarantee that HTTP, S3, and the local filesystem are always available.
 ### How does vidformer compare to FFmpeg?
 
 vidformer is far more expressive than the FFmpeg filter interface.
-Mainly, vidformer is designed for work around data, so edits are created programatically and edits can reference data.
-Also, vidformer enables serving resut videos on demand.
+Mainly, vidformer is designed for data-oriented work, so edits are created programmatically and can reference data.
+Also, vidformer enables serving result videos on demand.
 
 vidformer uses the [FFmpeg/libav*](https://ffmpeg.org/) libraries internally, so any media FFmpeg works with should also work in vidformer.
 
 ### How does vidformer compare to OpenCV/cv2?
 
-vidformer orchestrates data movment in video synthesis tasks, but does not implement image processing directly.
+vidformer orchestrates data movement in video synthesis tasks, but does not implement image processing directly.
 Most use cases will still use OpenCV for this.

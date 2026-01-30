@@ -36,13 +36,13 @@ Vidformer efficiently transforms videos, enabling faster annotation, editing, an
 Vidformer uses a declarative specification format to represent transformations. This enables:
 
 * **Transparent Optimization:** Vidformer optimizes the execution of declarative specifications just like a relational database optimizes relational queries.
-  
-* **Lazy/Deferred Renderjng:** Video results can be retrieved on-demand, allowing for practically instantaneous playback of video results.
+
+* **Lazy/Deferred Rendering:** Video results can be retrieved on-demand, allowing for practically instantaneous playback of video results.
 
 Vidformer usually renders videos 2-3x faster than cv2, and hundreds of times faster (*practically instantly*) when serving videos on-demand.
 
 Vidformer builds on open technologies you may already use:
-  * **OpenCV:** A `cv2`-compatible interface ensures both you (and LLMs) can use  existing knowlege and code.
+  * **OpenCV:** A `cv2`-compatible interface ensures both you (and LLMs) can use existing knowledge and code.
   * **Supervision:** [Supervision](https://supervision.roboflow.com/latest/)-compatible annotators make visualizing computer vision models trivial.
   * **FFmpeg:** Built on the same libraries, codecs, and formats that run the world.
   * **Jupyter:** View transformed videos instantly right in your notebook.
@@ -74,7 +74,7 @@ Vidformer builds on open technologies you may already use:
 
 **File Layout**:
 - [*./vidformer*](./vidformer/): The core rendering library
-- [*./vidformer-py*](./vidformer-py/): The python frontend
+- [*./vidformer-py*](./vidformer-py/): The Python frontend
 - [*./vidformer-igni*](./vidformer-igni/): The vidformer server
 - [*./snake-pit*](./snake-pit/): The main vidformer test suite
 - [*./vidformer-cli*](./vidformer-cli/): Vidformer binary for testing
@@ -92,7 +92,7 @@ Vidformer components are detailed [here](https://ixlab.github.io/vidformer/docs/
 * A computer vision AI model (like CLIP or Yolo)
 
 However, vidformer is strongly complementary to each of these.
-If you're working on any of the later four, vidformer may be for you.
+If you're working on any of the latter four, vidformer may be for you.
 
 **License:** Vidformer is open source under [Apache-2.0](./LICENSE).
 Contributions are welcome.
