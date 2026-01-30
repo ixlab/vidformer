@@ -23,6 +23,11 @@ pub fn filters() -> BTreeMap<String, Box<dyn filter::Filter>> {
     filters.insert("cv2.setTo".to_string(), Box::new(SetTo {}));
     filters.insert("cv2.addWeighted".to_string(), Box::new(AddWeighted {}));
     filters.insert("cv2.polylines".to_string(), Box::new(Polylines {}));
+    filters.insert("cv2.fillPoly".to_string(), Box::new(FillPoly {}));
+    filters.insert(
+        "cv2.fillConvexPoly".to_string(),
+        Box::new(FillConvexPoly {}),
+    );
     filters
 }
 
@@ -1347,52 +1352,7 @@ impl Polylines {
             }
         };
 
-        // pts is a list of polygons, each polygon is a list of points
-        let pts = match parsed_args.get("pts") {
-            Some(Val::List(polygons)) => {
-                let mut result = Vec::new();
-                for polygon in polygons {
-                    match polygon {
-                        Val::List(points) => {
-                            let mut poly_points = Vec::new();
-                            for point in points {
-                                match point {
-                                    Val::List(coords) => {
-                                        if coords.len() != 2 {
-                                            return Err(
-                                                "Each point must have exactly 2 coordinates".into(),
-                                            );
-                                        }
-                                        let x = match &coords[0] {
-                                            Val::Int(v) => *v as i32,
-                                            _ => {
-                                                return Err(
-                                                    "Point coordinates must be integers".into()
-                                                )
-                                            }
-                                        };
-                                        let y = match &coords[1] {
-                                            Val::Int(v) => *v as i32,
-                                            _ => {
-                                                return Err(
-                                                    "Point coordinates must be integers".into()
-                                                )
-                                            }
-                                        };
-                                        poly_points.push((x, y));
-                                    }
-                                    _ => return Err("Expected point to be a list".into()),
-                                }
-                            }
-                            result.push(poly_points);
-                        }
-                        _ => return Err("Expected polygon to be a list of points".into()),
-                    }
-                }
-                result
-            }
-            _ => return Err("Expected 'pts' to be a list of polygons".into()),
-        };
+        let pts = parse_polygon_list(&parsed_args)?;
 
         // isClosed is a boolean
         let is_closed = match parsed_args.get("isClosed") {
@@ -1449,19 +1409,7 @@ impl filter::Filter for Polylines {
         debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
 
         let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
-
-        // Convert pts to opencv format
-        let mut pts_vec: opencv::core::Vector<opencv::core::Vector<opencv::core::Point>> =
-            opencv::core::Vector::new();
-        for polygon in &opts.pts {
-            let mut poly_vec: opencv::core::Vector<opencv::core::Point> =
-                opencv::core::Vector::new();
-            for (x, y) in polygon {
-                poly_vec.push(opencv::core::Point::new(*x, *y));
-            }
-            pts_vec.push(poly_vec);
-        }
-
+        let pts_vec = polygon_list_to_opencv(&opts.pts);
         let color =
             opencv::core::Scalar::new(opts.color[0], opts.color[1], opts.color[2], opts.color[3]);
 
@@ -1490,6 +1438,345 @@ impl filter::Filter for Polylines {
         kwargs: &BTreeMap<std::string::String, filter::Val>,
     ) -> std::result::Result<filter::FrameType, dve::Error> {
         let opts: PolylinesArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(dve::Error::AVError("Expected RGB24 frame".into()));
+        }
+
+        Ok(opts.img.unwrap_frame_type())
+    }
+}
+
+// Helper functions for parsing and converting polygon data (shared by polylines, fillPoly, fillConvexPoly)
+
+fn parse_polygon_list(parsed_args: &BTreeMap<&str, Val>) -> Result<Vec<Vec<(i32, i32)>>, String> {
+    match parsed_args.get("pts") {
+        Some(Val::List(polygons)) => {
+            let mut result = Vec::new();
+            for polygon in polygons {
+                match polygon {
+                    Val::List(points) => {
+                        result.push(parse_points_list(points)?);
+                    }
+                    _ => return Err("Expected polygon to be a list of points".into()),
+                }
+            }
+            Ok(result)
+        }
+        _ => Err("Expected 'pts' to be a list of polygons".into()),
+    }
+}
+
+fn parse_single_polygon(
+    parsed_args: &BTreeMap<&str, Val>,
+    name: &str,
+) -> Result<Vec<(i32, i32)>, String> {
+    match parsed_args.get(name) {
+        Some(Val::List(points)) => parse_points_list(points),
+        _ => Err(format!("Expected '{}' to be a list of points", name)),
+    }
+}
+
+fn parse_points_list(points: &[Val]) -> Result<Vec<(i32, i32)>, String> {
+    let mut poly_points = Vec::new();
+    for point in points {
+        match point {
+            Val::List(coords) => {
+                if coords.len() != 2 {
+                    return Err("Each point must have exactly 2 coordinates".into());
+                }
+                let x = match &coords[0] {
+                    Val::Int(v) => *v as i32,
+                    _ => return Err("Point coordinates must be integers".into()),
+                };
+                let y = match &coords[1] {
+                    Val::Int(v) => *v as i32,
+                    _ => return Err("Point coordinates must be integers".into()),
+                };
+                poly_points.push((x, y));
+            }
+            _ => return Err("Expected point to be a list".into()),
+        }
+    }
+    Ok(poly_points)
+}
+
+fn polygon_list_to_opencv(
+    pts: &[Vec<(i32, i32)>],
+) -> opencv::core::Vector<opencv::core::Vector<opencv::core::Point>> {
+    let mut pts_vec: opencv::core::Vector<opencv::core::Vector<opencv::core::Point>> =
+        opencv::core::Vector::new();
+    for polygon in pts {
+        pts_vec.push(single_polygon_to_opencv(polygon));
+    }
+    pts_vec
+}
+
+fn single_polygon_to_opencv(points: &[(i32, i32)]) -> opencv::core::Vector<opencv::core::Point> {
+    let mut points_vec: opencv::core::Vector<opencv::core::Point> = opencv::core::Vector::new();
+    for (x, y) in points {
+        points_vec.push(opencv::core::Point::new(*x, *y));
+    }
+    points_vec
+}
+
+pub struct FillPoly {}
+
+struct FillPolyArgs {
+    img: filter_utils::FrameArg,
+    pts: Vec<Vec<(i32, i32)>>,
+    color: [f64; 4],
+    linetype: i32,
+    shift: i32,
+    offset: (i32, i32),
+}
+
+impl FillPoly {
+    fn args(
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> Result<FillPolyArgs, String> {
+        let signature = filter_utils::FunctionSignature {
+            parameters: vec![
+                Parameter::Positional { name: "img" },
+                Parameter::Positional { name: "pts" },
+                Parameter::Positional { name: "color" },
+                Parameter::PositionalOptional {
+                    name: "lineType",
+                    default_value: Val::Int(8),
+                },
+                Parameter::PositionalOptional {
+                    name: "shift",
+                    default_value: Val::Int(0),
+                },
+                Parameter::PositionalOptional {
+                    name: "offset",
+                    default_value: Val::List(vec![Val::Int(0), Val::Int(0)]),
+                },
+            ],
+        };
+
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
+
+        let img = match parsed_args.get("img") {
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
+            x => {
+                dbg! {x};
+                return Err("Expected 'img' to be a Frame".into());
+            }
+        };
+
+        let pts = parse_polygon_list(&parsed_args)?;
+        let color = filter_utils::get_color(&parsed_args)?;
+
+        let linetype = match parsed_args.get("lineType") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'lineType' to be an integer".into()),
+        };
+
+        let shift = match parsed_args.get("shift") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'shift' to be an integer".into()),
+        };
+
+        let offset = match parsed_args.get("offset") {
+            Some(Val::List(coords)) => {
+                if coords.len() != 2 {
+                    return Err("Offset must have exactly 2 coordinates".into());
+                }
+                let x = match &coords[0] {
+                    Val::Int(v) => *v as i32,
+                    _ => return Err("Offset coordinates must be integers".into()),
+                };
+                let y = match &coords[1] {
+                    Val::Int(v) => *v as i32,
+                    _ => return Err("Offset coordinates must be integers".into()),
+                };
+                (x, y)
+            }
+            _ => return Err("Expected 'offset' to be a list".into()),
+        };
+
+        Ok(FillPolyArgs {
+            img,
+            pts,
+            color,
+            linetype,
+            shift,
+            offset,
+        })
+    }
+}
+
+impl filter::Filter for FillPoly {
+    fn filter(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::Frame, dve::Error> {
+        let opts: FillPolyArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        let img = opts.img.unwrap_frame();
+        let (width, height) = (img.width, img.height);
+        debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+
+        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
+        let pts_vec = polygon_list_to_opencv(&opts.pts);
+        let color =
+            opencv::core::Scalar::new(opts.color[0], opts.color[1], opts.color[2], opts.color[3]);
+
+        imgproc::fill_poly(
+            &mut mat,
+            &pts_vec,
+            color,
+            opts.linetype,
+            opts.shift,
+            opencv::core::Point::new(opts.offset.0, opts.offset.1),
+        )
+        .unwrap();
+
+        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        Ok(filter::Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::FrameType, dve::Error> {
+        let opts: FillPolyArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(dve::Error::AVError("Expected RGB24 frame".into()));
+        }
+
+        Ok(opts.img.unwrap_frame_type())
+    }
+}
+
+pub struct FillConvexPoly {}
+
+struct FillConvexPolyArgs {
+    img: filter_utils::FrameArg,
+    points: Vec<(i32, i32)>,
+    color: [f64; 4],
+    linetype: i32,
+    shift: i32,
+}
+
+impl FillConvexPoly {
+    fn args(
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> Result<FillConvexPolyArgs, String> {
+        let signature = filter_utils::FunctionSignature {
+            parameters: vec![
+                Parameter::Positional { name: "img" },
+                Parameter::Positional { name: "points" },
+                Parameter::Positional { name: "color" },
+                Parameter::PositionalOptional {
+                    name: "lineType",
+                    default_value: Val::Int(8),
+                },
+                Parameter::PositionalOptional {
+                    name: "shift",
+                    default_value: Val::Int(0),
+                },
+            ],
+        };
+
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
+
+        let img = match parsed_args.get("img") {
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
+            x => {
+                dbg! {x};
+                return Err("Expected 'img' to be a Frame".into());
+            }
+        };
+
+        let points = parse_single_polygon(&parsed_args, "points")?;
+        let color = filter_utils::get_color(&parsed_args)?;
+
+        let linetype = match parsed_args.get("lineType") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'lineType' to be an integer".into()),
+        };
+
+        let shift = match parsed_args.get("shift") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'shift' to be an integer".into()),
+        };
+
+        Ok(FillConvexPolyArgs {
+            img,
+            points,
+            color,
+            linetype,
+            shift,
+        })
+    }
+}
+
+impl filter::Filter for FillConvexPoly {
+    fn filter(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::Frame, dve::Error> {
+        let opts: FillConvexPolyArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        let img = opts.img.unwrap_frame();
+        let (width, height) = (img.width, img.height);
+        debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+
+        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
+        let points_vec = single_polygon_to_opencv(&opts.points);
+        let color =
+            opencv::core::Scalar::new(opts.color[0], opts.color[1], opts.color[2], opts.color[3]);
+
+        imgproc::fill_convex_poly(&mut mat, &points_vec, color, opts.linetype, opts.shift).unwrap();
+
+        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        Ok(filter::Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::FrameType, dve::Error> {
+        let opts: FillConvexPolyArgs = match Self::args(args, kwargs) {
             Ok(args) => args,
             Err(err) => return Err(dve::Error::AVError(err)),
         };

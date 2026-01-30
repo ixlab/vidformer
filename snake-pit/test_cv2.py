@@ -803,6 +803,101 @@ def test_polylines_multiple():
     os.remove(path)
 
 
+def test_fillPoly():
+    """Test fillPoly drawing filled polygons"""
+    width, height = 300, 200
+
+    frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+
+    # Draw a filled triangle
+    pts = np.array([[100, 50], [50, 150], [150, 150]], np.int32).reshape((-1, 1, 2))
+    vf_cv2.fillPoly(frame, [pts], (0, 255, 0, 255))
+
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
+
+
+def test_fillPoly_multiple():
+    """Test fillPoly with multiple polygons"""
+    width, height = 300, 200
+
+    frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+
+    # Draw two filled polygons
+    pts1 = np.array([[50, 50], [100, 50], [75, 100]], np.int32).reshape((-1, 1, 2))
+    pts2 = np.array([[150, 50], [200, 50], [175, 100]], np.int32).reshape((-1, 1, 2))
+    vf_cv2.fillPoly(frame, [pts1, pts2], (0, 0, 255, 255))
+
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
+
+
+def test_fillPoly_color_match():
+    """Test that BGR blue (255, 0, 0) draws as blue filled polygon"""
+    width, height = 100, 100
+    color = (255, 0, 0)  # BGR blue
+
+    pts = np.array([[20, 20], [80, 20], [50, 80]], np.int32).reshape((-1, 1, 2))
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.fillPoly(frame_ocv, [pts], color)
+
+    # Vidformer
+    frame_vf = vf_cv2.fillPoly(
+        np.zeros((height, width, 3), dtype=np.uint8), [pts], color
+    ).numpy()
+
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), "Blue fillPoly mismatch: OpenCV vs vidformer"
+
+
+def test_fillConvexPoly():
+    """Test fillConvexPoly drawing a filled convex polygon"""
+    width, height = 300, 200
+
+    frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+
+    # Draw a filled convex quadrilateral
+    pts = np.array([[100, 50], [150, 100], [100, 150], [50, 100]], np.int32).reshape(
+        (-1, 1, 2)
+    )
+    vf_cv2.fillConvexPoly(frame, pts, (255, 0, 0, 255))
+
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
+
+
+def test_fillConvexPoly_color_match():
+    """Test that BGR cyan (255, 255, 0) draws as cyan filled convex polygon"""
+    width, height = 100, 100
+    color = (255, 255, 0)  # BGR cyan (B+G)
+
+    pts = np.array([[20, 20], [80, 20], [80, 80], [20, 80]], np.int32).reshape(
+        (-1, 1, 2)
+    )
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.fillConvexPoly(frame_ocv, pts, color)
+
+    # Vidformer
+    frame_vf = vf_cv2.fillConvexPoly(
+        np.zeros((height, width, 3), dtype=np.uint8), pts, color
+    ).numpy()
+
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), "Cyan fillConvexPoly mismatch: OpenCV vs vidformer"
+
+
 def test_circle_numpy():
     width, height = 300, 200
 

@@ -11,11 +11,11 @@ Legend:
 
 ## Vidformer-specific Functions
 
-* `cv2.vidplay(video2)` - Play a VideoWriter, Spec, or Source
+* `cv2.vidplay(video)` - Play a VideoWriter, Spec, or Source
 * `VideoWriter.spec()` - Return the Spec of an output video
 * `Frame.numpy()` - Return the frame as a numpy array
 * `cv2.setTo` - The OpenCV `Mat.setTo` function (not in cv2)
-* `cv2.zeros` - Create a black frame (equiv to `numpy.zeros`)
+* `cv2.zeros` - Create a black frame (equivalent to `numpy.zeros`)
 
 ## opencv
 
@@ -44,8 +44,8 @@ Drawing Functions:
 |drawMarker|❌|
 |ellipse|✅|
 |ellipse2Poly|❌|
-|fillConvexPoly|❌|
-|fillPoly|❌|
+|fillConvexPoly|✅|
+|fillPoly|✅|
 |getFontScaleFromHeight|🔸|
 |getTextSize|🔸|
 |line|✅|

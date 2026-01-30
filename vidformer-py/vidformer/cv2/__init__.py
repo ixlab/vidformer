@@ -72,6 +72,8 @@ _filter_circle = vf.Filter("cv2.circle")
 _filter_addWeighted = vf.Filter("cv2.addWeighted")
 _filter_ellipse = vf.Filter("cv2.ellipse")
 _filter_polylines = vf.Filter("cv2.polylines")
+_filter_fillPoly = vf.Filter("cv2.fillPoly")
+_filter_fillConvexPoly = vf.Filter("cv2.fillConvexPoly")
 _set_to = vf.Filter("cv2.setTo")
 
 
@@ -975,14 +977,85 @@ def ellipse2Poly(*args, **kwargs):
     raise NotImplementedError("ellipse2Poly is not yet implemented in the cv2 frontend")
 
 
-def fillConvexPoly(*args, **kwargs):
-    raise NotImplementedError(
-        "fillConvexPoly is not yet implemented in the cv2 frontend"
-    )
+def _convert_polygon_list(pts):
+    """Convert a list of polygons to the internal format."""
+    assert isinstance(pts, list) or isinstance(pts, np.ndarray)
+    pts_converted = []
+    for poly in pts:
+        pts_converted.append(_convert_single_polygon(poly))
+    return pts_converted
 
 
-def fillPoly(*args, **kwargs):
-    raise NotImplementedError("fillPoly is not yet implemented in the cv2 frontend")
+def _convert_single_polygon(poly):
+    """Convert a single polygon to the internal format."""
+    if isinstance(poly, np.ndarray):
+        poly = poly.tolist()
+    # Flatten if shape is (N, 1, 2)
+    poly_flat = []
+    for pt in poly:
+        if isinstance(pt, list) and len(pt) == 1:
+            pt = pt[0]
+        poly_flat.append([int(pt[0]), int(pt[1])])
+    return poly_flat
+
+
+def _convert_color(color):
+    """Convert color to the internal format (4 floats)."""
+    assert len(color) == 3 or len(color) == 4
+    color = [float(x) for x in color]
+    if len(color) == 3:
+        color.append(255.0)
+    return color
+
+
+def fillConvexPoly(img, points, color, lineType=None, shift=None):
+    """
+    cv.fillConvexPoly(img, points, color[, lineType[, shift]]) -> img
+    """
+    img = frameify(img)
+    img._mut()
+
+    points_converted = _convert_single_polygon(points)
+    color = _convert_color(color)
+
+    args = []
+    if lineType is not None:
+        assert isinstance(lineType, int)
+        args.append(lineType)
+    if shift is not None:
+        assert isinstance(shift, int)
+        assert lineType is not None
+        args.append(shift)
+
+    img._f = _filter_fillConvexPoly(img._f, points_converted, color, *args)
+    return img
+
+
+def fillPoly(img, pts, color, lineType=None, shift=None, offset=None):
+    """
+    cv.fillPoly(img, pts, color[, lineType[, shift[, offset]]]) -> img
+    """
+    img = frameify(img)
+    img._mut()
+
+    pts_converted = _convert_polygon_list(pts)
+    color = _convert_color(color)
+
+    args = []
+    if lineType is not None:
+        assert isinstance(lineType, int)
+        args.append(lineType)
+    if shift is not None:
+        assert isinstance(shift, int)
+        assert lineType is not None
+        args.append(shift)
+    if offset is not None:
+        assert isinstance(offset, (list, tuple)) and len(offset) == 2
+        assert shift is not None
+        args.append([int(offset[0]), int(offset[1])])
+
+    img._f = _filter_fillPoly(img._f, pts_converted, color, *args)
+    return img
 
 
 def polylines(img, pts, isClosed, color, thickness=None, lineType=None, shift=None):
@@ -992,27 +1065,9 @@ def polylines(img, pts, isClosed, color, thickness=None, lineType=None, shift=No
     img = frameify(img)
     img._mut()
 
-    assert isinstance(pts, list) or isinstance(pts, np.ndarray)
-    # pts is a list of arrays of points
-    # each array is a polygon with shape (N, 1, 2) or (N, 2)
-    pts_converted = []
-    for poly in pts:
-        if isinstance(poly, np.ndarray):
-            poly = poly.tolist()
-        # Flatten if shape is (N, 1, 2)
-        poly_flat = []
-        for pt in poly:
-            if isinstance(pt, list) and len(pt) == 1:
-                pt = pt[0]
-            poly_flat.append([int(pt[0]), int(pt[1])])
-        pts_converted.append(poly_flat)
-
+    pts_converted = _convert_polygon_list(pts)
     assert isinstance(isClosed, bool)
-
-    assert len(color) == 3 or len(color) == 4
-    color = [float(x) for x in color]
-    if len(color) == 3:
-        color.append(255.0)
+    color = _convert_color(color)
 
     args = []
     if thickness is not None:
