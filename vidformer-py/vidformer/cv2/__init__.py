@@ -788,22 +788,26 @@ def arrowedLine(
     if len(color) == 3:
         color.append(255.0)
 
+    if tipLength is not None and shift is None:
+        shift = 0
+    if shift is not None and line_type is None:
+        line_type = 8  # LINE_8
+    if line_type is not None and thickness is None:
+        thickness = 1
+
     args = []
     if thickness is not None:
         assert isinstance(thickness, int)
         args.append(thickness)
     if line_type is not None:
         assert isinstance(line_type, int)
-        assert thickness is not None
         args.append(line_type)
     if shift is not None:
         assert isinstance(shift, int)
-        assert shift is not None
         args.append(shift)
     if tipLength is not None:
-        assert isinstance(tipLength, float)
-        assert shift is not None
-        args.append(tipLength)
+        assert isinstance(tipLength, (int, float))
+        args.append(float(tipLength))
 
     img._f = _filter_arrowedLine(img._f, pt1, pt2, color, *args)
     return img

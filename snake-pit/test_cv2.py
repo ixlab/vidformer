@@ -543,6 +543,70 @@ def test_arrowedLine_numpy():
     os.remove(path)
 
 
+def test_arrowedLine_tipLength_without_shift():
+    width, height = 100, 100
+    color = (0, 255, 0)
+
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.arrowedLine(
+        frame_ocv, (10, 50), (90, 50), color, thickness=2, tipLength=0.3
+    )
+
+    frame_vf = vf_cv2.arrowedLine(
+        np.zeros((height, width, 3), dtype=np.uint8),
+        (10, 50),
+        (90, 50),
+        color,
+        thickness=2,
+        tipLength=0.3,
+    ).numpy()
+
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), "arrowedLine with tipLength but no shift should match OpenCV"
+
+
+def test_arrowedLine_shift_without_line_type():
+    width, height = 100, 100
+    color = (255, 0, 0)
+
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.arrowedLine(frame_ocv, (10, 50), (90, 50), color, thickness=2, shift=0)
+
+    frame_vf = vf_cv2.arrowedLine(
+        np.zeros((height, width, 3), dtype=np.uint8),
+        (10, 50),
+        (90, 50),
+        color,
+        thickness=2,
+        shift=0,
+    ).numpy()
+
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), "arrowedLine with shift but no line_type should match OpenCV"
+
+
+def test_arrowedLine_only_tipLength():
+    width, height = 100, 100
+    color = (0, 0, 255)
+
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.arrowedLine(frame_ocv, (10, 50), (90, 50), color, tipLength=0.5)
+
+    frame_vf = vf_cv2.arrowedLine(
+        np.zeros((height, width, 3), dtype=np.uint8),
+        (10, 50),
+        (90, 50),
+        color,
+        tipLength=0.5,
+    ).numpy()
+
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), "arrowedLine with only tipLength should match OpenCV"
+
+
 def line(cv2):
     cap = cv2.VideoCapture(TEST_VID_PATH)
     assert cap.isOpened()
