@@ -139,14 +139,18 @@ impl Context {
             Some(stream_meta.keys[gop_idx + 1])
         };
 
-        // TODO: Use binary search to speed up
-        for frame_ts in &stream_meta.ts {
-            if frame_ts >= &gop_start_ts {
-                if next_gop_start_ts.is_some() && frame_ts >= next_gop_start_ts.as_ref().unwrap() {
-                    break;
-                }
-                out.insert(*frame_ts);
-            }
+        debug_assert!(stream_meta.ts.windows(2).all(|w| w[0] < w[1]));
+        let start_idx = stream_meta
+            .ts
+            .binary_search(&gop_start_ts)
+            .unwrap_or_else(|i| i);
+        let end_idx = match next_gop_start_ts {
+            Some(next_ts) => stream_meta.ts.binary_search(&next_ts).unwrap_or_else(|i| i),
+            None => stream_meta.ts.len(),
+        };
+
+        for frame_ts in &stream_meta.ts[start_idx..end_idx] {
+            out.insert(*frame_ts);
         }
 
         out
