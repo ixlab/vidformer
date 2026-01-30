@@ -2,7 +2,7 @@
 
 vidformer is a highly modular suite of tools that work together:
 
-- [*vidformer-py*](./vidformer-py.md): A Python 🐍 client for declarative video synthesis
+- [*vidformer-py*](./vidformer-py.md): A Python 🐍 client for declarative video transformation
   - Provides an easy-to-use library for symbolically representing transformed videos
   - Acts as a client for a vidformer server
   - **Using vidformer-py is the best place to get started**

@@ -27,5 +27,5 @@ vidformer uses the [FFmpeg/libav*](https://ffmpeg.org/) libraries internally, so
 
 ### How does vidformer compare to OpenCV/cv2?
 
-vidformer orchestrates data movement in video synthesis tasks, but does not implement image processing directly.
+vidformer orchestrates data movement, but does not implement image processing directly.
 Most use cases will still use OpenCV for this.

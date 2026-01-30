@@ -3,7 +3,7 @@
 [![Crates.io Version](https://img.shields.io/crates/v/vidformer)](https://crates.io/crates/vidformer)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/ixlab/vidformer/blob/main/LICENSE)
 
-(lib)vidformer is a core video synthesis/transformation library.
+(lib)vidformer is a video transformation library.
 It handles the movement, control flow, and processing of video and conventional (non-video) data.
 
 **Quick links:**
