@@ -36,7 +36,8 @@ jobs:
     - name: Install vidformer-py
       run: pip3 install ./vidformer-py
     - name: snake-pit pytest
-      run: ./scripts/snake-pit.py
+      run: pytest -vv
+      working-directory: snake-pit
       timeout-minutes: 15
     - name: Valgrind Tests
       run: bash ./scripts/valgrind_test.sh

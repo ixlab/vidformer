@@ -4,6 +4,8 @@ See [vidformer.cv2 API docs](https://ixlab.github.io/vidformer/vidformer-py/vidf
 
 > ⚠️ The `cv2` module is a work in progress. If you find a bug or need a missing feature implemented feel free to [file an issue](https://github.com/ixlab/vidformer/issues) or contribute yourself!
 
+![cv2 showcase](./showcase_vidformer.png)
+
 Legend:
 * ✅ - Support
 * 🔸 - Support via OpenCV cv2
@@ -59,3 +61,21 @@ Drawing Functions:
 |---|---|
 |addWeighted|✅|
 |resize|✅|
+
+## Output Comparison
+
+Vidformer's cv2 output compared to native OpenCV ([source code](https://github.com/ixlab/vidformer/blob/main/snake-pit/test_cv2_showcase.py)):
+
+**Vidformer:**
+
+![Vidformer cv2 output](./showcase_vidformer.png)
+
+**OpenCV:**
+
+![OpenCV output](./showcase_opencv.png)
+
+**Per-pixel Diff:**
+
+![Difference between outputs](./showcase_diff.png)
+
+The differences mainly come from Vidformer using FFfmpeg's swscale for resize, not OpenCV's resize.
