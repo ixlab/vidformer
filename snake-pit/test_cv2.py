@@ -607,6 +607,166 @@ def test_arrowedLine_only_tipLength():
     ), "arrowedLine with only tipLength should match OpenCV"
 
 
+def test_rectangle_shift_without_lineType():
+    width, height = 100, 100
+    color = (0, 255, 0)
+
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.rectangle(frame_ocv, (10, 10), (90, 90), color, thickness=2, shift=0)
+
+    frame_vf = vf_cv2.rectangle(
+        np.zeros((height, width, 3), dtype=np.uint8),
+        (10, 10),
+        (90, 90),
+        color,
+        thickness=2,
+        shift=0,
+    ).numpy()
+
+    assert np.allclose(frame_ocv, frame_vf, atol=1)
+
+
+def test_putText_bottomLeftOrigin_without_lineType():
+    width, height = 200, 100
+    color = (255, 255, 255)
+
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.putText(
+        frame_ocv,
+        "Test",
+        (10, 50),
+        ocv_cv2.FONT_HERSHEY_SIMPLEX,
+        1.0,
+        color,
+        thickness=2,
+        bottomLeftOrigin=False,
+    )
+
+    frame_vf = vf_cv2.putText(
+        np.zeros((height, width, 3), dtype=np.uint8),
+        "Test",
+        (10, 50),
+        vf_cv2.FONT_HERSHEY_SIMPLEX,
+        1.0,
+        color,
+        thickness=2,
+        bottomLeftOrigin=False,
+    ).numpy()
+
+    assert np.allclose(frame_ocv, frame_vf, atol=1)
+
+
+def test_line_shift_without_lineType():
+    width, height = 100, 100
+    color = (0, 0, 255)
+
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.line(frame_ocv, (10, 10), (90, 90), color, thickness=2, shift=0)
+
+    frame_vf = vf_cv2.line(
+        np.zeros((height, width, 3), dtype=np.uint8),
+        (10, 10),
+        (90, 90),
+        color,
+        thickness=2,
+        shift=0,
+    ).numpy()
+
+    assert np.allclose(frame_ocv, frame_vf, atol=1)
+
+
+def test_circle_shift_without_lineType():
+    width, height = 100, 100
+    color = (255, 0, 0)
+
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.circle(frame_ocv, (50, 50), 30, color, thickness=2, shift=0)
+
+    frame_vf = vf_cv2.circle(
+        np.zeros((height, width, 3), dtype=np.uint8),
+        (50, 50),
+        30,
+        color,
+        thickness=2,
+        shift=0,
+    ).numpy()
+
+    assert np.allclose(frame_ocv, frame_vf, atol=1)
+
+
+def test_drawMarker_thickness_without_markerSize():
+    width, height = 100, 100
+    color = (0, 255, 255)
+
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.drawMarker(frame_ocv, (50, 50), color, thickness=2)
+
+    frame_vf = vf_cv2.drawMarker(
+        np.zeros((height, width, 3), dtype=np.uint8),
+        (50, 50),
+        color,
+        thickness=2,
+    ).numpy()
+
+    assert np.allclose(frame_ocv, frame_vf, atol=1)
+
+
+def test_fillConvexPoly_shift_without_lineType():
+    width, height = 100, 100
+    color = (0, 255, 0)
+    points = np.array([[20, 20], [80, 20], [50, 80]], dtype=np.int32)
+
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.fillConvexPoly(frame_ocv, points, color, shift=0)
+
+    frame_vf = vf_cv2.fillConvexPoly(
+        np.zeros((height, width, 3), dtype=np.uint8),
+        points,
+        color,
+        shift=0,
+    ).numpy()
+
+    assert np.allclose(frame_ocv, frame_vf, atol=1)
+
+
+def test_fillPoly_offset_without_shift():
+    width, height = 100, 100
+    color = (255, 0, 255)
+    pts = [np.array([[20, 20], [80, 20], [50, 80]], dtype=np.int32)]
+
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.fillPoly(frame_ocv, pts, color, offset=(0, 0))
+
+    frame_vf = vf_cv2.fillPoly(
+        np.zeros((height, width, 3), dtype=np.uint8),
+        pts,
+        color,
+        offset=(0, 0),
+    ).numpy()
+
+    assert np.allclose(frame_ocv, frame_vf, atol=1)
+
+
+def test_polylines_shift_without_lineType():
+    width, height = 100, 100
+    color = (0, 255, 255)
+    pts = [np.array([[20, 20], [80, 20], [50, 80]], dtype=np.int32)]
+
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.polylines(frame_ocv, pts, True, color, thickness=2, shift=0)
+
+    frame_vf = vf_cv2.polylines(
+        np.zeros((height, width, 3), dtype=np.uint8),
+        pts,
+        True,
+        color,
+        thickness=2,
+        shift=0,
+    ).numpy()
+
+    assert np.allclose(frame_ocv, frame_vf, atol=1)
+
+
 def line(cv2):
     cap = cv2.VideoCapture(TEST_VID_PATH)
     assert cap.isOpened()

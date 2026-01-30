@@ -703,17 +703,20 @@ def rectangle(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
     if len(color) == 3:
         color.append(255.0)
 
+    if shift is not None and lineType is None:
+        lineType = LINE_8
+    if lineType is not None and thickness is None:
+        thickness = 1
+
     args = []
     if thickness is not None:
         assert isinstance(thickness, int)
         args.append(thickness)
     if lineType is not None:
         assert isinstance(lineType, int)
-        assert thickness is not None
         args.append(lineType)
     if shift is not None:
         assert isinstance(shift, int)
-        assert shift is not None
         args.append(shift)
 
     img._f = _filter_rectangle(img._f, pt1, pt2, color, *args)
@@ -752,17 +755,20 @@ def putText(
     if len(color) == 3:
         color.append(255.0)
 
+    if bottomLeftOrigin is not None and lineType is None:
+        lineType = LINE_8
+    if lineType is not None and thickness is None:
+        thickness = 1
+
     args = []
     if thickness is not None:
         assert isinstance(thickness, int)
         args.append(thickness)
     if lineType is not None:
         assert isinstance(lineType, int)
-        assert thickness is not None
         args.append(lineType)
     if bottomLeftOrigin is not None:
         assert isinstance(bottomLeftOrigin, bool)
-        assert lineType is not None
         args.append(bottomLeftOrigin)
 
     img._f = _filter_putText(img._f, text, org, fontFace, fontScale, color, *args)
@@ -791,7 +797,7 @@ def arrowedLine(
     if tipLength is not None and shift is None:
         shift = 0
     if shift is not None and line_type is None:
-        line_type = 8  # LINE_8
+        line_type = LINE_8
     if line_type is not None and thickness is None:
         thickness = 1
 
@@ -827,17 +833,20 @@ def line(img, pt1, pt2, color, thickness=None, lineType=None, shift=None):
     if len(color) == 3:
         color.append(255.0)
 
+    if shift is not None and lineType is None:
+        lineType = LINE_8
+    if lineType is not None and thickness is None:
+        thickness = 1
+
     args = []
     if thickness is not None:
         assert isinstance(thickness, int)
         args.append(thickness)
     if lineType is not None:
         assert isinstance(lineType, int)
-        assert thickness is not None
         args.append(lineType)
     if shift is not None:
         assert isinstance(shift, int)
-        assert shift is not None
         args.append(shift)
 
     img._f = _filter_line(img._f, pt1, pt2, color, *args)
@@ -858,17 +867,20 @@ def circle(img, center, radius, color, thickness=None, lineType=None, shift=None
     if len(color) == 3:
         color.append(255.0)
 
+    if shift is not None and lineType is None:
+        lineType = LINE_8
+    if lineType is not None and thickness is None:
+        thickness = 1
+
     args = []
     if thickness is not None:
         assert isinstance(thickness, int)
         args.append(thickness)
     if lineType is not None:
         assert isinstance(lineType, int)
-        assert thickness is not None
         args.append(lineType)
     if shift is not None:
         assert isinstance(shift, int)
-        assert shift is not None
         args.append(shift)
 
     img._f = _filter_circle(img._f, center, radius, color, *args)
@@ -1008,27 +1020,31 @@ def drawContours(
     assert isinstance(contourIdx, int)
     color = _convert_color(color)
 
+    if offset is not None and maxLevel is None:
+        maxLevel = 0
+    if maxLevel is not None and hierarchy is None:
+        hierarchy = []
+    if hierarchy is not None and lineType is None:
+        lineType = LINE_8
+    if lineType is not None and thickness is None:
+        thickness = 1
+
     args = []
     if thickness is not None:
         assert isinstance(thickness, int)
         args.append(thickness)
     if lineType is not None:
         assert isinstance(lineType, int)
-        assert thickness is not None
         args.append(lineType)
     if hierarchy is not None:
-        assert lineType is not None
-        # Convert hierarchy to list if numpy array
         if isinstance(hierarchy, np.ndarray):
             hierarchy = hierarchy.tolist()
         args.append(hierarchy)
     if maxLevel is not None:
         assert isinstance(maxLevel, int)
-        assert hierarchy is not None
         args.append(maxLevel)
     if offset is not None:
         assert isinstance(offset, (list, tuple)) and len(offset) == 2
-        assert maxLevel is not None
         args.append([int(offset[0]), int(offset[1])])
 
     img._f = _filter_drawContours(img._f, contours_converted, contourIdx, color, *args)
@@ -1054,21 +1070,25 @@ def drawMarker(
     position = [int(position[0]), int(position[1])]
     color = _convert_color(color)
 
+    if line_type is not None and thickness is None:
+        thickness = 1
+    if thickness is not None and markerSize is None:
+        markerSize = 20
+    if markerSize is not None and markerType is None:
+        markerType = MARKER_CROSS
+
     args = []
     if markerType is not None:
         assert isinstance(markerType, int)
         args.append(markerType)
     if markerSize is not None:
         assert isinstance(markerSize, int)
-        assert markerType is not None
         args.append(markerSize)
     if thickness is not None:
         assert isinstance(thickness, int)
-        assert markerSize is not None
         args.append(thickness)
     if line_type is not None:
         assert isinstance(line_type, int)
-        assert thickness is not None
         args.append(line_type)
 
     img._f = _filter_drawMarker(img._f, position, color, *args)
@@ -1124,13 +1144,15 @@ def fillConvexPoly(img, points, color, lineType=None, shift=None):
     points_converted = _convert_single_polygon(points)
     color = _convert_color(color)
 
+    if shift is not None and lineType is None:
+        lineType = LINE_8
+
     args = []
     if lineType is not None:
         assert isinstance(lineType, int)
         args.append(lineType)
     if shift is not None:
         assert isinstance(shift, int)
-        assert lineType is not None
         args.append(shift)
 
     img._f = _filter_fillConvexPoly(img._f, points_converted, color, *args)
@@ -1147,17 +1169,20 @@ def fillPoly(img, pts, color, lineType=None, shift=None, offset=None):
     pts_converted = _convert_polygon_list(pts)
     color = _convert_color(color)
 
+    if offset is not None and shift is None:
+        shift = 0
+    if shift is not None and lineType is None:
+        lineType = LINE_8
+
     args = []
     if lineType is not None:
         assert isinstance(lineType, int)
         args.append(lineType)
     if shift is not None:
         assert isinstance(shift, int)
-        assert lineType is not None
         args.append(shift)
     if offset is not None:
         assert isinstance(offset, (list, tuple)) and len(offset) == 2
-        assert shift is not None
         args.append([int(offset[0]), int(offset[1])])
 
     img._f = _filter_fillPoly(img._f, pts_converted, color, *args)
@@ -1175,17 +1200,20 @@ def polylines(img, pts, isClosed, color, thickness=None, lineType=None, shift=No
     assert isinstance(isClosed, bool)
     color = _convert_color(color)
 
+    if shift is not None and lineType is None:
+        lineType = LINE_8
+    if lineType is not None and thickness is None:
+        thickness = 1
+
     args = []
     if thickness is not None:
         assert isinstance(thickness, int)
         args.append(thickness)
     if lineType is not None:
         assert isinstance(lineType, int)
-        assert thickness is not None
         args.append(lineType)
     if shift is not None:
         assert isinstance(shift, int)
-        assert lineType is not None
         args.append(shift)
 
     img._f = _filter_polylines(img._f, pts_converted, isClosed, color, *args)
