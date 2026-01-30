@@ -39,11 +39,11 @@ Drawing Functions:
 |---|---|
 |arrowedLine|✅|
 |circle|✅|
-|clipLine|❌|
-|drawContours|❌|
-|drawMarker|❌|
+|clipLine|🔸|
+|drawContours|✅|
+|drawMarker|✅|
 |ellipse|✅|
-|ellipse2Poly|❌|
+|ellipse2Poly|🔸|
 |fillConvexPoly|✅|
 |fillPoly|✅|
 |getFontScaleFromHeight|🔸|

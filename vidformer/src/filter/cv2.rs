@@ -28,6 +28,8 @@ pub fn filters() -> BTreeMap<String, Box<dyn filter::Filter>> {
         "cv2.fillConvexPoly".to_string(),
         Box::new(FillConvexPoly {}),
     );
+    filters.insert("cv2.drawContours".to_string(), Box::new(DrawContours {}));
+    filters.insert("cv2.drawMarker".to_string(), Box::new(DrawMarker {}));
     filters
 }
 
@@ -1786,5 +1788,413 @@ impl filter::Filter for FillConvexPoly {
         }
 
         Ok(opts.img.unwrap_frame_type())
+    }
+}
+
+pub struct DrawContours {}
+
+struct DrawContoursArgs {
+    img: filter_utils::FrameArg,
+    contours: Vec<Vec<(i32, i32)>>,
+    contour_idx: i32,
+    color: [f64; 4],
+    thickness: i32,
+    linetype: i32,
+    hierarchy: Option<Vec<Vec<i64>>>,
+    max_level: i32,
+    offset: (i32, i32),
+}
+
+impl DrawContours {
+    fn args(
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> Result<DrawContoursArgs, String> {
+        let signature = filter_utils::FunctionSignature {
+            parameters: vec![
+                Parameter::Positional { name: "img" },
+                Parameter::Positional { name: "contours" },
+                Parameter::Positional { name: "contourIdx" },
+                Parameter::Positional { name: "color" },
+                Parameter::PositionalOptional {
+                    name: "thickness",
+                    default_value: Val::Int(1),
+                },
+                Parameter::PositionalOptional {
+                    name: "lineType",
+                    default_value: Val::Int(8),
+                },
+                Parameter::PositionalOptional {
+                    name: "hierarchy",
+                    default_value: Val::List(vec![]),
+                },
+                Parameter::PositionalOptional {
+                    name: "maxLevel",
+                    default_value: Val::Int(i32::MAX as i64),
+                },
+                Parameter::PositionalOptional {
+                    name: "offset",
+                    default_value: Val::List(vec![Val::Int(0), Val::Int(0)]),
+                },
+            ],
+        };
+
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
+
+        let img = match parsed_args.get("img") {
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
+            x => {
+                dbg! {x};
+                return Err("Expected 'img' to be a Frame".into());
+            }
+        };
+
+        // contours is a list of contours, each contour is a list of points
+        let contours = parse_polygon_list_named(&parsed_args, "contours")?;
+
+        let contour_idx = match parsed_args.get("contourIdx") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'contourIdx' to be an integer".into()),
+        };
+
+        let color = filter_utils::get_color(&parsed_args)?;
+
+        let thickness = match parsed_args.get("thickness") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'thickness' to be an integer".into()),
+        };
+
+        let linetype = match parsed_args.get("lineType") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'lineType' to be an integer".into()),
+        };
+
+        // hierarchy is optional - list of [next, prev, first_child, parent] for each contour
+        let hierarchy = match parsed_args.get("hierarchy") {
+            Some(Val::List(h)) if h.is_empty() => None,
+            Some(Val::List(h)) => {
+                let mut result = Vec::new();
+                for item in h {
+                    match item {
+                        Val::List(vec) => {
+                            let mut row = Vec::new();
+                            for v in vec {
+                                match v {
+                                    Val::Int(i) => row.push(*i),
+                                    _ => return Err("Hierarchy values must be integers".into()),
+                                }
+                            }
+                            result.push(row);
+                        }
+                        _ => return Err("Hierarchy must be a list of lists".into()),
+                    }
+                }
+                Some(result)
+            }
+            _ => None,
+        };
+
+        let max_level = match parsed_args.get("maxLevel") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'maxLevel' to be an integer".into()),
+        };
+
+        let offset = match parsed_args.get("offset") {
+            Some(Val::List(coords)) => {
+                if coords.len() != 2 {
+                    return Err("Offset must have exactly 2 coordinates".into());
+                }
+                let x = match &coords[0] {
+                    Val::Int(v) => *v as i32,
+                    _ => return Err("Offset coordinates must be integers".into()),
+                };
+                let y = match &coords[1] {
+                    Val::Int(v) => *v as i32,
+                    _ => return Err("Offset coordinates must be integers".into()),
+                };
+                (x, y)
+            }
+            _ => return Err("Expected 'offset' to be a list".into()),
+        };
+
+        Ok(DrawContoursArgs {
+            img,
+            contours,
+            contour_idx,
+            color,
+            thickness,
+            linetype,
+            hierarchy,
+            max_level,
+            offset,
+        })
+    }
+}
+
+impl filter::Filter for DrawContours {
+    fn filter(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::Frame, dve::Error> {
+        let opts: DrawContoursArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        let img = opts.img.unwrap_frame();
+        let (width, height) = (img.width, img.height);
+        debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+
+        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
+        let contours_vec = polygon_list_to_opencv(&opts.contours);
+        let color =
+            opencv::core::Scalar::new(opts.color[0], opts.color[1], opts.color[2], opts.color[3]);
+
+        // Build hierarchy vector if provided
+        let hierarchy_vec: opencv::core::Vector<opencv::core::Vec4i> =
+            if let Some(ref h) = opts.hierarchy {
+                let mut vec = opencv::core::Vector::new();
+                for row in h {
+                    let v = opencv::core::Vec4i::from([
+                        row.first().copied().unwrap_or(-1) as i32,
+                        row.get(1).copied().unwrap_or(-1) as i32,
+                        row.get(2).copied().unwrap_or(-1) as i32,
+                        row.get(3).copied().unwrap_or(-1) as i32,
+                    ]);
+                    vec.push(v);
+                }
+                vec
+            } else {
+                opencv::core::Vector::new()
+            };
+
+        imgproc::draw_contours(
+            &mut mat,
+            &contours_vec,
+            opts.contour_idx,
+            color,
+            opts.thickness,
+            opts.linetype,
+            &hierarchy_vec,
+            opts.max_level,
+            opencv::core::Point::new(opts.offset.0, opts.offset.1),
+        )
+        .unwrap();
+
+        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        Ok(filter::Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::FrameType, dve::Error> {
+        let opts: DrawContoursArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(dve::Error::AVError("Expected RGB24 frame".into()));
+        }
+
+        Ok(opts.img.unwrap_frame_type())
+    }
+}
+
+pub struct DrawMarker {}
+
+struct DrawMarkerArgs {
+    img: filter_utils::FrameArg,
+    position: (i32, i32),
+    color: [f64; 4],
+    marker_type: i32,
+    marker_size: i32,
+    thickness: i32,
+    line_type: i32,
+}
+
+impl DrawMarker {
+    fn args(
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> Result<DrawMarkerArgs, String> {
+        let signature = filter_utils::FunctionSignature {
+            parameters: vec![
+                Parameter::Positional { name: "img" },
+                Parameter::Positional { name: "position" },
+                Parameter::Positional { name: "color" },
+                Parameter::PositionalOptional {
+                    name: "markerType",
+                    default_value: Val::Int(0), // MARKER_CROSS
+                },
+                Parameter::PositionalOptional {
+                    name: "markerSize",
+                    default_value: Val::Int(20),
+                },
+                Parameter::PositionalOptional {
+                    name: "thickness",
+                    default_value: Val::Int(1),
+                },
+                Parameter::PositionalOptional {
+                    name: "line_type",
+                    default_value: Val::Int(8),
+                },
+            ],
+        };
+
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
+
+        let img = match parsed_args.get("img") {
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
+            x => {
+                dbg! {x};
+                return Err("Expected 'img' to be a Frame".into());
+            }
+        };
+
+        let position = match parsed_args.get("position") {
+            Some(Val::List(coords)) => {
+                if coords.len() != 2 {
+                    return Err("Position must have exactly 2 coordinates".into());
+                }
+                let x = match &coords[0] {
+                    Val::Int(v) => *v as i32,
+                    _ => return Err("Position coordinates must be integers".into()),
+                };
+                let y = match &coords[1] {
+                    Val::Int(v) => *v as i32,
+                    _ => return Err("Position coordinates must be integers".into()),
+                };
+                (x, y)
+            }
+            _ => return Err("Expected 'position' to be a list".into()),
+        };
+
+        let color = filter_utils::get_color(&parsed_args)?;
+
+        let marker_type = match parsed_args.get("markerType") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'markerType' to be an integer".into()),
+        };
+
+        let marker_size = match parsed_args.get("markerSize") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'markerSize' to be an integer".into()),
+        };
+
+        let thickness = match parsed_args.get("thickness") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'thickness' to be an integer".into()),
+        };
+
+        let line_type = match parsed_args.get("line_type") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'line_type' to be an integer".into()),
+        };
+
+        Ok(DrawMarkerArgs {
+            img,
+            position,
+            color,
+            marker_type,
+            marker_size,
+            thickness,
+            line_type,
+        })
+    }
+}
+
+impl filter::Filter for DrawMarker {
+    fn filter(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::Frame, dve::Error> {
+        let opts: DrawMarkerArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        let img = opts.img.unwrap_frame();
+        let (width, height) = (img.width, img.height);
+        debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+
+        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
+        let color =
+            opencv::core::Scalar::new(opts.color[0], opts.color[1], opts.color[2], opts.color[3]);
+
+        imgproc::draw_marker(
+            &mut mat,
+            opencv::core::Point::new(opts.position.0, opts.position.1),
+            color,
+            opts.marker_type,
+            opts.marker_size,
+            opts.thickness,
+            opts.line_type,
+        )
+        .unwrap();
+
+        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        Ok(filter::Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::FrameType, dve::Error> {
+        let opts: DrawMarkerArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(dve::Error::AVError("Expected RGB24 frame".into()));
+        }
+
+        Ok(opts.img.unwrap_frame_type())
+    }
+}
+
+// Helper to parse polygon list with a custom field name
+fn parse_polygon_list_named(
+    parsed_args: &BTreeMap<&str, Val>,
+    name: &str,
+) -> Result<Vec<Vec<(i32, i32)>>, String> {
+    match parsed_args.get(name) {
+        Some(Val::List(polygons)) => {
+            let mut result = Vec::new();
+            for polygon in polygons {
+                match polygon {
+                    Val::List(points) => {
+                        result.push(parse_points_list(points)?);
+                    }
+                    _ => return Err("Expected polygon to be a list of points".into()),
+                }
+            }
+            Ok(result)
+        }
+        _ => Err(format!("Expected '{}' to be a list of polygons", name)),
     }
 }

@@ -48,6 +48,14 @@ LINE_4 = 4
 LINE_8 = 8
 LINE_AA = 16
 
+MARKER_CROSS = 0
+MARKER_TILTED_CROSS = 1
+MARKER_STAR = 2
+MARKER_DIAMOND = 3
+MARKER_SQUARE = 4
+MARKER_TRIANGLE_UP = 5
+MARKER_TRIANGLE_DOWN = 6
+
 INTER_NEAREST = 0
 INTER_LINEAR = 1
 INTER_CUBIC = 2
@@ -74,6 +82,8 @@ _filter_ellipse = vf.Filter("cv2.ellipse")
 _filter_polylines = vf.Filter("cv2.polylines")
 _filter_fillPoly = vf.Filter("cv2.fillPoly")
 _filter_fillConvexPoly = vf.Filter("cv2.fillConvexPoly")
+_filter_drawContours = vf.Filter("cv2.drawContours")
+_filter_drawMarker = vf.Filter("cv2.drawMarker")
 _set_to = vf.Filter("cv2.setTo")
 
 
@@ -962,19 +972,111 @@ def ellipse(
 
 
 def clipLine(*args, **kwargs):
-    raise NotImplementedError("clipLine is not yet implemented in the cv2 frontend")
+    """
+    cv.clipLine(imgRect, pt1, pt2) -> retval, pt1, pt2
+    """
+    _check_opencv2("clipLine")
+    return _opencv2.clipLine(*args, **kwargs)
 
 
-def drawContours(*args, **kwargs):
-    raise NotImplementedError("drawContours is not yet implemented in the cv2 frontend")
+def drawContours(
+    img,
+    contours,
+    contourIdx,
+    color,
+    thickness=None,
+    lineType=None,
+    hierarchy=None,
+    maxLevel=None,
+    offset=None,
+):
+    """
+    cv.drawContours(image, contours, contourIdx, color[, thickness[, lineType[, hierarchy[, maxLevel[, offset]]]]]) -> image
+    """
+    img = frameify(img)
+    img._mut()
+
+    # Convert contours to list format
+    contours_converted = []
+    for contour in contours:
+        contours_converted.append(_convert_single_polygon(contour))
+
+    assert isinstance(contourIdx, int)
+    color = _convert_color(color)
+
+    args = []
+    if thickness is not None:
+        assert isinstance(thickness, int)
+        args.append(thickness)
+    if lineType is not None:
+        assert isinstance(lineType, int)
+        assert thickness is not None
+        args.append(lineType)
+    if hierarchy is not None:
+        assert lineType is not None
+        # Convert hierarchy to list if numpy array
+        if isinstance(hierarchy, np.ndarray):
+            hierarchy = hierarchy.tolist()
+        args.append(hierarchy)
+    if maxLevel is not None:
+        assert isinstance(maxLevel, int)
+        assert hierarchy is not None
+        args.append(maxLevel)
+    if offset is not None:
+        assert isinstance(offset, (list, tuple)) and len(offset) == 2
+        assert maxLevel is not None
+        args.append([int(offset[0]), int(offset[1])])
+
+    img._f = _filter_drawContours(img._f, contours_converted, contourIdx, color, *args)
+    return img
 
 
-def drawMarker(*args, **kwargs):
-    raise NotImplementedError("drawMarker is not yet implemented in the cv2 frontend")
+def drawMarker(
+    img,
+    position,
+    color,
+    markerType=None,
+    markerSize=None,
+    thickness=None,
+    line_type=None,
+):
+    """
+    cv.drawMarker(img, position, color[, markerType[, markerSize[, thickness[, line_type]]]]) -> img
+    """
+    img = frameify(img)
+    img._mut()
+
+    assert isinstance(position, (list, tuple)) and len(position) == 2
+    position = [int(position[0]), int(position[1])]
+    color = _convert_color(color)
+
+    args = []
+    if markerType is not None:
+        assert isinstance(markerType, int)
+        args.append(markerType)
+    if markerSize is not None:
+        assert isinstance(markerSize, int)
+        assert markerType is not None
+        args.append(markerSize)
+    if thickness is not None:
+        assert isinstance(thickness, int)
+        assert markerSize is not None
+        args.append(thickness)
+    if line_type is not None:
+        assert isinstance(line_type, int)
+        assert thickness is not None
+        args.append(line_type)
+
+    img._f = _filter_drawMarker(img._f, position, color, *args)
+    return img
 
 
 def ellipse2Poly(*args, **kwargs):
-    raise NotImplementedError("ellipse2Poly is not yet implemented in the cv2 frontend")
+    """
+    cv.ellipse2Poly(center, axes, angle, arcStart, arcEnd, delta) -> pts
+    """
+    _check_opencv2("ellipse2Poly")
+    return _opencv2.ellipse2Poly(*args, **kwargs)
 
 
 def _convert_polygon_list(pts):

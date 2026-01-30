@@ -91,6 +91,14 @@ def test_constants():
     assert ocv_cv2.LINE_8 == vf_cv2.LINE_8
     assert ocv_cv2.LINE_AA == vf_cv2.LINE_AA
 
+    assert ocv_cv2.MARKER_CROSS == vf_cv2.MARKER_CROSS
+    assert ocv_cv2.MARKER_TILTED_CROSS == vf_cv2.MARKER_TILTED_CROSS
+    assert ocv_cv2.MARKER_STAR == vf_cv2.MARKER_STAR
+    assert ocv_cv2.MARKER_DIAMOND == vf_cv2.MARKER_DIAMOND
+    assert ocv_cv2.MARKER_SQUARE == vf_cv2.MARKER_SQUARE
+    assert ocv_cv2.MARKER_TRIANGLE_UP == vf_cv2.MARKER_TRIANGLE_UP
+    assert ocv_cv2.MARKER_TRIANGLE_DOWN == vf_cv2.MARKER_TRIANGLE_DOWN
+
     assert ocv_cv2.INTER_NEAREST == vf_cv2.INTER_NEAREST
     assert ocv_cv2.INTER_LINEAR == vf_cv2.INTER_LINEAR
     assert ocv_cv2.INTER_CUBIC == vf_cv2.INTER_CUBIC
@@ -770,7 +778,6 @@ def test_polylines_numpy():
 
 
 def test_polylines_open():
-    """Test polylines with isClosed=False"""
     width, height = 300, 200
 
     frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
@@ -787,7 +794,6 @@ def test_polylines_open():
 
 
 def test_polylines_multiple():
-    """Test drawing multiple polylines at once"""
     width, height = 300, 200
 
     frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
@@ -804,7 +810,6 @@ def test_polylines_multiple():
 
 
 def test_fillPoly():
-    """Test fillPoly drawing filled polygons"""
     width, height = 300, 200
 
     frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
@@ -820,7 +825,6 @@ def test_fillPoly():
 
 
 def test_fillPoly_multiple():
-    """Test fillPoly with multiple polygons"""
     width, height = 300, 200
 
     frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
@@ -837,7 +841,6 @@ def test_fillPoly_multiple():
 
 
 def test_fillPoly_color_match():
-    """Test that BGR blue (255, 0, 0) draws as blue filled polygon"""
     width, height = 100, 100
     color = (255, 0, 0)  # BGR blue
 
@@ -858,7 +861,6 @@ def test_fillPoly_color_match():
 
 
 def test_fillConvexPoly():
-    """Test fillConvexPoly drawing a filled convex polygon"""
     width, height = 300, 200
 
     frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
@@ -876,7 +878,6 @@ def test_fillConvexPoly():
 
 
 def test_fillConvexPoly_color_match():
-    """Test that BGR cyan (255, 255, 0) draws as cyan filled convex polygon"""
     width, height = 100, 100
     color = (255, 255, 0)  # BGR cyan (B+G)
 
@@ -896,6 +897,155 @@ def test_fillConvexPoly_color_match():
     assert np.allclose(
         frame_ocv, frame_vf, atol=1
     ), "Cyan fillConvexPoly mismatch: OpenCV vs vidformer"
+
+
+def test_drawContours():
+    width, height = 300, 200
+
+    frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+
+    # Create some contours (list of point arrays)
+    contour1 = np.array([[50, 50], [100, 50], [75, 100]], np.int32).reshape((-1, 1, 2))
+    contour2 = np.array([[150, 50], [200, 50], [175, 100]], np.int32).reshape(
+        (-1, 1, 2)
+    )
+
+    vf_cv2.drawContours(frame, [contour1, contour2], -1, (0, 255, 0, 255), 2)
+
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
+
+
+def test_drawContours_color_match():
+    width, height = 100, 100
+    color = (0, 0, 255)  # BGR red
+
+    contour = np.array([[20, 20], [80, 20], [80, 80], [20, 80]], np.int32).reshape(
+        (-1, 1, 2)
+    )
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.drawContours(frame_ocv, [contour], -1, color, 2)
+
+    # Vidformer
+    frame_vf = vf_cv2.drawContours(
+        np.zeros((height, width, 3), dtype=np.uint8), [contour], -1, color, 2
+    ).numpy()
+
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), "Red drawContours mismatch: OpenCV vs vidformer"
+
+
+def test_drawContours_filled():
+    width, height = 100, 100
+    color = (255, 255, 0)  # BGR cyan
+
+    contour = np.array([[20, 20], [80, 20], [50, 80]], np.int32).reshape((-1, 1, 2))
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.drawContours(frame_ocv, [contour], 0, color, -1)
+
+    # Vidformer
+    frame_vf = vf_cv2.drawContours(
+        np.zeros((height, width, 3), dtype=np.uint8), [contour], 0, color, -1
+    ).numpy()
+
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), "Cyan filled drawContours mismatch: OpenCV vs vidformer"
+
+
+def test_drawMarker():
+    width, height = 300, 200
+
+    frame = np.random.randint(0, 255, (height, width, 3), dtype=np.uint8)
+
+    vf_cv2.drawMarker(frame, (150, 100), (0, 255, 0, 255))
+
+    path = tmp_path("png")
+    vf_cv2.imwrite(path, frame)
+    assert os.path.exists(path)
+    os.remove(path)
+
+
+def test_drawMarker_color_match():
+    width, height = 100, 100
+    color = (255, 0, 0)  # BGR blue
+    position = (50, 50)
+
+    # OpenCV
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.drawMarker(frame_ocv, position, color)
+
+    # Vidformer
+    frame_vf = vf_cv2.drawMarker(
+        np.zeros((height, width, 3), dtype=np.uint8), position, color
+    ).numpy()
+
+    assert np.allclose(
+        frame_ocv, frame_vf, atol=1
+    ), "Blue drawMarker mismatch: OpenCV vs vidformer"
+
+
+@pytest.mark.parametrize(
+    "marker_type",
+    [
+        ocv_cv2.MARKER_CROSS,
+        ocv_cv2.MARKER_TILTED_CROSS,
+        ocv_cv2.MARKER_STAR,
+        ocv_cv2.MARKER_DIAMOND,
+        ocv_cv2.MARKER_SQUARE,
+        ocv_cv2.MARKER_TRIANGLE_UP,
+        ocv_cv2.MARKER_TRIANGLE_DOWN,
+    ],
+    ids=lambda m: f"MARKER_{m}",
+)
+def test_drawMarker_types(marker_type):
+    width, height = 100, 100
+    color = (0, 255, 255)  # BGR yellow
+    position = (50, 50)
+
+    frame_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.drawMarker(frame_ocv, position, color, marker_type)
+
+    frame_vf = vf_cv2.drawMarker(
+        np.zeros((height, width, 3), dtype=np.uint8), position, color, marker_type
+    ).numpy()
+
+    assert np.allclose(frame_ocv, frame_vf, atol=1)
+
+
+def test_clipLine():
+    # Test clipping a line that crosses the image boundary
+    imgRect = (0, 0, 100, 100)
+    pt1 = (-10, 50)
+    pt2 = (110, 50)
+
+    retval_ocv, pt1_ocv, pt2_ocv = ocv_cv2.clipLine(imgRect, pt1, pt2)
+    retval_vf, pt1_vf, pt2_vf = vf_cv2.clipLine(imgRect, pt1, pt2)
+
+    assert retval_ocv == retval_vf
+    assert pt1_ocv == pt1_vf
+    assert pt2_ocv == pt2_vf
+
+
+def test_ellipse2Poly():
+    center = (50, 50)
+    axes = (30, 20)
+    angle = 0
+    arcStart = 0
+    arcEnd = 360
+    delta = 10
+
+    pts_ocv = ocv_cv2.ellipse2Poly(center, axes, angle, arcStart, arcEnd, delta)
+    pts_vf = vf_cv2.ellipse2Poly(center, axes, angle, arcStart, arcEnd, delta)
+
+    assert np.array_equal(pts_ocv, pts_vf)
 
 
 def test_circle_numpy():
