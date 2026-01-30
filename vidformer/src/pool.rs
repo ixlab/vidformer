@@ -98,39 +98,26 @@ impl Pool {
         if self.decoders.len() == self.dve_config.decoders {
             return None;
         }
-        let need_set = self
-            .need_set()
-            .into_iter()
-            .cloned()
-            .collect::<BTreeSet<_>>();
-        let future_set: BTreeSet<IFrameRef> = self.future_set();
-        let basis_frames: BTreeSet<IFrameRef> = need_set
-            .difference(&self.members.keys().cloned().collect())
-            .cloned()
-            .collect::<BTreeSet<_>>()
-            .difference(&future_set)
-            .cloned()
-            .collect();
 
-        if !basis_frames.is_empty() {
-            let mut iter = basis_frames.iter();
-            let mut soonest_needed_basis_frame = iter.next().unwrap();
-            let mut soonest_needed_basis_frame_next_needed =
-                self.next_needed_gen(soonest_needed_basis_frame);
+        let mut soonest_needed_basis_frame: Option<&IFrameRef> = None;
+        let mut soonest_needed_basis_frame_next_needed = F_NOT_USED;
 
-            for frame in iter {
-                let candidate_frame_next_needed = self.next_needed_gen(frame);
-                if candidate_frame_next_needed < soonest_needed_basis_frame_next_needed {
-                    soonest_needed_basis_frame = frame;
-                    soonest_needed_basis_frame_next_needed = candidate_frame_next_needed;
-                }
+        for frame in self.need_set() {
+            // Skip frames already in pool or being decoded; only consider basis frames
+            if self.members.contains_key(frame) || self.is_in_future_set(frame) {
+                continue;
             }
-
-            let gop_id = self.frame_gop(soonest_needed_basis_frame);
-            Some((soonest_needed_basis_frame.sourceref.clone(), gop_id))
-        } else {
-            None
+            let candidate_frame_next_needed = self.next_needed_gen(frame);
+            if candidate_frame_next_needed < soonest_needed_basis_frame_next_needed {
+                soonest_needed_basis_frame = Some(frame);
+                soonest_needed_basis_frame_next_needed = candidate_frame_next_needed;
+            }
         }
+
+        soonest_needed_basis_frame.map(|frame| {
+            let gop_id = self.frame_gop(frame);
+            (frame.sourceref.clone(), gop_id)
+        })
     }
 
     fn eviction_set(
@@ -267,11 +254,9 @@ impl Pool {
 
         let dec_next_needed_gen = self.decoder_next_needed_gen(decoder_id);
 
-        // check that there is a frame we should create a new decoder for
         let mut found_sooner_basis_frame = false;
-        let future_set = self.future_set();
         for frame in self.need_set() {
-            if self.members.contains_key(frame) || future_set.contains(frame) {
+            if self.members.contains_key(frame) || self.is_in_future_set(frame) {
                 continue;
             }
             let frame_next_needed_gen = self.next_needed_gen(frame);
@@ -299,15 +284,10 @@ impl Pool {
         true
     }
 
-    pub(crate) fn future_set(&self) -> BTreeSet<IFrameRef> {
-        let mut out = BTreeSet::new();
-        for decoder in self.decoders.values() {
-            out.extend(decoder.future_frames.iter().map(|t| IFrameRef {
-                sourceref: decoder.source.clone(),
-                pts: *t,
-            }));
-        }
-        out
+    fn is_in_future_set(&self, frame: &IFrameRef) -> bool {
+        self.decoders.values().any(|decoder| {
+            decoder.source == frame.sourceref && decoder.future_frames.contains(&frame.pts)
+        })
     }
 
     fn plan_gen(&mut self) -> bool {
@@ -337,12 +317,14 @@ impl Pool {
         }
 
         // Enough space, but check if we need to evict some frames first
-        let current_members = self.members.keys().map(|a| (*a).clone()).collect();
-        let next_need_set_union_current_members: BTreeSet<_> =
-            next_need_set.union(&current_members).cloned().collect();
-        if next_need_set_union_current_members.len() > self.dve_config.decode_pool_size {
-            let needed_evictions =
-                next_need_set_union_current_members.len() - self.dve_config.decode_pool_size;
+        let members_not_in_need_set = self
+            .members
+            .keys()
+            .filter(|k| !next_need_set.contains(*k))
+            .count();
+        let union_size = next_need_set.len() + members_not_in_need_set;
+        if union_size > self.dve_config.decode_pool_size {
+            let needed_evictions = union_size - self.dve_config.decode_pool_size;
             let evict_set = self.eviction_set(needed_evictions, &next_need_set);
             debug_assert!(evict_set.len() == needed_evictions);
             for frame_ts in evict_set {
@@ -401,8 +383,10 @@ impl Pool {
 
     pub(crate) fn need_set(&self) -> BTreeSet<&IFrameRef> {
         let mut out = BTreeSet::new();
-        for gen in self.active_gens() {
-            out.extend(self.iframes_per_oframe[gen].iter());
+        for gen in self.done_gens_past..self.next_gen {
+            if !self.done_gens_recent.contains(&gen) {
+                out.extend(self.iframes_per_oframe[gen].iter());
+            }
         }
         out
     }
