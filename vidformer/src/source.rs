@@ -36,7 +36,7 @@ impl SourceVideoStreamMeta {
         vid_path: &str,
         stream: usize,
         service: &crate::service::Service,
-        io_cache: Option<(&Box<dyn crate::io::IoWrapper>, &str)>,
+        io_cache: Option<(&dyn crate::io::IoWrapper, &str)>,
     ) -> Result<Self, crate::dve::Error> {
         let io_runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(1)
@@ -205,7 +205,7 @@ impl SourceVideoStreamMeta {
         vid_path: &str,
         stream: usize,
         service: &crate::service::Service,
-        io_cache: Option<(&Box<dyn crate::io::IoWrapper>, &str)>,
+        io_cache: Option<(&dyn crate::io::IoWrapper, &str)>,
     ) {
         let io_runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(1)

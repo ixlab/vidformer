@@ -21,7 +21,7 @@ impl FrameSource {
         service: &crate::service::Service,
         file_size: u64,
         io_runtime_handle: &tokio::runtime::Handle,
-        io_cache: Option<(&Box<dyn crate::io::IoWrapper>, &str)>,
+        io_cache: Option<(&dyn crate::io::IoWrapper, &str)>,
     ) -> Result<FrameSource, crate::Error> {
         let mut demuxer = crate::av::demuxer::Demuxer::new(
             vid_path,

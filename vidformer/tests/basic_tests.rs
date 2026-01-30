@@ -573,7 +573,7 @@ fn test_tos_io_wrapper() {
             "../tos_720p.mp4",
             0,
             &fs_service,
-            Some((&io_wrapper, "test_tos_io_wrapper")),
+            Some((io_wrapper.as_ref(), "test_tos_io_wrapper")),
         )
         .unwrap()];
         let context: vidformer::Context =

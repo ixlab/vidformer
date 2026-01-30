@@ -94,7 +94,7 @@ impl Demuxer {
         service: &crate::service::Service,
         file_size: u64,
         io_runtime_handle: &tokio::runtime::Handle,
-        io_cache: Option<(&Box<dyn crate::io::IoWrapper>, &str)>,
+        io_cache: Option<(&dyn crate::io::IoWrapper, &str)>,
     ) -> Result<Self, crate::Error> {
         let mut format_context = unsafe { ffi::avformat_alloc_context() };
         if format_context.is_null() {

@@ -91,7 +91,7 @@ pub(crate) async fn profile_source(
                 stream_idx,
                 &service,
                 match io_cache {
-                    Some((ref wrapper, ref ns)) => Some((&wrapper, ns.as_str())),
+                    Some((ref wrapper, ref ns)) => Some((wrapper.as_ref(), ns.as_str())),
                     None => None,
                 },
             )

@@ -211,7 +211,7 @@ pub(crate) fn run_decoder(
     let stream_meta = &context.sources.get(source).unwrap();
     let stream_service = &stream_meta.service;
 
-    let io_cache: Option<(&Box<dyn crate::io::IoWrapper>, &str)> = match &context.io_wrapper {
+    let io_cache: Option<(&dyn crate::io::IoWrapper, &str)> = match &context.io_wrapper {
         Some(io_wrapper) => {
             let fuid: &str = if let Some(fuid) = &stream_meta.fuid {
                 fuid.as_str()
@@ -221,7 +221,7 @@ pub(crate) fn run_decoder(
                     source
                 )));
             };
-            Some((io_wrapper, fuid))
+            Some((io_wrapper.as_ref(), fuid))
         }
         None => None,
     };

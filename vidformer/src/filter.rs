@@ -95,7 +95,7 @@ impl FrameType {
 }
 
 impl Val {
-    pub fn from_expr(expr: &crate::sir::DataExpr, context: &crate::dve::Context) -> Self {
+    pub fn from_expr(expr: &crate::sir::DataExpr, _context: &crate::dve::Context) -> Self {
         match expr {
             crate::sir::DataExpr::Bool(b) => Val::Bool(*b),
             crate::sir::DataExpr::Int(i) => Val::Int(*i),
@@ -105,7 +105,7 @@ impl Val {
             crate::sir::DataExpr::List(list) => {
                 let list = list
                     .iter()
-                    .map(|expr| Val::from_expr(expr, context))
+                    .map(|expr| Val::from_expr(expr, _context))
                     .collect();
                 Val::List(list)
             }
