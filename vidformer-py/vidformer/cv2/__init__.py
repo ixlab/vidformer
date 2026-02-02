@@ -20,6 +20,7 @@ import re
 import zlib
 from bisect import bisect_right
 from fractions import Fraction
+from urllib.parse import unquote
 import os
 
 import numpy as np
@@ -375,7 +376,7 @@ class VideoCapture:
             match = re.match(r"(http|https)://([^/]+)(.*)", path)
             if match is not None:
                 endpoint = f"{match.group(1)}://{match.group(2)}"
-                path = match.group(3)
+                path = unquote(match.group(3))
                 if path.startswith("/"):
                     path = path[1:]
                 self._path = path
