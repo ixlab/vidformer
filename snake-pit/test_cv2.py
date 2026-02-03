@@ -108,6 +108,22 @@ def test_constants():
     assert ocv_cv2.INTER_LINEAR_EXACT == vf_cv2.INTER_LINEAR_EXACT
     assert ocv_cv2.INTER_NEAREST_EXACT == vf_cv2.INTER_NEAREST_EXACT
 
+    # Rotation constants
+    assert ocv_cv2.ROTATE_90_CLOCKWISE == vf_cv2.ROTATE_90_CLOCKWISE
+    assert ocv_cv2.ROTATE_180 == vf_cv2.ROTATE_180
+    assert ocv_cv2.ROTATE_90_COUNTERCLOCKWISE == vf_cv2.ROTATE_90_COUNTERCLOCKWISE
+
+    # Border constants
+    assert ocv_cv2.BORDER_CONSTANT == vf_cv2.BORDER_CONSTANT
+    assert ocv_cv2.BORDER_REPLICATE == vf_cv2.BORDER_REPLICATE
+    assert ocv_cv2.BORDER_REFLECT == vf_cv2.BORDER_REFLECT
+    assert ocv_cv2.BORDER_WRAP == vf_cv2.BORDER_WRAP
+    assert ocv_cv2.BORDER_REFLECT_101 == vf_cv2.BORDER_REFLECT_101
+    assert ocv_cv2.BORDER_TRANSPARENT == vf_cv2.BORDER_TRANSPARENT
+    assert ocv_cv2.BORDER_REFLECT101 == vf_cv2.BORDER_REFLECT101
+    assert ocv_cv2.BORDER_DEFAULT == vf_cv2.BORDER_DEFAULT
+    assert ocv_cv2.BORDER_ISOLATED == vf_cv2.BORDER_ISOLATED
+
 
 def test_cap_all_frames():
     """Make sure VideoCapture can read all frames of a video correctly."""
@@ -2264,3 +2280,282 @@ def test_slice_writeback_nested():
 
     # Compare - they should match
     assert np.allclose(canvas_ocv, canvas_vf, atol=1), "Nested slice writeback mismatch"
+
+
+# =============================================================================
+# Flip tests
+# =============================================================================
+
+
+@pytest.mark.parametrize(
+    "flip_code,name",
+    [
+        (1, "horizontal"),
+        (0, "vertical"),
+        (-1, "both"),
+    ],
+)
+def test_flip(flip_code, name):
+    """Test flip with different flip codes"""
+    width, height = 100, 80
+    color = (255, 0, 0)  # blue
+
+    # OpenCV
+    canvas_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.rectangle(canvas_ocv, (10, 10), (30, 30), color, -1)
+    flipped_ocv = ocv_cv2.flip(canvas_ocv, flip_code)
+
+    # Vidformer
+    canvas_vf = vf_cv2.zeros((height, width, 3))
+    vf_cv2.rectangle(canvas_vf, (10, 10), (30, 30), color, -1)
+    flipped_vf = vf_cv2.flip(canvas_vf, flip_code).numpy()
+
+    assert flipped_vf.shape == flipped_ocv.shape, f"Flip {name} shape mismatch"
+    assert np.allclose(flipped_ocv, flipped_vf, atol=1), f"Flip {name} mismatch"
+
+
+def flip_video(cv2):
+    """Test flip in video processing pipeline"""
+    cap = cv2.VideoCapture(TEST_VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+
+    count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret or count > 10:
+            break
+
+        frame = cv2.flip(frame, 1)
+        out.write(frame)
+        count += 1
+
+    cap.release()
+    out.release()
+
+    assert os.path.exists(path)
+    assert ffprobe_count_frames(path) == count
+    fmt = ffprobe_fmt(path)
+    assert fmt["width"] == width
+    assert fmt["height"] == height
+    os.remove(path)
+
+
+def test_flip_video_ocv():
+    flip_video(ocv_cv2)
+
+
+def test_flip_video_vf():
+    flip_video(vf_cv2)
+
+
+# =============================================================================
+# Rotate tests
+# =============================================================================
+
+
+@pytest.mark.parametrize(
+    "rotate_code,name",
+    [
+        (ocv_cv2.ROTATE_90_CLOCKWISE, "90_clockwise"),
+        (ocv_cv2.ROTATE_180, "180"),
+        (ocv_cv2.ROTATE_90_COUNTERCLOCKWISE, "90_counterclockwise"),
+    ],
+)
+def test_rotate(rotate_code, name):
+    """Test rotate with different rotation codes"""
+    width, height = 100, 80
+    color = (255, 0, 0)  # blue
+
+    # OpenCV
+    canvas_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.rectangle(canvas_ocv, (10, 10), (30, 30), color, -1)
+    rotated_ocv = ocv_cv2.rotate(canvas_ocv, rotate_code)
+
+    # Vidformer
+    canvas_vf = vf_cv2.zeros((height, width, 3))
+    vf_cv2.rectangle(canvas_vf, (10, 10), (30, 30), color, -1)
+    rotated_vf = vf_cv2.rotate(canvas_vf, rotate_code).numpy()
+
+    assert (
+        rotated_vf.shape == rotated_ocv.shape
+    ), f"Rotate {name} shape mismatch: {rotated_vf.shape} vs {rotated_ocv.shape}"
+    assert np.allclose(rotated_ocv, rotated_vf, atol=1), f"Rotate {name} mismatch"
+
+
+def rotate_video(cv2):
+    """Test rotate in video processing pipeline (180 only, as it preserves dimensions)"""
+    cap = cv2.VideoCapture(TEST_VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+
+    count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret or count > 10:
+            break
+
+        frame = cv2.rotate(frame, cv2.ROTATE_180)
+        out.write(frame)
+        count += 1
+
+    cap.release()
+    out.release()
+
+    assert os.path.exists(path)
+    assert ffprobe_count_frames(path) == count
+    fmt = ffprobe_fmt(path)
+    assert fmt["width"] == width
+    assert fmt["height"] == height
+    os.remove(path)
+
+
+def test_rotate_video_ocv():
+    rotate_video(ocv_cv2)
+
+
+def test_rotate_video_vf():
+    rotate_video(vf_cv2)
+
+
+# =============================================================================
+# copyMakeBorder tests
+# =============================================================================
+
+
+@pytest.mark.parametrize(
+    "border_type,name",
+    [
+        (ocv_cv2.BORDER_CONSTANT, "constant"),
+        (ocv_cv2.BORDER_REPLICATE, "replicate"),
+        (ocv_cv2.BORDER_REFLECT, "reflect"),
+        (ocv_cv2.BORDER_REFLECT_101, "reflect_101"),
+    ],
+)
+def test_copyMakeBorder(border_type, name):
+    """Test copyMakeBorder with different border types"""
+    width, height = 100, 80
+    top, bottom, left, right = 10, 20, 15, 25
+    color = (255, 0, 0)  # blue
+    border_color = (128, 64, 192)
+
+    # OpenCV
+    canvas_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.rectangle(canvas_ocv, (20, 20), (80, 60), color, -1)
+    if border_type == ocv_cv2.BORDER_CONSTANT:
+        bordered_ocv = ocv_cv2.copyMakeBorder(
+            canvas_ocv, top, bottom, left, right, border_type, value=border_color
+        )
+    else:
+        bordered_ocv = ocv_cv2.copyMakeBorder(
+            canvas_ocv, top, bottom, left, right, border_type
+        )
+
+    # Vidformer
+    canvas_vf = vf_cv2.zeros((height, width, 3))
+    vf_cv2.rectangle(canvas_vf, (20, 20), (80, 60), color, -1)
+    if border_type == vf_cv2.BORDER_CONSTANT:
+        bordered_vf = vf_cv2.copyMakeBorder(
+            canvas_vf, top, bottom, left, right, border_type, value=border_color
+        ).numpy()
+    else:
+        bordered_vf = vf_cv2.copyMakeBorder(
+            canvas_vf, top, bottom, left, right, border_type
+        ).numpy()
+
+    expected_shape = (height + top + bottom, width + left + right, 3)
+    assert bordered_vf.shape == expected_shape, f"copyMakeBorder {name} shape mismatch"
+    assert (
+        bordered_ocv.shape == expected_shape
+    ), f"OpenCV copyMakeBorder {name} shape mismatch"
+    assert np.allclose(
+        bordered_ocv, bordered_vf, atol=1
+    ), f"copyMakeBorder {name} mismatch"
+
+
+def test_copyMakeBorder_default_value():
+    """Test copyMakeBorder with BORDER_CONSTANT and default (black) value"""
+    width, height = 50, 50
+    top, bottom, left, right = 5, 5, 5, 5
+
+    # OpenCV
+    canvas_ocv = np.ones((height, width, 3), dtype=np.uint8) * 128
+    bordered_ocv = ocv_cv2.copyMakeBorder(
+        canvas_ocv, top, bottom, left, right, ocv_cv2.BORDER_CONSTANT
+    )
+
+    # Vidformer - need to use frameify for non-zero canvas
+    canvas_vf = vf_cv2.frameify(np.ones((height, width, 3), dtype=np.uint8) * 128)
+    bordered_vf = vf_cv2.copyMakeBorder(
+        canvas_vf, top, bottom, left, right, vf_cv2.BORDER_CONSTANT
+    ).numpy()
+
+    expected_shape = (height + top + bottom, width + left + right, 3)
+    assert bordered_vf.shape == expected_shape, f"Border shape mismatch"
+    assert np.allclose(
+        bordered_ocv, bordered_vf, atol=1
+    ), "BORDER_CONSTANT default value mismatch"
+
+
+def copyMakeBorder_video(cv2):
+    """Test copyMakeBorder in video processing pipeline"""
+    cap = cv2.VideoCapture(TEST_VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    top, bottom, left, right = 20, 20, 40, 40
+    new_width = width + left + right
+    new_height = height + top + bottom
+
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(
+        path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (new_width, new_height)
+    )
+
+    count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret or count > 10:
+            break
+
+        frame = cv2.copyMakeBorder(
+            frame, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(0, 0, 0)
+        )
+        out.write(frame)
+        count += 1
+
+    cap.release()
+    out.release()
+
+    assert os.path.exists(path)
+    assert ffprobe_count_frames(path) == count
+    fmt = ffprobe_fmt(path)
+    assert fmt["width"] == new_width
+    assert fmt["height"] == new_height
+    os.remove(path)
+
+
+def test_copyMakeBorder_video_ocv():
+    copyMakeBorder_video(ocv_cv2)
+
+
+def test_copyMakeBorder_video_vf():
+    copyMakeBorder_video(vf_cv2)
+
+
+# =============================================================================

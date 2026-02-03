@@ -30,6 +30,12 @@ pub fn filters() -> BTreeMap<String, Box<dyn filter::Filter>> {
     );
     filters.insert("cv2.drawContours".to_string(), Box::new(DrawContours {}));
     filters.insert("cv2.drawMarker".to_string(), Box::new(DrawMarker {}));
+    filters.insert("cv2.flip".to_string(), Box::new(Flip {}));
+    filters.insert("cv2.rotate".to_string(), Box::new(Rotate {}));
+    filters.insert(
+        "cv2.copyMakeBorder".to_string(),
+        Box::new(CopyMakeBorder {}),
+    );
     filters
 }
 
@@ -2196,5 +2202,355 @@ fn parse_polygon_list_named(
             Ok(result)
         }
         _ => Err(format!("Expected '{}' to be a list of polygons", name)),
+    }
+}
+
+pub struct Flip {}
+
+struct FlipArgs {
+    src: filter_utils::FrameArg,
+    flip_code: i32,
+}
+
+impl Flip {
+    fn args(
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> Result<FlipArgs, String> {
+        let signature = filter_utils::FunctionSignature {
+            parameters: vec![
+                Parameter::Positional { name: "src" },
+                Parameter::Positional { name: "flipCode" },
+            ],
+        };
+
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
+
+        let src = match parsed_args.get("src") {
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
+            _ => return Err("Expected 'src' to be a Frame".into()),
+        };
+
+        let flip_code = match parsed_args.get("flipCode") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'flipCode' to be an integer".into()),
+        };
+
+        Ok(FlipArgs { src, flip_code })
+    }
+}
+
+impl filter::Filter for Flip {
+    fn filter(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::Frame, dve::Error> {
+        let opts: FlipArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        let src = opts.src.unwrap_frame();
+        let (width, height) = (src.width, src.height);
+        debug_assert_eq!(src.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+
+        let src_mat = filter_utils::frame_to_mat_rgb24(&src, width, height);
+        let mut dst_mat = opencv::core::Mat::default();
+
+        opencv::core::flip(&src_mat, &mut dst_mat, opts.flip_code).unwrap();
+
+        let f = match filter_utils::mat_to_frame_rgb24(dst_mat, width, height) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        Ok(filter::Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::FrameType, dve::Error> {
+        let opts: FlipArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        if opts.src.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(dve::Error::AVError("Expected RGB24 frame".into()));
+        }
+
+        Ok(opts.src.unwrap_frame_type())
+    }
+}
+
+pub struct Rotate {}
+
+struct RotateArgs {
+    src: filter_utils::FrameArg,
+    rotate_code: i32,
+}
+
+impl Rotate {
+    fn args(
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> Result<RotateArgs, String> {
+        let signature = filter_utils::FunctionSignature {
+            parameters: vec![
+                Parameter::Positional { name: "src" },
+                Parameter::Positional { name: "rotateCode" },
+            ],
+        };
+
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
+
+        let src = match parsed_args.get("src") {
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
+            _ => return Err("Expected 'src' to be a Frame".into()),
+        };
+
+        let rotate_code = match parsed_args.get("rotateCode") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'rotateCode' to be an integer".into()),
+        };
+
+        Ok(RotateArgs { src, rotate_code })
+    }
+}
+
+impl filter::Filter for Rotate {
+    fn filter(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::Frame, dve::Error> {
+        let opts: RotateArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        let src = opts.src.unwrap_frame();
+        let (width, height) = (src.width, src.height);
+        debug_assert_eq!(src.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+
+        let src_mat = filter_utils::frame_to_mat_rgb24(&src, width, height);
+        let mut dst_mat = opencv::core::Mat::default();
+
+        opencv::core::rotate(&src_mat, &mut dst_mat, opts.rotate_code).unwrap();
+
+        // Calculate new dimensions based on rotation
+        let (new_width, new_height) = match opts.rotate_code {
+            0 | 2 => (height, width), // 90 CW or 90 CCW: swap dimensions
+            1 => (width, height),     // 180: same dimensions
+            _ => (width, height),
+        };
+
+        let f = match filter_utils::mat_to_frame_rgb24(dst_mat, new_width, new_height) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        Ok(filter::Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::FrameType, dve::Error> {
+        let opts: RotateArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        if opts.src.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(dve::Error::AVError("Expected RGB24 frame".into()));
+        }
+
+        let src_type = opts.src.unwrap_frame_type();
+
+        // Calculate new dimensions based on rotation
+        let (new_width, new_height) = match opts.rotate_code {
+            0 | 2 => (src_type.height, src_type.width), // 90 CW or 90 CCW: swap dimensions
+            1 => (src_type.width, src_type.height),     // 180: same dimensions
+            _ => (src_type.width, src_type.height),
+        };
+
+        Ok(filter::FrameType {
+            width: new_width,
+            height: new_height,
+            format: src_type.format,
+        })
+    }
+}
+
+pub struct CopyMakeBorder {}
+
+struct CopyMakeBorderArgs {
+    src: filter_utils::FrameArg,
+    top: i32,
+    bottom: i32,
+    left: i32,
+    right: i32,
+    border_type: i32,
+    value: [f64; 4],
+}
+
+impl CopyMakeBorder {
+    fn args(
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> Result<CopyMakeBorderArgs, String> {
+        let signature = filter_utils::FunctionSignature {
+            parameters: vec![
+                Parameter::Positional { name: "src" },
+                Parameter::Positional { name: "top" },
+                Parameter::Positional { name: "bottom" },
+                Parameter::Positional { name: "left" },
+                Parameter::Positional { name: "right" },
+                Parameter::Positional { name: "borderType" },
+                Parameter::PositionalOptional {
+                    name: "value",
+                    default_value: Val::List(vec![
+                        Val::Float(0.0),
+                        Val::Float(0.0),
+                        Val::Float(0.0),
+                        Val::Float(255.0),
+                    ]),
+                },
+            ],
+        };
+
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
+
+        let src = match parsed_args.get("src") {
+            Some(Val::Frame(frame)) => filter_utils::FrameArg::Frame(frame.clone()),
+            Some(Val::FrameType(frame_type)) => {
+                filter_utils::FrameArg::FrameType(frame_type.clone())
+            }
+            _ => return Err("Expected 'src' to be a Frame".into()),
+        };
+
+        let top = match parsed_args.get("top") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'top' to be an integer".into()),
+        };
+
+        let bottom = match parsed_args.get("bottom") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'bottom' to be an integer".into()),
+        };
+
+        let left = match parsed_args.get("left") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'left' to be an integer".into()),
+        };
+
+        let right = match parsed_args.get("right") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'right' to be an integer".into()),
+        };
+
+        let border_type = match parsed_args.get("borderType") {
+            Some(Val::Int(value)) => *value as i32,
+            _ => return Err("Expected 'borderType' to be an integer".into()),
+        };
+
+        let value = filter_utils::get_color_with_key(&parsed_args, "value")?;
+
+        Ok(CopyMakeBorderArgs {
+            src,
+            top,
+            bottom,
+            left,
+            right,
+            border_type,
+            value,
+        })
+    }
+}
+
+impl filter::Filter for CopyMakeBorder {
+    fn filter(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::Frame, dve::Error> {
+        let opts: CopyMakeBorderArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        let src = opts.src.unwrap_frame();
+        let (width, height) = (src.width, src.height);
+        debug_assert_eq!(src.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+
+        let src_mat = filter_utils::frame_to_mat_rgb24(&src, width, height);
+        let mut dst_mat = opencv::core::Mat::default();
+
+        let border_value =
+            opencv::core::Scalar::new(opts.value[0], opts.value[1], opts.value[2], opts.value[3]);
+
+        opencv::core::copy_make_border(
+            &src_mat,
+            &mut dst_mat,
+            opts.top,
+            opts.bottom,
+            opts.left,
+            opts.right,
+            opts.border_type,
+            border_value,
+        )
+        .unwrap();
+
+        let new_width = width + opts.left + opts.right;
+        let new_height = height + opts.top + opts.bottom;
+
+        let f = match filter_utils::mat_to_frame_rgb24(dst_mat, new_width, new_height) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        Ok(filter::Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::FrameType, dve::Error> {
+        let opts: CopyMakeBorderArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        if opts.src.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+            return Err(dve::Error::AVError("Expected RGB24 frame".into()));
+        }
+
+        let src_type = opts.src.unwrap_frame_type();
+        let new_width = src_type.width + opts.left as usize + opts.right as usize;
+        let new_height = src_type.height + opts.top as usize + opts.bottom as usize;
+
+        Ok(filter::FrameType {
+            width: new_width,
+            height: new_height,
+            format: src_type.format,
+        })
     }
 }

@@ -58,7 +58,10 @@ Drawing Functions:
 |**Function**|**Status**|
 |---|---|
 |addWeighted|✅|
+|copyMakeBorder|✅|
+|flip|✅|
 |resize|✅|
+|rotate|✅|
 
 ## Output Comparison
 

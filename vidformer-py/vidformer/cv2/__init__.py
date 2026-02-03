@@ -64,6 +64,22 @@ INTER_LINEAR_EXACT = 5
 INTER_NEAREST_EXACT = 6
 INTER_MAX = 7
 
+# Rotation flags
+ROTATE_90_CLOCKWISE = 0
+ROTATE_180 = 1
+ROTATE_90_COUNTERCLOCKWISE = 2
+
+# Border types
+BORDER_CONSTANT = 0
+BORDER_REPLICATE = 1
+BORDER_REFLECT = 2
+BORDER_WRAP = 3
+BORDER_REFLECT_101 = 4
+BORDER_TRANSPARENT = 5
+BORDER_REFLECT101 = BORDER_REFLECT_101
+BORDER_DEFAULT = BORDER_REFLECT_101
+BORDER_ISOLATED = 16
+
 _inline_mat = vf.Filter("_inline_mat")
 _slice_mat = vf.Filter("_slice_mat")
 _slice_write_mat = vf.Filter("_slice_write_mat")
@@ -84,6 +100,9 @@ _filter_fillConvexPoly = vf.Filter("cv2.fillConvexPoly")
 _filter_drawContours = vf.Filter("cv2.drawContours")
 _filter_drawMarker = vf.Filter("cv2.drawMarker")
 _set_to = vf.Filter("cv2.setTo")
+_filter_flip = vf.Filter("cv2.flip")
+_filter_rotate = vf.Filter("cv2.rotate")
+_filter_copyMakeBorder = vf.Filter("cv2.copyMakeBorder")
 
 
 def _ts_to_fps(timestamps):
@@ -1217,3 +1236,101 @@ def polylines(img, pts, isClosed, color, thickness=None, lineType=None, shift=No
 
     img._f = _filter_polylines(img._f, pts_converted, isClosed, color, *args)
     return img
+
+
+def flip(src, flipCode):
+    """
+    cv.flip(src, flipCode[, dst]) -> dst
+
+    Flips a 2D array around vertical, horizontal, or both axes.
+
+    Parameters:
+        src: input array
+        flipCode: a flag to specify how to flip the array:
+            0 means flipping around the x-axis (vertical flip)
+            positive value (e.g., 1) means flipping around y-axis (horizontal flip)
+            negative value (e.g., -1) means flipping around both axes
+    """
+    src = frameify(src)
+    src._mut()
+
+    assert isinstance(flipCode, int)
+
+    f = _filter_flip(src._f, flipCode)
+    return Frame(f, src._fmt.copy())
+
+
+def rotate(src, rotateCode):
+    """
+    cv.rotate(src, rotateCode[, dst]) -> dst
+
+    Rotates a 2D array in multiples of 90 degrees.
+
+    Parameters:
+        src: input array
+        rotateCode: an enum to specify how to rotate the array:
+            cv2.ROTATE_90_CLOCKWISE (0) - rotate 90 degrees clockwise
+            cv2.ROTATE_180 (1) - rotate 180 degrees
+            cv2.ROTATE_90_COUNTERCLOCKWISE (2) - rotate 90 degrees counter-clockwise
+    """
+    src = frameify(src)
+    src._mut()
+
+    assert isinstance(rotateCode, int)
+    assert rotateCode in [ROTATE_90_CLOCKWISE, ROTATE_180, ROTATE_90_COUNTERCLOCKWISE]
+
+    # Calculate new dimensions
+    width = src._fmt["width"]
+    height = src._fmt["height"]
+
+    if rotateCode == ROTATE_180:
+        new_width, new_height = width, height
+    else:
+        # 90 degree rotations swap width and height
+        new_width, new_height = height, width
+
+    f = _filter_rotate(src._f, rotateCode)
+    fmt = {"width": new_width, "height": new_height, "pix_fmt": src._fmt["pix_fmt"]}
+    return Frame(f, fmt)
+
+
+def copyMakeBorder(src, top, bottom, left, right, borderType, value=None):
+    """
+    cv.copyMakeBorder(src, top, bottom, left, right, borderType[, dst[, value]]) -> dst
+
+    Forms a border around an image.
+
+    Parameters:
+        src: input array
+        top: number of pixels for the top border
+        bottom: number of pixels for the bottom border
+        left: number of pixels for the left border
+        right: number of pixels for the right border
+        borderType: border type (cv2.BORDER_CONSTANT, cv2.BORDER_REPLICATE, etc.)
+        value: border value if borderType == cv2.BORDER_CONSTANT (default: black)
+    """
+    src = frameify(src)
+    src._mut()
+
+    assert isinstance(top, int) and top >= 0
+    assert isinstance(bottom, int) and bottom >= 0
+    assert isinstance(left, int) and left >= 0
+    assert isinstance(right, int) and right >= 0
+    assert isinstance(borderType, int)
+
+    # Handle value parameter
+    if value is None:
+        value = [0.0, 0.0, 0.0, 255.0]
+    else:
+        assert len(value) == 3 or len(value) == 4
+        value = [float(x) for x in value]
+        if len(value) == 3:
+            value.append(255.0)
+
+    # Calculate new dimensions
+    new_width = src._fmt["width"] + left + right
+    new_height = src._fmt["height"] + top + bottom
+
+    f = _filter_copyMakeBorder(src._f, top, bottom, left, right, borderType, value)
+    fmt = {"width": new_width, "height": new_height, "pix_fmt": src._fmt["pix_fmt"]}
+    return Frame(f, fmt)

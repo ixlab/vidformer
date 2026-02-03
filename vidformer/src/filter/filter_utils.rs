@@ -123,11 +123,14 @@ pub(crate) fn parse_arguments(
     Ok(parsed_args)
 }
 
-pub(crate) fn get_color(parsed_args: &BTreeMap<&'static str, Val>) -> Result<[f64; 4], String> {
-    let color = match parsed_args.get("color") {
+pub(crate) fn get_color_with_key(
+    parsed_args: &BTreeMap<&'static str, Val>,
+    key: &str,
+) -> Result<[f64; 4], String> {
+    let color = match parsed_args.get(key) {
         Some(Val::List(list)) => {
             if list.len() != 4 {
-                return Err("Expected 'color' to be a list of four floats".into());
+                return Err(format!("Expected '{key}' to be a list of four floats"));
             }
             match (
                 list[0].clone(),
@@ -138,12 +141,16 @@ pub(crate) fn get_color(parsed_args: &BTreeMap<&'static str, Val>) -> Result<[f6
                 // Input is BGR (OpenCV convention), convert to RGB for internal use
                 // by swapping the first and third channels
                 (Val::Float(b), Val::Float(g), Val::Float(r), Val::Float(a)) => [r, g, b, a],
-                _ => return Err("Expected 'color' to be a list of four floats".into()),
+                _ => return Err(format!("Expected '{key}' to be a list of four floats")),
             }
         }
-        _ => return Err("Expected 'color' to be a list of four floats".into()),
+        _ => return Err(format!("Expected '{key}' to be a list of four floats")),
     };
     Ok(color)
+}
+
+pub(crate) fn get_color(parsed_args: &BTreeMap<&'static str, Val>) -> Result<[f64; 4], String> {
+    get_color_with_key(parsed_args, "color")
 }
 
 pub(crate) fn get_point(
