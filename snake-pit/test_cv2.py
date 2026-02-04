@@ -2282,6 +2282,44 @@ def test_slice_writeback_nested():
     assert np.allclose(canvas_ocv, canvas_vf, atol=1), "Nested slice writeback mismatch"
 
 
+def test_slice_assign_scalar():
+    """Test assigning a scalar value to a slice (grayscale fill)"""
+    width, height = 100, 100
+
+    # OpenCV - scalar assigns to all channels
+    canvas_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    canvas_ocv[80:100, :] = 50  # Gray bar at bottom
+
+    # Vidformer
+    canvas_vf = vf_cv2.zeros((height, width, 3))
+    canvas_vf[80:100, :] = 50
+    canvas_vf = canvas_vf.numpy()
+
+    assert np.allclose(canvas_ocv, canvas_vf, atol=1), "Scalar slice assignment mismatch"
+
+
+def test_slice_assign_scalar_with_color():
+    """Test progress bar pattern: scalar background + color overlay"""
+    width, height = 200, 100
+    bar_height = 10
+    bar_y = height - bar_height
+    progress = 0.6
+
+    # OpenCV
+    canvas_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    canvas_ocv[bar_y:height, :] = 50  # Dark gray background
+    filled_width = int(width * progress)
+    canvas_ocv[bar_y:height, 0:filled_width] = [0, 255, 0]  # Green progress
+
+    # Vidformer
+    canvas_vf = vf_cv2.zeros((height, width, 3))
+    canvas_vf[bar_y:height, :] = 50
+    canvas_vf[bar_y:height, 0:filled_width] = [0, 255, 0]
+    canvas_vf = canvas_vf.numpy()
+
+    assert np.allclose(canvas_ocv, canvas_vf, atol=1), "Progress bar pattern mismatch"
+
+
 # =============================================================================
 # Flip tests
 # =============================================================================

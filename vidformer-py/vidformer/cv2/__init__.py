@@ -318,8 +318,14 @@ class Frame:
             ):
                 raise NotImplementedError("Invalid slice")
 
-            # Check if value is a color tuple/list (solid fill)
-            if isinstance(value, (tuple, list)) and len(value) in [3, 4]:
+            # Check if value is a color tuple/list or scalar (solid fill)
+            if isinstance(value, (int, float)):
+                # Scalar value - treat as grayscale
+                height = maxy - miny
+                width = maxx - minx
+                v = int(value)
+                value = solid((height, width, self.shape[2]), (v, v, v))
+            elif isinstance(value, (tuple, list)) and len(value) in [3, 4]:
                 # Create a solid color frame of the right size
                 height = maxy - miny
                 width = maxx - minx
