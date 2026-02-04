@@ -344,3 +344,24 @@ def test_set_color_with_mask():
     assert type(myframe_np) is np.ndarray
     assert myframe_np.dtype == np.uint8
     assert myframe_np.shape == (100, 150, 3)
+
+
+def test_initial_batch_size():
+    """Test that initial_batch_size parameter works for faster first push."""
+    out = vf_cv2.VideoWriter(
+        None,
+        vf_cv2.VideoWriter_fourcc(*"mp4v"),
+        30,
+        (100, 100),
+        batch_size=1024,
+        initial_batch_size=10,
+    )
+
+    for i in range(50):
+        frame = vf_cv2.zeros((100, 100, 3), dtype=np.uint8)
+        vf_cv2.putText(
+            frame, str(i), (10, 50), vf_cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2
+        )
+        out.write(frame)
+
+    out.release()

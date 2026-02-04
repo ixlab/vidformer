@@ -496,6 +496,7 @@ class VideoWriter:
         fps,
         size,
         batch_size=1024,
+        initial_batch_size=100,
         compression="gzip",
         ttl=3600,
         pix_fmt="yuv420p",
@@ -536,10 +537,12 @@ class VideoWriter:
             width, height, pix_fmt, vod_segment_length, 1 / self._f_time, ttl=ttl
         )
         self._batch_size = batch_size
+        self._initial_batch_size = initial_batch_size
         assert compression is None or compression in ["gzip"]
         self._compression = compression
         self._idx = 0
         self._feb = vf._FrameExpressionBlock()
+        self._first_push_done = False
 
         # writer_init_callback
         if server.cv2_writer_init_callback() is not None:
@@ -564,6 +567,12 @@ class VideoWriter:
                 terminal=terminal,
             )
 
+        # First push callback (called once after first successful push)
+        if not self._first_push_done:
+            self._first_push_done = True
+            if server.cv2_writer_first_push_callback() is not None:
+                server.cv2_writer_first_push_callback()(self)
+
     def spec(self):
         return self._spec
 
@@ -584,7 +593,11 @@ class VideoWriter:
         self._feb.insert_frame(frame._f if frame is not None else None)
         self._idx += 1
 
-        if len(self._feb) >= self._batch_size:
+        # Use smaller initial batch for faster first response
+        threshold = (
+            self._initial_batch_size if not self._first_push_done else self._batch_size
+        )
+        if len(self._feb) >= threshold:
             self._flush()
 
     def isOpened(self):
