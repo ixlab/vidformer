@@ -514,6 +514,14 @@ pub(crate) fn type_frame(
             let mut args = Vec::new();
             let mut kwargs = BTreeMap::new();
 
+            // Create a frame converter for type checking that converts FrameExpr to FrameType
+            let type_frame_converter = |frame: &crate::sir::FrameExpr| -> filter::Val {
+                match type_frame(context, _config, frame) {
+                    Ok(ft) => filter::Val::FrameType(ft),
+                    Err(_) => panic!("Failed to type frame in list"),
+                }
+            };
+
             for arg in &f.args {
                 match arg {
                     crate::sir::Expr::Frame(frame) => {
@@ -521,7 +529,11 @@ pub(crate) fn type_frame(
                         args.push(filter::Val::FrameType(frame));
                     }
                     crate::sir::Expr::Data(data) => {
-                        args.push(crate::filter::Val::from_expr(data, context));
+                        args.push(crate::filter::Val::from_data_expr_with_frame_converter(
+                            data,
+                            context,
+                            type_frame_converter,
+                        ));
                     }
                 }
             }
@@ -532,12 +544,55 @@ pub(crate) fn type_frame(
                         kwargs.insert(k.clone(), filter::Val::FrameType(frame));
                     }
                     crate::sir::Expr::Data(data) => {
-                        kwargs.insert(k.clone(), crate::filter::Val::from_expr(data, context));
+                        kwargs.insert(
+                            k.clone(),
+                            crate::filter::Val::from_data_expr_with_frame_converter(
+                                data,
+                                context,
+                                type_frame_converter,
+                            ),
+                        );
                     }
                 }
             }
 
             Ok(filter.filter_type(&args, &kwargs)?)
+        }
+    }
+}
+
+/// Helper to convert DataExpr to Val for rendering, handling frames in lists
+fn data_expr_to_val_for_render(
+    data: &crate::sir::DataExpr,
+    context: &Context,
+    _config: &Config,
+    loaded_frames: &BTreeMap<IFrameRef, Arc<AVFrame>>,
+) -> Result<filter::Val, Error> {
+    match data {
+        crate::sir::DataExpr::Bool(b) => Ok(filter::Val::Bool(*b)),
+        crate::sir::DataExpr::Int(i) => Ok(filter::Val::Int(*i)),
+        crate::sir::DataExpr::String(s) => Ok(filter::Val::String(s.to_string())),
+        crate::sir::DataExpr::Bytes(b) => Ok(filter::Val::Bytes(b.clone())),
+        crate::sir::DataExpr::Float(f) => Ok(filter::Val::Float(*f)),
+        crate::sir::DataExpr::List(list) => {
+            let mut result = Vec::with_capacity(list.len());
+            for item in list {
+                match item {
+                    crate::sir::Expr::Frame(frame) => {
+                        let rendered = render_frame(context, _config, frame, loaded_frames)?;
+                        result.push(filter::Val::Frame(Frame::new_arc(rendered)));
+                    }
+                    crate::sir::Expr::Data(d) => {
+                        result.push(data_expr_to_val_for_render(
+                            d,
+                            context,
+                            _config,
+                            loaded_frames,
+                        )?);
+                    }
+                }
+            }
+            Ok(filter::Val::List(result))
         }
     }
 }
@@ -572,7 +627,12 @@ fn render_frame(
                         args.push(crate::filter::Val::Frame(Frame::new_arc(frame)));
                     }
                     crate::sir::Expr::Data(data) => {
-                        args.push(crate::filter::Val::from_expr(data, context));
+                        args.push(data_expr_to_val_for_render(
+                            data,
+                            context,
+                            _config,
+                            loaded_frames,
+                        )?);
                     }
                 }
             }
@@ -583,7 +643,10 @@ fn render_frame(
                         kwargs.insert(k.clone(), crate::filter::Val::Frame(Frame::new_arc(frame)));
                     }
                     crate::sir::Expr::Data(data) => {
-                        kwargs.insert(k.clone(), crate::filter::Val::from_expr(data, context));
+                        kwargs.insert(
+                            k.clone(),
+                            data_expr_to_val_for_render(data, context, _config, loaded_frames)?,
+                        );
                     }
                 }
             }

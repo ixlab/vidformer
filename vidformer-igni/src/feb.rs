@@ -90,19 +90,21 @@ impl InlineLiteral {
                 vidformer::sir::DataExpr::List(Vec::new()),
             )),
             InlineLiteral::ListIntSingle(i) => Ok(vidformer::sir::Expr::Data(
-                vidformer::sir::DataExpr::List(vec![vidformer::sir::DataExpr::Int(*i as i64)]),
+                vidformer::sir::DataExpr::List(vec![vidformer::sir::Expr::Data(
+                    vidformer::sir::DataExpr::Int(*i as i64),
+                )]),
             )),
             InlineLiteral::ListIntPair(i1, i2) => Ok(vidformer::sir::Expr::Data(
                 vidformer::sir::DataExpr::List(vec![
-                    vidformer::sir::DataExpr::Int(*i1 as i64),
-                    vidformer::sir::DataExpr::Int(*i2 as i64),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(*i1 as i64)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(*i2 as i64)),
                 ]),
             )),
             InlineLiteral::ListIntTriple(i1, i2, i3) => Ok(vidformer::sir::Expr::Data(
                 vidformer::sir::DataExpr::List(vec![
-                    vidformer::sir::DataExpr::Int(*i1 as i64),
-                    vidformer::sir::DataExpr::Int(*i2 as i64),
-                    vidformer::sir::DataExpr::Int(*i3 as i64),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(*i1 as i64)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(*i2 as i64)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(*i3 as i64)),
                 ]),
             )),
         }
@@ -239,7 +241,7 @@ fn expr_coded_as_scalar(expr: &vidformer::sir::Expr) -> bool {
                 false
             } else {
                 list.iter().all(|member| match member {
-                    vidformer::sir::DataExpr::Int(i) => {
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(i)) => {
                         *i >= i16::MIN as i64 && *i <= i16::MAX as i64
                     }
                     _ => false,
@@ -439,9 +441,12 @@ impl FrameBlock {
                             .push(FrameExprBlock::InlineLiteral(inline_literal).to_int());
                         Ok(self.exprs.len() - 1)
                     }
-                    (1, Some(vidformer::sir::DataExpr::Int(i1)), None, None)
-                        if *i1 >= i16::MIN as i64 && *i1 <= i16::MAX as i64 =>
-                    {
+                    (
+                        1,
+                        Some(vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(i1))),
+                        None,
+                        None,
+                    ) if *i1 >= i16::MIN as i64 && *i1 <= i16::MAX as i64 => {
                         let inline_literal = InlineLiteral::ListIntSingle(*i1 as i16);
                         self.exprs
                             .push(FrameExprBlock::InlineLiteral(inline_literal).to_int());
@@ -449,8 +454,8 @@ impl FrameBlock {
                     }
                     (
                         2,
-                        Some(vidformer::sir::DataExpr::Int(i1)),
-                        Some(vidformer::sir::DataExpr::Int(i2)),
+                        Some(vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(i1))),
+                        Some(vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(i2))),
                         None,
                     ) if *i1 >= i16::MIN as i64
                         && *i1 <= i16::MAX as i64
@@ -464,9 +469,9 @@ impl FrameBlock {
                     }
                     (
                         3,
-                        Some(vidformer::sir::DataExpr::Int(i1)),
-                        Some(vidformer::sir::DataExpr::Int(i2)),
-                        Some(vidformer::sir::DataExpr::Int(i3)),
+                        Some(vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(i1))),
+                        Some(vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(i2))),
+                        Some(vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(i3))),
                     ) if *i1 >= i16::MIN as i64
                         && *i1 <= i16::MAX as i64
                         && *i2 >= i16::MIN as i64
@@ -483,13 +488,10 @@ impl FrameBlock {
                     _ => {
                         let mut sub_exprs: Vec<SubExprValue> = Vec::with_capacity(len as usize);
                         for expr in list {
-                            if expr_coded_as_scalar(&vidformer::sir::Expr::Data(expr.clone())) {
-                                sub_exprs.push(SubExprValue::ScalarCoded(
-                                    vidformer::sir::Expr::Data(expr.clone()),
-                                ));
+                            if expr_coded_as_scalar(expr) {
+                                sub_exprs.push(SubExprValue::ScalarCoded(expr.clone()));
                             } else {
-                                let idx =
-                                    self.insert_expr(&vidformer::sir::Expr::Data(expr.clone()))?;
+                                let idx = self.insert_expr(expr)?;
                                 sub_exprs.push(SubExprValue::OutOfBand(idx));
                             }
                         }
@@ -559,14 +561,7 @@ impl FrameBlock {
                 let mut list = Vec::with_capacity(len as usize);
                 for i in 0..len {
                     let expr = self.get_expr(idx + 1 + i as usize, true)?;
-                    if let vidformer::sir::Expr::Data(data_expr) = expr {
-                        list.push(data_expr);
-                    } else {
-                        return Err(format!(
-                            "Pos {} needs to be a data expr (lists can't contain frames)",
-                            idx + 1 + i as usize
-                        ));
-                    }
+                    list.push(expr);
                 }
                 Ok(vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(
                     list,
@@ -848,19 +843,19 @@ mod test {
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-3)),
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-100_000_000_000)),
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(vec![
-                    vidformer::sir::DataExpr::Int(-8),
-                    vidformer::sir::DataExpr::Int(-1024),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-8)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-1024)),
                 ])),
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(vec![
-                    vidformer::sir::DataExpr::Int(-1),
-                    vidformer::sir::DataExpr::Int(-2),
-                    vidformer::sir::DataExpr::Int(-3),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-1)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-2)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-3)),
                 ])),
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(vec![
-                    vidformer::sir::DataExpr::Int(-1),
-                    vidformer::sir::DataExpr::Int(-2000),
-                    vidformer::sir::DataExpr::Int(-3),
-                    vidformer::sir::DataExpr::Int(-8192),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-1)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-2000)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-3)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-8192)),
                 ])),
             ],
             kwargs: std::collections::BTreeMap::new(),
@@ -879,7 +874,9 @@ mod test {
                 name: "filter".to_string(),
                 args: vec![vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(
                     (0..i)
-                        .map(|j| vidformer::sir::DataExpr::Int(j as i64 + 3))
+                        .map(|j| {
+                            vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(j as i64 + 3))
+                        })
                         .collect(),
                 ))],
                 kwargs: std::collections::BTreeMap::new(),
@@ -902,11 +899,15 @@ mod test {
                 args: vec![vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(
                     (0..i)
                         .map(|j| {
-                            vidformer::sir::DataExpr::List(
+                            vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(
                                 (0..j)
-                                    .map(|k| vidformer::sir::DataExpr::Int(k as i64 + 3))
+                                    .map(|k| {
+                                        vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(
+                                            k as i64 + 3,
+                                        ))
+                                    })
                                     .collect(),
-                            )
+                            ))
                         })
                         .collect(),
                 ))],
@@ -928,9 +929,9 @@ mod test {
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(3)),
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Float(4.0)), // this float can be exactly represented as an f32
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(vec![
-                    vidformer::sir::DataExpr::Int(1),
-                    vidformer::sir::DataExpr::Int(2),
-                    vidformer::sir::DataExpr::Int(3),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(1)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(2)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(3)),
                 ])),
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::String("hello".to_string())),
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Bytes(vec![0x01, 0x02, 0x03])),

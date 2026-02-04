@@ -260,15 +260,29 @@ def _sample_frame_expr(source_id):
                                         }
                                     }
                                 },
-                                {"Data": {"List": [{"Int": 100}, {"Int": 100}]}},
-                                {"Data": {"List": [{"Int": 200}, {"Int": 200}]}},
                                 {
                                     "Data": {
                                         "List": [
-                                            {"Float": 0.0},
-                                            {"Float": 255.0},
-                                            {"Float": 0.0},
-                                            {"Float": 255.0},
+                                            {"Data": {"Int": 100}},
+                                            {"Data": {"Int": 100}},
+                                        ]
+                                    }
+                                },
+                                {
+                                    "Data": {
+                                        "List": [
+                                            {"Data": {"Int": 200}},
+                                            {"Data": {"Int": 200}},
+                                        ]
+                                    }
+                                },
+                                {
+                                    "Data": {
+                                        "List": [
+                                            {"Data": {"Float": 0.0}},
+                                            {"Data": {"Float": 255.0}},
+                                            {"Data": {"Float": 0.0}},
+                                            {"Data": {"Float": 255.0}},
                                         ]
                                     }
                                 },

@@ -36,6 +36,8 @@ pub fn filters() -> BTreeMap<String, Box<dyn filter::Filter>> {
         "cv2.copyMakeBorder".to_string(),
         Box::new(CopyMakeBorder {}),
     );
+    filters.insert("cv2.hconcat".to_string(), Box::new(Hconcat {}));
+    filters.insert("cv2.vconcat".to_string(), Box::new(Vconcat {}));
     filters
 }
 
@@ -2551,6 +2553,276 @@ impl filter::Filter for CopyMakeBorder {
             width: new_width,
             height: new_height,
             format: src_type.format,
+        })
+    }
+}
+
+pub struct Hconcat {}
+
+struct HconcatArgs {
+    sources: Vec<filter_utils::FrameArg>,
+}
+
+impl Hconcat {
+    fn args(
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> Result<HconcatArgs, String> {
+        let signature = filter_utils::FunctionSignature {
+            parameters: vec![Parameter::Positional { name: "tup" }],
+        };
+
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
+
+        let sources = match parsed_args.get("tup") {
+            Some(Val::List(list)) => {
+                let mut sources = Vec::new();
+                for item in list {
+                    match item {
+                        Val::Frame(frame) => {
+                            sources.push(filter_utils::FrameArg::Frame(frame.clone()));
+                        }
+                        Val::FrameType(frame_type) => {
+                            sources.push(filter_utils::FrameArg::FrameType(frame_type.clone()));
+                        }
+                        _ => return Err("Expected 'tup' to contain Frames".into()),
+                    }
+                }
+                sources
+            }
+            _ => return Err("Expected 'tup' to be a list".into()),
+        };
+
+        if sources.is_empty() {
+            return Err("Expected 'tup' to contain at least one Frame".into());
+        }
+
+        Ok(HconcatArgs { sources })
+    }
+}
+
+impl filter::Filter for Hconcat {
+    fn filter(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::Frame, dve::Error> {
+        let opts: HconcatArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        // Convert all frames to Mats
+        let mut mats: opencv::core::Vector<opencv::core::Mat> = opencv::core::Vector::new();
+        let mut total_width: i32 = 0;
+        let mut height: Option<i32> = None;
+
+        for source in &opts.sources {
+            let src = source.unwrap_frame();
+            debug_assert_eq!(src.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+
+            if let Some(h) = height {
+                if src.height != h {
+                    return Err(dve::Error::AVError(
+                        "All frames must have the same height for hconcat".into(),
+                    ));
+                }
+            } else {
+                height = Some(src.height);
+            }
+
+            total_width += src.width;
+            let mat = filter_utils::frame_to_mat_rgb24(&src, src.width, src.height);
+            mats.push(mat);
+        }
+
+        let mut dst_mat = opencv::core::Mat::default();
+        opencv::core::hconcat(&mats, &mut dst_mat).unwrap();
+
+        let f = match filter_utils::mat_to_frame_rgb24(dst_mat, total_width, height.unwrap()) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        Ok(filter::Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::FrameType, dve::Error> {
+        let opts: HconcatArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        let mut total_width: usize = 0;
+        let mut height: Option<usize> = None;
+        let mut format = None;
+
+        for source in &opts.sources {
+            let src_type = source.unwrap_frame_type();
+
+            if src_type.format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+                return Err(dve::Error::AVError("Expected RGB24 frame".into()));
+            }
+
+            if let Some(h) = height {
+                if src_type.height != h {
+                    return Err(dve::Error::AVError(
+                        "All frames must have the same height for hconcat".into(),
+                    ));
+                }
+            } else {
+                height = Some(src_type.height);
+                format = Some(src_type.format);
+            }
+
+            total_width += src_type.width;
+        }
+
+        Ok(filter::FrameType {
+            width: total_width,
+            height: height.unwrap(),
+            format: format.unwrap(),
+        })
+    }
+}
+
+pub struct Vconcat {}
+
+struct VconcatArgs {
+    sources: Vec<filter_utils::FrameArg>,
+}
+
+impl Vconcat {
+    fn args(
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> Result<VconcatArgs, String> {
+        let signature = filter_utils::FunctionSignature {
+            parameters: vec![Parameter::Positional { name: "tup" }],
+        };
+
+        let kwargs = kwargs.clone();
+        let args = args.to_vec();
+        let parsed_args = filter_utils::parse_arguments(&signature, args, kwargs)?;
+
+        let sources = match parsed_args.get("tup") {
+            Some(Val::List(list)) => {
+                let mut sources = Vec::new();
+                for item in list {
+                    match item {
+                        Val::Frame(frame) => {
+                            sources.push(filter_utils::FrameArg::Frame(frame.clone()));
+                        }
+                        Val::FrameType(frame_type) => {
+                            sources.push(filter_utils::FrameArg::FrameType(frame_type.clone()));
+                        }
+                        _ => return Err("Expected 'tup' to contain Frames".into()),
+                    }
+                }
+                sources
+            }
+            _ => return Err("Expected 'tup' to be a list".into()),
+        };
+
+        if sources.is_empty() {
+            return Err("Expected 'tup' to contain at least one Frame".into());
+        }
+
+        Ok(VconcatArgs { sources })
+    }
+}
+
+impl filter::Filter for Vconcat {
+    fn filter(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::Frame, dve::Error> {
+        let opts: VconcatArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        // Convert all frames to Mats
+        let mut mats: opencv::core::Vector<opencv::core::Mat> = opencv::core::Vector::new();
+        let mut total_height: i32 = 0;
+        let mut width: Option<i32> = None;
+
+        for source in &opts.sources {
+            let src = source.unwrap_frame();
+            debug_assert_eq!(src.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+
+            if let Some(w) = width {
+                if src.width != w {
+                    return Err(dve::Error::AVError(
+                        "All frames must have the same width for vconcat".into(),
+                    ));
+                }
+            } else {
+                width = Some(src.width);
+            }
+
+            total_height += src.height;
+            let mat = filter_utils::frame_to_mat_rgb24(&src, src.width, src.height);
+            mats.push(mat);
+        }
+
+        let mut dst_mat = opencv::core::Mat::default();
+        opencv::core::vconcat(&mats, &mut dst_mat).unwrap();
+
+        let f = match filter_utils::mat_to_frame_rgb24(dst_mat, width.unwrap(), total_height) {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
+
+        Ok(filter::Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[filter::Val],
+        kwargs: &BTreeMap<std::string::String, filter::Val>,
+    ) -> std::result::Result<filter::FrameType, dve::Error> {
+        let opts: VconcatArgs = match Self::args(args, kwargs) {
+            Ok(args) => args,
+            Err(err) => return Err(dve::Error::AVError(err)),
+        };
+
+        let mut total_height: usize = 0;
+        let mut width: Option<usize> = None;
+        let mut format = None;
+
+        for source in &opts.sources {
+            let src_type = source.unwrap_frame_type();
+
+            if src_type.format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+                return Err(dve::Error::AVError("Expected RGB24 frame".into()));
+            }
+
+            if let Some(w) = width {
+                if src_type.width != w {
+                    return Err(dve::Error::AVError(
+                        "All frames must have the same width for vconcat".into(),
+                    ));
+                }
+            } else {
+                width = Some(src_type.width);
+                format = Some(src_type.format);
+            }
+
+            total_height += src_type.height;
+        }
+
+        Ok(filter::FrameType {
+            width: width.unwrap(),
+            height: total_height,
+            format: format.unwrap(),
         })
     }
 }

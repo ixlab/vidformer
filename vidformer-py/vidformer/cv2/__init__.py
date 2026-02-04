@@ -84,6 +84,7 @@ _inline_mat = vf.Filter("_inline_mat")
 _slice_mat = vf.Filter("_slice_mat")
 _slice_write_mat = vf.Filter("_slice_write_mat")
 _black = vf.Filter("_black")
+_solid = vf.Filter("_solid")
 
 
 _filter_scale = vf.Filter("Scale")
@@ -103,6 +104,8 @@ _set_to = vf.Filter("cv2.setTo")
 _filter_flip = vf.Filter("cv2.flip")
 _filter_rotate = vf.Filter("cv2.rotate")
 _filter_copyMakeBorder = vf.Filter("cv2.copyMakeBorder")
+_filter_hconcat = vf.Filter("cv2.hconcat")
+_filter_vconcat = vf.Filter("cv2.vconcat")
 
 
 def _ts_to_fps(timestamps):
@@ -284,8 +287,6 @@ class Frame:
 
     def __setitem__(self, key, value):
         if type(key) is tuple:
-            value = frameify(value, "value")
-
             if len(key) != 2:
                 raise NotImplementedError("Only 2D slicing is supported")
 
@@ -316,6 +317,15 @@ class Frame:
                 or maxx > self.shape[1]
             ):
                 raise NotImplementedError("Invalid slice")
+
+            # Check if value is a color tuple/list (solid fill)
+            if isinstance(value, (tuple, list)) and len(value) in [3, 4]:
+                # Create a solid color frame of the right size
+                height = maxy - miny
+                width = maxx - minx
+                value = solid((height, width, self.shape[2]), value[:3])
+            else:
+                value = frameify(value, "value")
 
             if value.shape[0] != maxy - miny or value.shape[1] != maxx - minx:
                 raise NotImplementedError("Shape mismatch")
@@ -681,6 +691,37 @@ def zeros(shape, dtype=np.uint8):
         pix_fmt = "rgb24"
 
     f = _black(width=width, height=height, pix_fmt=pix_fmt)
+    fmt = {"width": width, "height": height, "pix_fmt": pix_fmt}
+    return Frame(f, fmt)
+
+
+def solid(shape, color, dtype=np.uint8):
+    """
+    Create a solid color frame.
+
+    Parameters:
+        shape: (height, width, channels) tuple
+        color: (B, G, R) tuple for BGR color (OpenCV convention)
+        dtype: must be np.uint8
+    """
+    assert isinstance(shape, tuple) or isinstance(shape, list)
+    assert len(shape) == 3
+    assert shape[2] in [1, 3]
+    assert dtype == np.uint8
+
+    height, width, channels = shape
+    if channels == 1:
+        pix_fmt = "gray"
+    else:
+        pix_fmt = "rgb24"
+
+    # Convert BGR to RGB for internal storage
+    if len(color) == 3:
+        r, g, b = color[2], color[1], color[0]
+    else:
+        r, g, b = color[0], color[1], color[2]
+
+    f = _solid(width=width, height=height, pix_fmt=pix_fmt, color=[r, g, b])
     fmt = {"width": width, "height": height, "pix_fmt": pix_fmt}
     return Frame(f, fmt)
 
@@ -1333,4 +1374,78 @@ def copyMakeBorder(src, top, bottom, left, right, borderType, value=None):
 
     f = _filter_copyMakeBorder(src._f, top, bottom, left, right, borderType, value)
     fmt = {"width": new_width, "height": new_height, "pix_fmt": src._fmt["pix_fmt"]}
+    return Frame(f, fmt)
+
+
+def hconcat(src):
+    """
+    cv.hconcat(src[, dst]) -> dst
+
+    Concatenates arrays horizontally.
+
+    Parameters:
+        src: sequence of arrays to concatenate. All arrays must have the same height.
+    """
+    assert isinstance(src, (list, tuple)) and len(src) > 0
+
+    frames = []
+    height = None
+    pix_fmt = None
+
+    for item in src:
+        item = frameify(item)
+        item._mut()
+
+        if height is None:
+            height = item._fmt["height"]
+            pix_fmt = item._fmt["pix_fmt"]
+        else:
+            assert (
+                item._fmt["height"] == height
+            ), "All frames must have the same height for hconcat"
+
+        frames.append(item._f)
+
+    # Calculate total width
+    total_width = sum(frameify(item)._fmt["width"] for item in src)
+
+    f = _filter_hconcat([frame for frame in frames])
+    fmt = {"width": total_width, "height": height, "pix_fmt": pix_fmt}
+    return Frame(f, fmt)
+
+
+def vconcat(src):
+    """
+    cv.vconcat(src[, dst]) -> dst
+
+    Concatenates arrays vertically.
+
+    Parameters:
+        src: sequence of arrays to concatenate. All arrays must have the same width.
+    """
+    assert isinstance(src, (list, tuple)) and len(src) > 0
+
+    frames = []
+    width = None
+    pix_fmt = None
+
+    for item in src:
+        item = frameify(item)
+        item._mut()
+
+        if width is None:
+            width = item._fmt["width"]
+            pix_fmt = item._fmt["pix_fmt"]
+        else:
+            assert (
+                item._fmt["width"] == width
+            ), "All frames must have the same width for vconcat"
+
+        frames.append(item._f)
+
+    # Calculate total height
+    total_height = sum(frameify(item)._fmt["height"] for item in src)
+
+    f = _filter_vconcat([frame for frame in frames])
+    fmt = {"width": width, "height": total_height, "pix_fmt": pix_fmt}
     return Frame(f, fmt)

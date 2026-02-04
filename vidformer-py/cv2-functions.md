@@ -60,8 +60,10 @@ Drawing Functions:
 |addWeighted|✅|
 |copyMakeBorder|✅|
 |flip|✅|
+|hconcat|✅|
 |resize|✅|
 |rotate|✅|
+|vconcat|✅|
 
 ## Output Comparison
 
