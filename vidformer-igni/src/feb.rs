@@ -843,19 +843,19 @@ mod test {
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-3)),
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-100_000_000_000)),
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(vec![
-                    vidformer::sir::DataExpr::Int(-8),
-                    vidformer::sir::DataExpr::Int(-1024),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-8)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-1024)),
                 ])),
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(vec![
-                    vidformer::sir::DataExpr::Int(-1),
-                    vidformer::sir::DataExpr::Int(-2),
-                    vidformer::sir::DataExpr::Int(-3),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-1)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-2)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-3)),
                 ])),
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(vec![
-                    vidformer::sir::DataExpr::Int(-1),
-                    vidformer::sir::DataExpr::Int(-2000),
-                    vidformer::sir::DataExpr::Int(-3),
-                    vidformer::sir::DataExpr::Int(-8192),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-1)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-2000)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-3)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(-8192)),
                 ])),
             ],
             kwargs: std::collections::BTreeMap::new(),
@@ -874,7 +874,9 @@ mod test {
                 name: "filter".to_string(),
                 args: vec![vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(
                     (0..i)
-                        .map(|j| vidformer::sir::DataExpr::Int(j as i64 + 3))
+                        .map(|j| {
+                            vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(j as i64 + 3))
+                        })
                         .collect(),
                 ))],
                 kwargs: std::collections::BTreeMap::new(),
@@ -897,11 +899,15 @@ mod test {
                 args: vec![vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(
                     (0..i)
                         .map(|j| {
-                            vidformer::sir::DataExpr::List(
+                            vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(
                                 (0..j)
-                                    .map(|k| vidformer::sir::DataExpr::Int(k as i64 + 3))
+                                    .map(|k| {
+                                        vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(
+                                            k as i64 + 3,
+                                        ))
+                                    })
                                     .collect(),
-                            )
+                            ))
                         })
                         .collect(),
                 ))],
@@ -923,9 +929,9 @@ mod test {
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(3)),
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Float(4.0)), // this float can be exactly represented as an f32
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(vec![
-                    vidformer::sir::DataExpr::Int(1),
-                    vidformer::sir::DataExpr::Int(2),
-                    vidformer::sir::DataExpr::Int(3),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(1)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(2)),
+                    vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(3)),
                 ])),
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::String("hello".to_string())),
                 vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Bytes(vec![0x01, 0x02, 0x03])),
