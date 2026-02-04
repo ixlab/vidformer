@@ -452,7 +452,7 @@ class VideoCapture:
 
     def set(self, prop, value):
         if prop == CAP_PROP_POS_FRAMES:
-            assert value >= 0 and value < len(self._source.ts())
+            assert value >= 0 and value < len(self._source)
             self._next_frame_idx = value
         elif prop == CAP_PROP_POS_MSEC:
             t = Fraction(int(value), 1000)
