@@ -24,6 +24,7 @@ pub fn filters() -> BTreeMap<String, std::boxed::Box<dyn Filter>> {
         std::boxed::Box::new(SliceWriteMat {}),
     );
     filters.insert("_black".to_string(), std::boxed::Box::new(Black {}));
+    filters.insert("_solid".to_string(), std::boxed::Box::new(Solid {}));
     filters
 }
 
@@ -497,6 +498,176 @@ impl super::Filter for Black {
             Some(Val::String(s)) => s,
             _ => return Err(Error::MissingFilterArg),
         };
+
+        let ff_pix_fmt = match crate::util::pixel_fmt_str_to_av_pix_fmt(pix_fmt.as_str()) {
+            Ok(fmt) => fmt,
+            Err(_e) => {
+                return Err(Error::InvalidFilterArgValue(
+                    "pix_fmt".to_string(),
+                    pix_fmt.clone(),
+                ))
+            }
+        };
+
+        if !args.is_empty() {
+            return Err(Error::InvalidFilterArgValue(
+                format!("{:?}", args.len()),
+                "Invalid number of arguments".to_string(),
+            ));
+        }
+
+        Ok(FrameType {
+            width: width as usize,
+            height: height as usize,
+            format: ff_pix_fmt,
+        })
+    }
+}
+
+pub struct Solid;
+impl super::Filter for Solid {
+    fn filter(
+        &self,
+        _args: &[Val],
+        kwargs: &BTreeMap<String, Val>,
+    ) -> Result<Frame, crate::dve::Error> {
+        let width = match kwargs.get("width").unwrap() {
+            Val::Int(i) => *i,
+            _ => panic!("Expected int"),
+        };
+
+        let height = match kwargs.get("height").unwrap() {
+            Val::Int(i) => *i,
+            _ => panic!("Expected int"),
+        };
+
+        let pix_fmt = match kwargs.get("pix_fmt").unwrap() {
+            Val::String(s) => s,
+            _ => panic!("Expected string"),
+        };
+
+        let color = match kwargs.get("color").unwrap() {
+            Val::List(list) => {
+                if list.len() != 3 {
+                    panic!("Expected color list of length 3");
+                }
+                let r = match &list[0] {
+                    Val::Int(i) => *i as u8,
+                    Val::Float(f) => *f as u8,
+                    _ => panic!("Expected int or float in color"),
+                };
+                let g = match &list[1] {
+                    Val::Int(i) => *i as u8,
+                    Val::Float(f) => *f as u8,
+                    _ => panic!("Expected int or float in color"),
+                };
+                let b = match &list[2] {
+                    Val::Int(i) => *i as u8,
+                    Val::Float(f) => *f as u8,
+                    _ => panic!("Expected int or float in color"),
+                };
+                (r, g, b)
+            }
+            _ => panic!("Expected list for color"),
+        };
+
+        let is_gray = pix_fmt == "gray";
+        let is_rgb24 = pix_fmt == "rgb24";
+        if !is_gray && !is_rgb24 {
+            return Err(Error::InvalidFilterArgValue(
+                "pix_fmt".to_string(),
+                format!("{} (only rgb24 and gray are supported)", pix_fmt),
+            ));
+        }
+
+        let pix_fmt_ffmpeg = match crate::util::pixel_fmt_str_to_av_pix_fmt(pix_fmt.as_str()) {
+            Ok(pix_fmt) => pix_fmt,
+            Err(_e) => {
+                return Err(Error::InvalidFilterArgValue(
+                    "pix_fmt".to_string(),
+                    pix_fmt.clone(),
+                ))
+            }
+        };
+
+        let f = unsafe { ffi::av_frame_alloc() };
+        if f.is_null() {
+            panic!("ERROR could not allocate frame");
+        }
+
+        unsafe {
+            (*f).width = width as i32;
+            (*f).height = height as i32;
+            (*f).format = pix_fmt_ffmpeg;
+
+            if ffi::av_frame_get_buffer(f, 0) < 0 {
+                panic!("ERROR could not allocate frame data");
+            }
+        }
+
+        // Fill the frame with the color
+        let (r, g, b) = color;
+        if r == 0 && g == 0 && b == 0 {
+            // Optimization: use memset for black
+            let data_size = unsafe { (*f).linesize[0] as usize * height as usize };
+            unsafe {
+                std::ptr::write_bytes((*f).data[0], 0, data_size);
+            }
+        } else if is_gray {
+            // Fill with grayscale value (use r component as the gray value)
+            let linesize = unsafe { (*f).linesize[0] as usize };
+            for y in 0..height as usize {
+                for x in 0..width as usize {
+                    let offset = y * linesize + x;
+                    unsafe {
+                        *(*f).data[0].add(offset) = r;
+                    }
+                }
+            }
+        } else {
+            // Fill with RGB24 color (3 bytes per pixel)
+            let linesize = unsafe { (*f).linesize[0] as usize };
+            for y in 0..height as usize {
+                for x in 0..width as usize {
+                    let offset = y * linesize + x * 3;
+                    unsafe {
+                        *(*f).data[0].add(offset) = r;
+                        *(*f).data[0].add(offset + 1) = g;
+                        *(*f).data[0].add(offset + 2) = b;
+                    }
+                }
+            }
+        }
+
+        Ok(Frame::new(AVFrame { inner: f }))
+    }
+
+    fn filter_type(
+        &self,
+        args: &[Val],
+        kwargs: &BTreeMap<String, Val>,
+    ) -> Result<FrameType, Error> {
+        let width = match kwargs.get("width") {
+            Some(Val::Int(i)) => *i,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        let height = match kwargs.get("height") {
+            Some(Val::Int(i)) => *i,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        let pix_fmt = match kwargs.get("pix_fmt") {
+            Some(Val::String(s)) => s,
+            _ => return Err(Error::MissingFilterArg),
+        };
+
+        if pix_fmt != "rgb24" && pix_fmt != "gray" {
+            return Err(Error::InvalidFilterArgValue(
+                "pix_fmt".to_string(),
+                format!("{} (only rgb24 and gray are supported)", pix_fmt),
+            ));
+        }
 
         let ff_pix_fmt = match crate::util::pixel_fmt_str_to_av_pix_fmt(pix_fmt.as_str()) {
             Ok(fmt) => fmt,

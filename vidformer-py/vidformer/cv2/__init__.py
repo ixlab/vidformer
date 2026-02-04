@@ -84,6 +84,7 @@ _inline_mat = vf.Filter("_inline_mat")
 _slice_mat = vf.Filter("_slice_mat")
 _slice_write_mat = vf.Filter("_slice_write_mat")
 _black = vf.Filter("_black")
+_solid = vf.Filter("_solid")
 
 
 _filter_scale = vf.Filter("Scale")
@@ -286,8 +287,6 @@ class Frame:
 
     def __setitem__(self, key, value):
         if type(key) is tuple:
-            value = frameify(value, "value")
-
             if len(key) != 2:
                 raise NotImplementedError("Only 2D slicing is supported")
 
@@ -318,6 +317,15 @@ class Frame:
                 or maxx > self.shape[1]
             ):
                 raise NotImplementedError("Invalid slice")
+
+            # Check if value is a color tuple/list (solid fill)
+            if isinstance(value, (tuple, list)) and len(value) in [3, 4]:
+                # Create a solid color frame of the right size
+                height = maxy - miny
+                width = maxx - minx
+                value = solid((height, width, self.shape[2]), value[:3])
+            else:
+                value = frameify(value, "value")
 
             if value.shape[0] != maxy - miny or value.shape[1] != maxx - minx:
                 raise NotImplementedError("Shape mismatch")
@@ -683,6 +691,37 @@ def zeros(shape, dtype=np.uint8):
         pix_fmt = "rgb24"
 
     f = _black(width=width, height=height, pix_fmt=pix_fmt)
+    fmt = {"width": width, "height": height, "pix_fmt": pix_fmt}
+    return Frame(f, fmt)
+
+
+def solid(shape, color, dtype=np.uint8):
+    """
+    Create a solid color frame.
+
+    Parameters:
+        shape: (height, width, channels) tuple
+        color: (B, G, R) tuple for BGR color (OpenCV convention)
+        dtype: must be np.uint8
+    """
+    assert isinstance(shape, tuple) or isinstance(shape, list)
+    assert len(shape) == 3
+    assert shape[2] in [1, 3]
+    assert dtype == np.uint8
+
+    height, width, channels = shape
+    if channels == 1:
+        pix_fmt = "gray"
+    else:
+        pix_fmt = "rgb24"
+
+    # Convert BGR to RGB for internal storage
+    if len(color) == 3:
+        r, g, b = color[2], color[1], color[0]
+    else:
+        r, g, b = color[0], color[1], color[2]
+
+    f = _solid(width=width, height=height, pix_fmt=pix_fmt, color=[r, g, b])
     fmt = {"width": width, "height": height, "pix_fmt": pix_fmt}
     return Frame(f, fmt)
 
