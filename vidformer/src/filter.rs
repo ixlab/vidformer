@@ -95,7 +95,14 @@ impl FrameType {
 }
 
 impl Val {
-    pub fn from_expr(expr: &crate::sir::DataExpr, _context: &crate::dve::Context) -> Self {
+    pub fn from_data_expr_with_frame_converter<F>(
+        expr: &crate::sir::DataExpr,
+        _context: &crate::dve::Context,
+        frame_converter: F,
+    ) -> Self
+    where
+        F: Fn(&crate::sir::FrameExpr) -> Val + Copy,
+    {
         match expr {
             crate::sir::DataExpr::Bool(b) => Val::Bool(*b),
             crate::sir::DataExpr::Int(i) => Val::Int(*i),
@@ -105,7 +112,14 @@ impl Val {
             crate::sir::DataExpr::List(list) => {
                 let list = list
                     .iter()
-                    .map(|expr| Val::from_expr(expr, _context))
+                    .map(|item| match item {
+                        crate::sir::Expr::Frame(frame) => frame_converter(frame),
+                        crate::sir::Expr::Data(data) => Self::from_data_expr_with_frame_converter(
+                            data,
+                            _context,
+                            frame_converter,
+                        ),
+                    })
                     .collect();
                 Val::List(list)
             }

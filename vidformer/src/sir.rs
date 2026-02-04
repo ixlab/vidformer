@@ -65,7 +65,9 @@ impl Expr {
             Expr::Frame(frame) => {
                 frame.add_source_deps(deps);
             }
-            Expr::Data(_) => {}
+            Expr::Data(data) => {
+                data.add_source_deps(deps);
+            }
         }
     }
 }
@@ -78,7 +80,17 @@ pub enum DataExpr {
     String(String),
     Bytes(Vec<u8>),
     Float(f64),
-    List(Vec<DataExpr>),
+    List(Vec<Expr>),
+}
+
+impl DataExpr {
+    pub(crate) fn add_source_deps<'a>(&'a self, deps: &mut BTreeSet<&'a FrameSource>) {
+        if let DataExpr::List(list) = self {
+            for item in list {
+                item.add_source_deps(deps);
+            }
+        }
+    }
 }
 
 impl Display for DataExpr {
@@ -92,7 +104,10 @@ impl Display for DataExpr {
             DataExpr::List(list) => {
                 write!(f, "[")?;
                 for (idx, item) in list.iter().enumerate() {
-                    write!(f, "{}", item)?;
+                    match item {
+                        Expr::Frame(frame) => write!(f, "{}", frame)?,
+                        Expr::Data(data) => write!(f, "{}", data)?,
+                    }
                     if idx < list.len() - 1 {
                         write!(f, ", ")?;
                     }

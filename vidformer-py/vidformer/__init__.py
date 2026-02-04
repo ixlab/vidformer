@@ -295,7 +295,7 @@ class _FrameExpressionBlock:
                 if _feb_expr_coded_as_scalar(member):
                     member_idxs.append(None)
                 else:
-                    member_idxs.append(self.insert_data_expr(member))
+                    member_idxs.append(self.insert_expr(member))
 
             out = len(self._exprs)
             self._exprs.append(0x42000000_00000000 | len(data))

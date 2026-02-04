@@ -2559,3 +2559,245 @@ def test_copyMakeBorder_video_vf():
 
 
 # =============================================================================
+# hconcat tests
+# =============================================================================
+
+
+def test_hconcat_two_frames():
+    """Test hconcat with two frames"""
+    width1, height = 50, 80
+    width2 = 70
+    color1 = (255, 0, 0)  # blue
+    color2 = (0, 255, 0)  # green
+
+    # OpenCV
+    canvas1_ocv = np.zeros((height, width1, 3), dtype=np.uint8)
+    canvas2_ocv = np.zeros((height, width2, 3), dtype=np.uint8)
+    ocv_cv2.rectangle(canvas1_ocv, (5, 5), (45, 75), color1, -1)
+    ocv_cv2.rectangle(canvas2_ocv, (5, 5), (65, 75), color2, -1)
+    stacked_ocv = np.hstack([canvas1_ocv, canvas2_ocv])
+
+    # Vidformer
+    canvas1_vf = vf_cv2.zeros((height, width1, 3))
+    canvas2_vf = vf_cv2.zeros((height, width2, 3))
+    vf_cv2.rectangle(canvas1_vf, (5, 5), (45, 75), color1, -1)
+    vf_cv2.rectangle(canvas2_vf, (5, 5), (65, 75), color2, -1)
+    stacked_vf = vf_cv2.hconcat([canvas1_vf, canvas2_vf]).numpy()
+
+    assert (
+        stacked_vf.shape == stacked_ocv.shape
+    ), f"hconcat shape mismatch: {stacked_vf.shape} vs {stacked_ocv.shape}"
+    assert np.allclose(stacked_ocv, stacked_vf, atol=1), "hconcat mismatch"
+
+
+def test_hconcat_three_frames():
+    """Test hconcat with three frames"""
+    width1, width2, width3 = 40, 50, 60
+    height = 100
+
+    # OpenCV
+    canvas1_ocv = np.full((height, width1, 3), (100, 0, 0), dtype=np.uint8)
+    canvas2_ocv = np.full((height, width2, 3), (0, 100, 0), dtype=np.uint8)
+    canvas3_ocv = np.full((height, width3, 3), (0, 0, 100), dtype=np.uint8)
+    stacked_ocv = np.hstack([canvas1_ocv, canvas2_ocv, canvas3_ocv])
+
+    # Vidformer
+    canvas1_vf = vf_cv2.frameify(
+        np.full((height, width1, 3), (100, 0, 0), dtype=np.uint8)
+    )
+    canvas2_vf = vf_cv2.frameify(
+        np.full((height, width2, 3), (0, 100, 0), dtype=np.uint8)
+    )
+    canvas3_vf = vf_cv2.frameify(
+        np.full((height, width3, 3), (0, 0, 100), dtype=np.uint8)
+    )
+    stacked_vf = vf_cv2.hconcat([canvas1_vf, canvas2_vf, canvas3_vf]).numpy()
+
+    expected_shape = (height, width1 + width2 + width3, 3)
+    assert (
+        stacked_vf.shape == expected_shape
+    ), f"hconcat shape mismatch: {stacked_vf.shape} vs {expected_shape}"
+    assert np.allclose(stacked_ocv, stacked_vf, atol=1), "hstack three frames mismatch"
+
+
+def test_hconcat_single_frame():
+    """Test hconcat with a single frame"""
+    width, height = 100, 80
+
+    # OpenCV
+    canvas_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.rectangle(canvas_ocv, (10, 10), (90, 70), (255, 128, 64), -1)
+    stacked_ocv = np.hstack([canvas_ocv])
+
+    # Vidformer
+    canvas_vf = vf_cv2.zeros((height, width, 3))
+    vf_cv2.rectangle(canvas_vf, (10, 10), (90, 70), (255, 128, 64), -1)
+    stacked_vf = vf_cv2.hconcat([canvas_vf]).numpy()
+
+    assert stacked_vf.shape == stacked_ocv.shape, "hstack single frame shape mismatch"
+    assert np.allclose(stacked_ocv, stacked_vf, atol=1), "hstack single frame mismatch"
+
+
+# =============================================================================
+# vconcat tests
+# =============================================================================
+
+
+def test_vconcat_two_frames():
+    """Test vconcat with two frames"""
+    width = 100
+    height1, height2 = 50, 70
+    color1 = (255, 0, 0)  # blue
+    color2 = (0, 255, 0)  # green
+
+    # OpenCV
+    canvas1_ocv = np.zeros((height1, width, 3), dtype=np.uint8)
+    canvas2_ocv = np.zeros((height2, width, 3), dtype=np.uint8)
+    ocv_cv2.rectangle(canvas1_ocv, (5, 5), (95, 45), color1, -1)
+    ocv_cv2.rectangle(canvas2_ocv, (5, 5), (95, 65), color2, -1)
+    stacked_ocv = np.vstack([canvas1_ocv, canvas2_ocv])
+
+    # Vidformer
+    canvas1_vf = vf_cv2.zeros((height1, width, 3))
+    canvas2_vf = vf_cv2.zeros((height2, width, 3))
+    vf_cv2.rectangle(canvas1_vf, (5, 5), (95, 45), color1, -1)
+    vf_cv2.rectangle(canvas2_vf, (5, 5), (95, 65), color2, -1)
+    stacked_vf = vf_cv2.vconcat([canvas1_vf, canvas2_vf]).numpy()
+
+    assert (
+        stacked_vf.shape == stacked_ocv.shape
+    ), f"vconcat shape mismatch: {stacked_vf.shape} vs {stacked_ocv.shape}"
+    assert np.allclose(stacked_ocv, stacked_vf, atol=1), "vconcat mismatch"
+
+
+def test_vconcat_three_frames():
+    """Test vconcat with three frames"""
+    width = 120
+    height1, height2, height3 = 40, 50, 60
+
+    # OpenCV
+    canvas1_ocv = np.full((height1, width, 3), (100, 0, 0), dtype=np.uint8)
+    canvas2_ocv = np.full((height2, width, 3), (0, 100, 0), dtype=np.uint8)
+    canvas3_ocv = np.full((height3, width, 3), (0, 0, 100), dtype=np.uint8)
+    stacked_ocv = np.vstack([canvas1_ocv, canvas2_ocv, canvas3_ocv])
+
+    # Vidformer
+    canvas1_vf = vf_cv2.frameify(
+        np.full((height1, width, 3), (100, 0, 0), dtype=np.uint8)
+    )
+    canvas2_vf = vf_cv2.frameify(
+        np.full((height2, width, 3), (0, 100, 0), dtype=np.uint8)
+    )
+    canvas3_vf = vf_cv2.frameify(
+        np.full((height3, width, 3), (0, 0, 100), dtype=np.uint8)
+    )
+    stacked_vf = vf_cv2.vconcat([canvas1_vf, canvas2_vf, canvas3_vf]).numpy()
+
+    expected_shape = (height1 + height2 + height3, width, 3)
+    assert (
+        stacked_vf.shape == expected_shape
+    ), f"vconcat shape mismatch: {stacked_vf.shape} vs {expected_shape}"
+    assert np.allclose(stacked_ocv, stacked_vf, atol=1), "vstack three frames mismatch"
+
+
+def test_vconcat_single_frame():
+    """Test vconcat with a single frame"""
+    width, height = 100, 80
+
+    # OpenCV
+    canvas_ocv = np.zeros((height, width, 3), dtype=np.uint8)
+    ocv_cv2.rectangle(canvas_ocv, (10, 10), (90, 70), (255, 128, 64), -1)
+    stacked_ocv = np.vstack([canvas_ocv])
+
+    # Vidformer
+    canvas_vf = vf_cv2.zeros((height, width, 3))
+    vf_cv2.rectangle(canvas_vf, (10, 10), (90, 70), (255, 128, 64), -1)
+    stacked_vf = vf_cv2.vconcat([canvas_vf]).numpy()
+
+    assert stacked_vf.shape == stacked_ocv.shape, "vstack single frame shape mismatch"
+    assert np.allclose(stacked_ocv, stacked_vf, atol=1), "vstack single frame mismatch"
+
+
+def hconcat_video(cv2):
+    """Test hconcat in video processing pipeline"""
+    cap = cv2.VideoCapture(TEST_VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(
+        path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width * 2, height)
+    )
+
+    frame_count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # Stack frame horizontally with itself
+        stacked = cv2.hconcat([frame, frame])
+        out.write(stacked)
+        frame_count += 1
+        if frame_count >= 5:
+            break
+
+    cap.release()
+    out.release()
+    assert os.path.exists(path)
+    os.remove(path)
+
+
+def test_hconcat_video_ocv():
+    hconcat_video(ocv_cv2)
+
+
+def test_hconcat_video_vf():
+    hconcat_video(vf_cv2)
+
+
+def vconcat_video(cv2):
+    """Test vconcat in video processing pipeline"""
+    cap = cv2.VideoCapture(TEST_VID_PATH)
+    assert cap.isOpened()
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    path = tmp_path("mp4")
+    out = cv2.VideoWriter(
+        path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height * 2)
+    )
+
+    frame_count = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # Stack frame vertically with itself
+        stacked = cv2.vconcat([frame, frame])
+        out.write(stacked)
+        frame_count += 1
+        if frame_count >= 5:
+            break
+
+    cap.release()
+    out.release()
+    assert os.path.exists(path)
+    os.remove(path)
+
+
+def test_vconcat_video_ocv():
+    vconcat_video(ocv_cv2)
+
+
+def test_vconcat_video_vf():
+    vconcat_video(vf_cv2)
+
+
+# =============================================================================

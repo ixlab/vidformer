@@ -103,6 +103,8 @@ _set_to = vf.Filter("cv2.setTo")
 _filter_flip = vf.Filter("cv2.flip")
 _filter_rotate = vf.Filter("cv2.rotate")
 _filter_copyMakeBorder = vf.Filter("cv2.copyMakeBorder")
+_filter_hconcat = vf.Filter("cv2.hconcat")
+_filter_vconcat = vf.Filter("cv2.vconcat")
 
 
 def _ts_to_fps(timestamps):
@@ -1333,4 +1335,78 @@ def copyMakeBorder(src, top, bottom, left, right, borderType, value=None):
 
     f = _filter_copyMakeBorder(src._f, top, bottom, left, right, borderType, value)
     fmt = {"width": new_width, "height": new_height, "pix_fmt": src._fmt["pix_fmt"]}
+    return Frame(f, fmt)
+
+
+def hconcat(src):
+    """
+    cv.hconcat(src[, dst]) -> dst
+
+    Concatenates arrays horizontally.
+
+    Parameters:
+        src: sequence of arrays to concatenate. All arrays must have the same height.
+    """
+    assert isinstance(src, (list, tuple)) and len(src) > 0
+
+    frames = []
+    height = None
+    pix_fmt = None
+
+    for item in src:
+        item = frameify(item)
+        item._mut()
+
+        if height is None:
+            height = item._fmt["height"]
+            pix_fmt = item._fmt["pix_fmt"]
+        else:
+            assert (
+                item._fmt["height"] == height
+            ), "All frames must have the same height for hconcat"
+
+        frames.append(item._f)
+
+    # Calculate total width
+    total_width = sum(frameify(item)._fmt["width"] for item in src)
+
+    f = _filter_hconcat([frame for frame in frames])
+    fmt = {"width": total_width, "height": height, "pix_fmt": pix_fmt}
+    return Frame(f, fmt)
+
+
+def vconcat(src):
+    """
+    cv.vconcat(src[, dst]) -> dst
+
+    Concatenates arrays vertically.
+
+    Parameters:
+        src: sequence of arrays to concatenate. All arrays must have the same width.
+    """
+    assert isinstance(src, (list, tuple)) and len(src) > 0
+
+    frames = []
+    width = None
+    pix_fmt = None
+
+    for item in src:
+        item = frameify(item)
+        item._mut()
+
+        if width is None:
+            width = item._fmt["width"]
+            pix_fmt = item._fmt["pix_fmt"]
+        else:
+            assert (
+                item._fmt["width"] == width
+            ), "All frames must have the same width for vconcat"
+
+        frames.append(item._f)
+
+    # Calculate total height
+    total_height = sum(frameify(item)._fmt["height"] for item in src)
+
+    f = _filter_vconcat([frame for frame in frames])
+    fmt = {"width": width, "height": total_height, "pix_fmt": pix_fmt}
     return Frame(f, fmt)
