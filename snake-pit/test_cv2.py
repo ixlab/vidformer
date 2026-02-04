@@ -2295,7 +2295,9 @@ def test_slice_assign_scalar():
     canvas_vf[80:100, :] = 50
     canvas_vf = canvas_vf.numpy()
 
-    assert np.allclose(canvas_ocv, canvas_vf, atol=1), "Scalar slice assignment mismatch"
+    assert np.allclose(
+        canvas_ocv, canvas_vf, atol=1
+    ), "Scalar slice assignment mismatch"
 
 
 def test_slice_assign_scalar_with_color():
