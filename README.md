@@ -11,6 +11,8 @@ See the [preprint on arXiv](https://arxiv.org/abs/2601.17221) for details.
 
 Developed by the OSU Interactive Data Systems Lab.
 
+![Vidformer teaser](misc/landing-page/static/images/teaser.png)
+
 ## Quick Start
 
 To quickly try out Vidformer you can:
