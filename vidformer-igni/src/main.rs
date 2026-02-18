@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use rand::Rng;
+use rand::RngExt;
 use sqlx::postgres::PgPoolOptions;
 use tabled::{Table, Tabled};
 
