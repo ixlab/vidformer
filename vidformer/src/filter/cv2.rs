@@ -146,7 +146,7 @@ impl filter::Filter for Rectangle {
 
         let img = opts.img.unwrap_frame();
         let (width, height) = (img.width, img.height);
-        debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+        debug_assert_eq!(img.format, ffi::AV_PIX_FMT_RGB24);
 
         let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
 
@@ -185,7 +185,7 @@ impl filter::Filter for Rectangle {
             Err(err) => return Err(dve::Error::AVError(err)),
         };
 
-        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+        if opts.img.unwrap_frame_type().format != ffi::AV_PIX_FMT_RGB24 {
             return Err(dve::Error::AVError("Expected RGB24 frame".into()));
         }
 
@@ -319,7 +319,7 @@ impl filter::Filter for PutText {
 
         let img = opts.img.unwrap_frame();
         let (width, height) = (img.width, img.height);
-        debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+        debug_assert_eq!(img.format, ffi::AV_PIX_FMT_RGB24);
 
         let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
 
@@ -358,7 +358,7 @@ impl filter::Filter for PutText {
             Err(err) => return Err(dve::Error::AVError(err)),
         };
 
-        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+        if opts.img.unwrap_frame_type().format != ffi::AV_PIX_FMT_RGB24 {
             return Err(dve::Error::AVError("Expected RGB24 frame".into()));
         }
 
@@ -481,7 +481,7 @@ impl filter::Filter for ArrowedLine {
 
         let img = opts.img.unwrap_frame();
         let (width, height) = (img.width, img.height);
-        debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+        debug_assert_eq!(img.format, ffi::AV_PIX_FMT_RGB24);
 
         let mut mat = frame_to_mat_rgb24(&img, width, height);
 
@@ -520,7 +520,7 @@ impl filter::Filter for ArrowedLine {
             Err(err) => return Err(dve::Error::AVError(err)),
         };
 
-        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+        if opts.img.unwrap_frame_type().format != ffi::AV_PIX_FMT_RGB24 {
             return Err(dve::Error::AVError("Expected RGB24 frame".into()));
         }
 
@@ -631,7 +631,7 @@ impl filter::Filter for Line {
 
         let img = opts.img.unwrap_frame();
         let (width, height) = (img.width, img.height);
-        debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+        debug_assert_eq!(img.format, ffi::AV_PIX_FMT_RGB24);
 
         let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
 
@@ -669,7 +669,7 @@ impl filter::Filter for Line {
             Err(err) => return Err(dve::Error::AVError(err)),
         };
 
-        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+        if opts.img.unwrap_frame_type().format != ffi::AV_PIX_FMT_RGB24 {
             return Err(dve::Error::AVError("Expected RGB24 frame".into()));
         }
 
@@ -785,7 +785,7 @@ impl filter::Filter for Circle {
 
         let img = opts.img.unwrap_frame();
         let (width, height) = (img.width, img.height);
-        debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+        debug_assert_eq!(img.format, ffi::AV_PIX_FMT_RGB24);
 
         let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
 
@@ -822,7 +822,7 @@ impl filter::Filter for Circle {
             Err(err) => return Err(dve::Error::AVError(err)),
         };
 
-        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+        if opts.img.unwrap_frame_type().format != ffi::AV_PIX_FMT_RGB24 {
             return Err(dve::Error::AVError("Expected RGB24 frame".into()));
         }
 
@@ -973,7 +973,7 @@ impl Filter for Ellipse {
 
         let img = opts.img.unwrap_frame();
         let (width, height) = (img.width, img.height);
-        debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+        debug_assert_eq!(img.format, ffi::AV_PIX_FMT_RGB24);
 
         let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
 
@@ -1014,7 +1014,7 @@ impl Filter for Ellipse {
             Err(err) => return Err(crate::dve::Error::AVError(err)),
         };
 
-        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+        if opts.img.unwrap_frame_type().format != ffi::AV_PIX_FMT_RGB24 {
             return Err(crate::dve::Error::FilterInternalError(
                 "Expected RGB24 frame".into(),
             ));
@@ -1119,14 +1119,14 @@ impl Filter for SetTo {
         };
 
         // check img is RGB24
-        if opts.img.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+        if opts.img.unwrap_frame_type().format != ffi::AV_PIX_FMT_RGB24 {
             return Err(crate::dve::Error::FilterInternalError(
                 "Expected img to be an RGB24 frame".into(),
             ));
         }
 
         // check mask is grayscale
-        if opts.mask.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_GRAY8 {
+        if opts.mask.unwrap_frame_type().format != ffi::AV_PIX_FMT_GRAY8 {
             return Err(crate::dve::Error::FilterInternalError(
                 "Expected mask to be a grayscale frame".into(),
             ));
@@ -1236,8 +1236,8 @@ impl Filter for AddWeighted {
         let src2 = opts.src2.unwrap_frame();
 
         let (width, height) = (src1.width, src1.height);
-        debug_assert_eq!(src1.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
-        debug_assert_eq!(src2.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+        debug_assert_eq!(src1.format, ffi::AV_PIX_FMT_RGB24);
+        debug_assert_eq!(src2.format, ffi::AV_PIX_FMT_RGB24);
 
         let src1_mat = filter_utils::frame_to_mat_rgb24(&src1, width, height);
         let src2_mat = filter_utils::frame_to_mat_rgb24(&src2, width, height);
@@ -1283,14 +1283,14 @@ impl Filter for AddWeighted {
         };
 
         // check src1 is RGB24
-        if opts.src1.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+        if opts.src1.unwrap_frame_type().format != ffi::AV_PIX_FMT_RGB24 {
             return Err(crate::dve::Error::FilterInternalError(
                 "Expected src1 to be an RGB24 frame".into(),
             ));
         }
 
         // check src2 is RGB24
-        if opts.src2.unwrap_frame_type().format != ffi::AVPixelFormat_AV_PIX_FMT_RGB24 {
+        if opts.src2.unwrap_frame_type().format != ffi::AV_PIX_FMT_RGB24 {
             return Err(crate::dve::Error::FilterInternalError(
                 "Expected src2 to be an RGB24 frame".into(),
             ));
