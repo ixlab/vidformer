@@ -542,7 +542,15 @@ impl FrameBlock {
         let target_expr = self.exprs.get(idx).ok_or("Expr index out of bounds")?;
         let target_expr = FrameExprBlock::from_int(*target_expr)?;
         match target_expr {
-            FrameExprBlock::Expr { expr_idx } if member => self.get_expr(expr_idx as usize, false),
+            FrameExprBlock::Expr { expr_idx } if member => {
+                if expr_idx as usize >= idx {
+                    return Err(format!(
+                        "Expr at pos {} references non-prior pos {}",
+                        idx, expr_idx
+                    ));
+                }
+                self.get_expr(expr_idx as usize, false)
+            }
             FrameExprBlock::Expr { .. } => Err(format!(
                 "Expr at pos {} is not a Function or List member",
                 idx
@@ -619,16 +627,18 @@ impl FrameBlock {
                     .sources
                     .get(source_idx as usize)
                     .ok_or("Source index out of bounds")?;
-                let t = Rational64::new(
-                    *self
-                        .source_fracs
-                        .get(source_frac_idx as usize * 2)
-                        .ok_or("Source frac index out of bounds")?,
-                    *self
-                        .source_fracs
-                        .get(source_frac_idx as usize * 2 + 1)
-                        .ok_or("Source frac index out of bounds")?,
-                );
+                let numer = *self
+                    .source_fracs
+                    .get(source_frac_idx as usize)
+                    .ok_or("Source frac index out of bounds")?;
+                let denom = *self
+                    .source_fracs
+                    .get(source_frac_idx as usize + 1)
+                    .ok_or("Source frac index out of bounds")?;
+                if denom == 0 {
+                    return Err("Source frac denominator is zero".to_string());
+                }
+                let t = Rational64::new(numer, denom);
                 Ok(vidformer::sir::FrameExpr::Source(
                     vidformer::sir::FrameSource::new(
                         source.to_string(),
@@ -940,5 +950,101 @@ mod test {
         });
         frame_block.insert_frame(&frame_expr).unwrap();
         assert_eq!(vec![frame_expr], frame_block.frames().unwrap());
+    }
+
+    #[test]
+    fn test_expr_self_reference_rejected() {
+        // Expr at index 1 references itself — would cause infinite recursion
+        let fb = FrameBlock {
+            functions: vec!["filter".to_string()],
+            literals: vec![],
+            sources: vec![],
+            kwarg_keys: vec![],
+            source_fracs: vec![],
+            exprs: vec![
+                FrameExprBlock::Func {
+                    len_args: 1,
+                    len_kwargs: 0,
+                    func_idx: 0,
+                }
+                .to_int(),
+                FrameExprBlock::Expr { expr_idx: 1 }.to_int(),
+            ],
+            frame_exprs: vec![0],
+        };
+        let result = fb.frames();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("non-prior"));
+    }
+
+    #[test]
+    fn test_expr_forward_reference_rejected() {
+        // Expr at index 1 references forward to index 5 (out of bounds and forward)
+        let fb = FrameBlock {
+            functions: vec!["filter".to_string()],
+            literals: vec![],
+            sources: vec![],
+            kwarg_keys: vec![],
+            source_fracs: vec![],
+            exprs: vec![
+                FrameExprBlock::Func {
+                    len_args: 1,
+                    len_kwargs: 0,
+                    func_idx: 0,
+                }
+                .to_int(),
+                FrameExprBlock::Expr { expr_idx: 5 }.to_int(),
+            ],
+            frame_exprs: vec![0],
+        };
+        let result = fb.frames();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_source_frac_zero_denominator_rejected() {
+        let fb = FrameBlock {
+            functions: vec![],
+            literals: vec![],
+            sources: vec!["video.mp4".to_string()],
+            kwarg_keys: vec![],
+            source_fracs: vec![1, 0], // numer=1, denom=0
+            exprs: vec![FrameExprBlock::SourceFrac {
+                source_idx: 0,
+                source_frac_idx: 0,
+            }
+            .to_int()],
+            frame_exprs: vec![0],
+        };
+        let result = fb.frames();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("denominator is zero"));
+    }
+
+    #[test]
+    fn test_multiple_source_fracs_roundtrip() {
+        // Verify multiple SourceFrac entries encode and decode correctly
+        let mut frame_block = FrameBlock::new();
+        let frame_expr_1 = vidformer::sir::FrameExpr::Source(vidformer::sir::FrameSource::new(
+            "video.mp4".to_string(),
+            vidformer::sir::IndexConst::T(Rational64::new(1, 30)),
+        ));
+        let frame_expr_2 = vidformer::sir::FrameExpr::Source(vidformer::sir::FrameSource::new(
+            "video.mp4".to_string(),
+            vidformer::sir::IndexConst::T(Rational64::new(2, 30)),
+        ));
+        let frame_expr_3 = vidformer::sir::FrameExpr::Source(vidformer::sir::FrameSource::new(
+            "video.mp4".to_string(),
+            vidformer::sir::IndexConst::T(Rational64::new(3, 30)),
+        ));
+        frame_block.insert_frame(&frame_expr_1).unwrap();
+        frame_block.insert_frame(&frame_expr_2).unwrap();
+        frame_block.insert_frame(&frame_expr_3).unwrap();
+
+        let frames = frame_block.frames().unwrap();
+        assert_eq!(frames.len(), 3);
+        assert_eq!(frames[0], frame_expr_1);
+        assert_eq!(frames[1], frame_expr_2);
+        assert_eq!(frames[2], frame_expr_3);
     }
 }
