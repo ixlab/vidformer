@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["filters"],"struct":["AddWeighted","ArrowedLine","Circle","CopyMakeBorder","DrawContours","DrawMarker","Ellipse","FillConvexPoly","FillPoly","Flip","Hconcat","Line","Polylines","PutText","Rectangle","Rotate","SetTo","Vconcat"]};
