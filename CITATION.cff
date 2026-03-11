@@ -1,0 +1,39 @@
+cff-version: 1.2.0
+title: "Vidformer"
+message: "If you find this software helpful in your research, please cite both the software and our paper."
+type: software
+authors:
+  - family-names: Winecki
+    given-names: Dominik
+    orcid: "https://orcid.org/0009-0009-8632-3102"
+  - family-names: Nandi
+    given-names: Arnab
+    orcid: "https://orcid.org/0000-0002-4138-603X"
+abstract: "A drop-in declarative optimization framework for rendering video data visualizations."
+repository-code: "https://github.com/ixlab/vidformer"
+license: Apache-2.0
+version: 1.4.2
+date-released: "2026-02-04"
+keywords:
+  - visualization
+  - video
+  - video querying
+  - declarative video editing
+  - computer vision
+identifiers:
+  - description: "The GitHub release URL of tag v1.4.2."
+    type: url
+    value: "https://github.com/ixlab/vidformer/releases/tag/v1.4.2"
+  - description: "The GitHub URL of the commit tagged with v1.4.2."
+    type: url
+    value: "https://github.com/ixlab/vidformer/tree/4bb2ac5d3488ab49e2b09ca2d094e3c29995eb83"
+preferred-citation:
+  type: article
+  authors:
+    - family-names: Winecki
+      given-names: Dominik
+    - family-names: Nandi
+      given-names: Arnab
+  title: "Vidformer: Drop-in Declarative Optimization for Rendering Video-Native Query Results"
+  year: 2026
+  url: "https://arxiv.org/abs/2601.17221"
