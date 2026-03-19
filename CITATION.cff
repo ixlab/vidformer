@@ -12,7 +12,7 @@ authors:
 abstract: "A drop-in declarative optimization framework for rendering video data visualizations."
 repository-code: "https://github.com/ixlab/vidformer"
 license: Apache-2.0
-version: 1.4.2
+version: 1.4.3
 date-released: "2026-02-04"
 keywords:
   - visualization
@@ -21,12 +21,12 @@ keywords:
   - declarative video editing
   - computer vision
 identifiers:
-  - description: "The GitHub release URL of tag v1.4.2."
+  - description: "The GitHub release URL of tag v1.4.3."
     type: url
-    value: "https://github.com/ixlab/vidformer/releases/tag/v1.4.2"
-  - description: "The GitHub URL of the commit tagged with v1.4.2."
+    value: "https://github.com/ixlab/vidformer/releases/tag/v1.4.3"
+  - description: "The GitHub URL of the commit tagged with v1.4.3."
     type: url
-    value: "https://github.com/ixlab/vidformer/tree/4bb2ac5d3488ab49e2b09ca2d094e3c29995eb83"
+    value: "https://github.com/ixlab/vidformer/tree/8418c1ebba24a6b1ce21d06cb3feda47a2d18053"
 preferred-citation:
   type: article
   authors:
