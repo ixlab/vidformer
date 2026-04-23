@@ -1,0 +1,35 @@
+This file lists third-party assets bundled in this repository that are developed
+and licensed independently from vidformer.
+
+================================================================================
+
+hls.js 1.5
+  Location: vidformer-igni/src/server/hls.js
+  License: Apache 2.0 (https://www.apache.org/licenses/LICENSE-2.0)
+  Source: https://github.com/video-dev/hls.js
+
+================================================================================
+
+Font Awesome Free 5.15.1
+  Location: misc/landing-page/static/js/fontawesome.all.min.js
+            misc/landing-page/static/css/fontawesome.all.min.css
+  Also: Icons from Font Awesome appear in the teaser figure (README.md, misc/landing-page/static/images/teaser.png)
+  License: Icons — CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+           Fonts — SIL OFL 1.1 (https://scripts.sil.org/OFL)
+           Code — MIT License (https://opensource.org/licenses/MIT)
+  Source: https://fontawesome.com
+
+================================================================================
+
+Bulma 0.9.1
+  Location: misc/landing-page/static/css/bulma.min.css
+            misc/landing-page/static/css/bulma.css.map.txt
+  License: MIT License (https://opensource.org/licenses/MIT)
+  Source: https://github.com/jgthms/bulma
+
+================================================================================
+
+Nerfies Website Template
+  Location: misc/landing-page/ (HTML structure and styling adapted from this template)
+  License: CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)
+  Source: https://github.com/nerfies/nerfies.github.io
