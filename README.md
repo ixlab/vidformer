@@ -1,5 +1,6 @@
 # vidformer
 
+[![DOI](https://zenodo.org/badge/842723851.svg)](https://doi.org/10.5281/zenodo.19710152)
 [![Test](https://github.com/ixlab/vidformer/actions/workflows/test.yml/badge.svg)](https://github.com/ixlab/vidformer/actions/workflows/test.yml)
 [![PyPI version](https://img.shields.io/pypi/v/vidformer.svg)](https://pypi.org/project/vidformer/)
 [![Crates.io Version](https://img.shields.io/crates/v/vidformer)](https://crates.io/crates/vidformer)

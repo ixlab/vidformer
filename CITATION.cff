@@ -26,7 +26,7 @@ identifiers:
     value: "https://github.com/ixlab/vidformer/releases/tag/v1.4.4"
   - description: "The GitHub URL of the commit tagged with v1.4.4."
     type: url
-    value: "https://github.com/ixlab/vidformer/tree/<commit-hash>" # update on release
+    value: "https://github.com/ixlab/vidformer/tree/cd9f34d947cfb62d035752a148a09289f67d2155"
 preferred-citation:
   type: article
   authors:
