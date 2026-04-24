@@ -13,6 +13,7 @@ abstract: "A drop-in declarative optimization framework for rendering video data
 repository-code: "https://github.com/ixlab/vidformer"
 license: Apache-2.0
 version: 1.4.4
+doi: 10.5281/zenodo.19710152
 date-released: "2026-04-23"
 keywords:
   - visualization
