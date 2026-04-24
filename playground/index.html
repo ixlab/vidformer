@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vidformer Playground</title>
+
+    <!-- CodeMirror -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+
+    <!-- HLS.js -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            background: #16213e;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #0f3460;
+        }
+
+        .header h1 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #e94560;
+        }
+
+        .header h1 span {
+            color: #eee;
+            font-weight: 400;
+        }
+
+        .header-links {
+            display: flex;
+            gap: 16px;
+        }
+
+        .header-links a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .header-links a:hover {
+            color: #e94560;
+        }
+
+        .main-container {
+            display: flex;
+            height: calc(100vh - 53px);
+        }
+
+        .editor-panel {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #0f3460;
+        }
+
+        .editor-toolbar {
+            background: #16213e;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid #0f3460;
+        }
+
+        .run-btn {
+            background: #e94560;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s;
+        }
+
+        .run-btn:hover:not(:disabled) {
+            background: #d63651;
+        }
+
+        .run-btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .run-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .example-select {
+            background: #1a1a2e;
+            color: #eee;
+            border: 1px solid #0f3460;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .status-indicator {
+            margin-left: auto;
+            font-size: 0.85rem;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4ade80;
+        }
+
+        .status-dot.loading {
+            background: #fbbf24;
+            animation: pulse 1s infinite;
+        }
+
+        .status-dot.error {
+            background: #ef4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .editor-container {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .CodeMirror {
+            height: 100%;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .player-panel {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+            background: #0d0d1a;
+        }
+
+        .player-toolbar {
+            background: #16213e;
+            padding: 10px 16px;
+            border-bottom: 1px solid #0f3460;
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+
+        .video-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: #000;
+        }
+
+        .video-container video {
+            max-width: 100%;
+            max-height: 100%;
+            background: #000;
+        }
+
+        .video-placeholder {
+            text-align: center;
+            color: #555;
+        }
+
+        .video-placeholder svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .video-placeholder p {
+            font-size: 1rem;
+            margin-bottom: 8px;
+        }
+
+        .video-placeholder small {
+            font-size: 0.85rem;
+            color: #444;
+        }
+
+        .console-panel {
+            background: #0d0d1a;
+            border-top: 1px solid #0f3460;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            padding: 12px;
+        }
+
+        .console-panel .log {
+            color: #94a3b8;
+            margin-bottom: 4px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .console-panel .log.error {
+            color: #ef4444;
+        }
+
+        .console-panel .log.success {
+            color: #4ade80;
+        }
+
+        .console-panel .log.info {
+            color: #60a5fa;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .loading-overlay.hidden {
+            display: none;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #333;
+            border-top-color: #e94560;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 16px;
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        .video-waiting {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #94a3b8;
+        }
+
+        .video-waiting .spinner {
+            width: 40px;
+            height: 40px;
+        }
+
+        .video-waiting p {
+            margin-top: 12px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading Pyodide and vidformer...</div>
+    </div>
+
+    <header class="header">
+        <h1>Vidformer <span>Playground</span></h1>
+        <div class="header-links">
+            <a href="https://github.com/ixlab/vidformer" target="_blank">GitHub</a>
+            <a href="https://ixlab.github.io/vidformer/docs/" target="_blank">Docs</a>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <div class="editor-panel">
+            <div class="editor-toolbar">
+                <button class="run-btn" id="runBtn" disabled>
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                    Run
+                </button>
+                <select class="example-select" id="exampleSelect">
+                    <option value="">Load Example...</option>
+                    <option value="hello">Hello World</option>
+                    <option value="detection">Draw Bounding Boxes</option>
+                    <option value="multiview">Compose Multiple Frames</option>
+                    <option value="search">Subtitle Search Compilation</option>
+                </select>
+                <div class="status-indicator">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Ready</span>
+                </div>
+            </div>
+            <div class="editor-container">
+                <textarea id="codeEditor"></textarea>
+            </div>
+            <div class="console-panel" id="consolePanel"></div>
+        </div>
+
+        <div class="player-panel">
+            <div class="player-toolbar">
+                Video Output
+            </div>
+            <div class="video-container" id="videoContainer">
+                <div class="video-placeholder" id="videoPlaceholder">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M21 3H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14zM9 8l7 4-7 4z"/>
+                    </svg>
+                    <p>No video yet</p>
+                    <small>Write Python code and click Run to generate a video</small>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Example code snippets
+        const EXAMPLES = {
+            hello: `# Hello World - Text Animation
+# This example draws animated text on a video
+
+cap = cv2.VideoCapture("https://f.dominik.win/vf-sample-media/bbb_720p.mp4")
+width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+fps = cap.get(cv2.CAP_PROP_FPS)
+frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+out = cv2.VideoWriter(None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+
+radius = 100
+center_x, center_y = 300, 300
+speed = 2 * math.pi / 50
+
+i = 0
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # Animate text in a circle
+    angle = i * speed
+    text_x = int(center_x + radius * math.cos(angle))
+    text_y = int(center_y + radius * math.sin(angle))
+
+    cv2.putText(
+        frame,
+        "Hello, Vidformer!",
+        (text_x, text_y),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1.2,
+        (0, 255, 0),
+        2,
+        cv2.LINE_AA,
+    )
+
+    # Add frame counter
+    cv2.putText(
+        frame,
+        f"Frame {i}/{frame_count}",
+        (20, height - 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (255, 255, 255),
+        2,
+    )
+
+    out.write(frame)
+    i += 1
+
+cap.release()
+out.release()
+print(f"Done! Rendered {i} frames.")`,
+
+            detection: `# Object Detection - Bounding Boxes
+# This example draws pre-computed YOLOv8 detections using cv2
+
+from pyodide.http import open_url
+
+# Load pre-computed detections (JSON format)
+print("Loading detection data...")
+det_url = "https://f.dominik.win/vf-sample-media/tos_720p-detections.json"
+detections = json.loads(open_url(det_url).read())
+print(f"Loaded {len(detections)} frames of detections")
+
+cap = cv2.VideoCapture("https://f.dominik.win/vf-sample-media/tos_720p.mp4")
+width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+fps = cap.get(cv2.CAP_PROP_FPS)
+
+out = cv2.VideoWriter(None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+
+# Colors for different classes (BGR format)
+colors = {
+    "person": (0, 255, 0),
+    "car": (255, 0, 0),
+    "truck": (255, 128, 0),
+    "bus": (255, 0, 128),
+    "motorcycle": (0, 128, 255),
+    "bicycle": (128, 255, 0),
+}
+default_color = (0, 255, 255)
+
+print("Drawing bounding boxes...")
+for i, det in enumerate(detections):
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # Draw each detection
+    for box, conf, cls_name in zip(det["boxes"], det["confidences"], det["class_names"]):
+        if conf < 0.5:
+            continue
+
+        x1, y1, x2, y2 = [int(v) for v in box]
+        color = colors.get(cls_name, default_color)
+
+        # Draw bounding box
+        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+
+        # Draw label background
+        label = f"{cls_name} {conf:.2f}"
+        label_size = 20
+        cv2.rectangle(frame, (x1, y1 - label_size - 4), (x1 + len(label) * 10, y1), color, -1)
+
+        # Draw label text
+        cv2.putText(frame, label, (x1 + 2, y1 - 6),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+
+    out.write(frame)
+
+cap.release()
+out.release()
+print(f"Done! Processed {len(detections)} frames.")`,
+
+            multiview: `# Multi-View Composition
+# This example creates a side-by-side video with speed and reverse effects
+
+cap = cv2.VideoCapture("https://f.dominik.win/vf-sample-media/tos_720p.mp4")
+width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+fps = cap.get(cv2.CAP_PROP_FPS)
+frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+out = cv2.VideoWriter(None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+
+def get_frame(n):
+    """Get frame at index n"""
+    cap.set(cv2.CAP_PROP_POS_FRAMES, n)
+    ret, frame = cap.read()
+    return frame if ret else None
+
+half_w = width // 2
+half_h = height // 2
+
+print(f"Compositing {frame_count} frames...")
+for i in range(frame_count):
+    # Create blank frame
+    frame = cv2.zeros((height, width, 3))
+
+    # Top-left: Sped up 2x
+    f_fast = get_frame((i * 2) % frame_count)
+    if f_fast is not None:
+        f_fast = cv2.resize(f_fast, (half_w, half_h))
+        frame[0:half_h, 0:half_w] = f_fast
+
+    # Top-right: Reversed
+    f_rev = get_frame(frame_count - i - 1)
+    if f_rev is not None:
+        f_rev = cv2.resize(f_rev, (half_w, half_h))
+        frame[0:half_h, half_w:width] = f_rev
+
+    # Bottom-left: Normal
+    f_norm = get_frame(i)
+    if f_norm is not None:
+        f_norm = cv2.resize(f_norm, (half_w, half_h))
+        frame[half_h:height, 0:half_w] = f_norm
+
+    # Bottom-right: Slow motion (0.5x)
+    f_slow = get_frame(i // 2)
+    if f_slow is not None:
+        f_slow = cv2.resize(f_slow, (half_w, half_h))
+        frame[half_h:height, half_w:width] = f_slow
+
+    # Add labels
+    cv2.putText(frame, "2x Speed", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(frame, "Reversed", (half_w + 10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(frame, "Normal", (10, half_h + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(frame, "0.5x Speed", (half_w + 10, half_h + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+    out.write(frame)
+
+cap.release()
+out.release()
+print("Done!")`,
+
+            search: `# Subtitle Search - Apollo 11 Mission
+# Search for mentions of "Houston" across all 23 Apollo 11 footage files
+
+import re
+from pyodide.http import open_url
+
+BASE_URL = "https://f.dominik.win/vf-sample-media/apollo-11-mission/Apollo 11"
+QUERY = "Houston"
+
+def srt_to_sec(ts):
+    hh, mm, ss, ms = re.match(r"(\\d+):(\\d+):(\\d+)[,.](\\d+)", ts.strip()).groups()
+    return int(hh) * 3600 + int(mm) * 60 + int(ss) + int(ms) / 1000.0
+
+def parse_srt(text):
+    cues = []
+    text = text.strip().replace("\\r\\n", "\\n")
+    for block in re.split(r"\\n\\s*\\n", text):
+        lines = [x.strip() for x in block.split("\\n") if x.strip()]
+        if not lines:
+            continue
+        if lines[0].isdigit():
+            lines = lines[1:]
+        if not lines:
+            continue
+        m = re.match(r"(.*?)\\s*-->\\s*(.*?)(?:\\s+.*)?$", lines[0])
+        if not m:
+            continue
+        s = srt_to_sec(m.group(1))
+        e = srt_to_sec(m.group(2))
+        t = "\\n".join(lines[1:]).strip()
+        if t:
+            cues.append((s, e, t))
+    return cues
+
+def find_intervals(cues, q, pad_before=0.5, pad_after=0.5):
+    q = q.lower()
+    hits = []
+    for s, e, t in cues:
+        if q in t.lower():
+            hits.append((max(0, s - pad_before), e + pad_after))
+    hits.sort()
+    merged = []
+    for s, e in hits:
+        if not merged or s > merged[-1][1]:
+            merged.append([s, e])
+        else:
+            merged[-1][1] = max(merged[-1][1], e)
+    return [(s, e) for s, e in merged]
+
+# Get video properties from first file to set up writer
+first_video = f"{BASE_URL} 01.mp4"
+cap = cv2.VideoCapture(first_video)
+fps = cap.get(cv2.CAP_PROP_FPS)
+width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+cap.release()
+
+out = cv2.VideoWriter(None, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+
+total_clips = 0
+
+# Process each of the 23 files incrementally
+for file_num in range(1, 24):
+    file_id = f"{file_num:02d}"
+    video_url = f"{BASE_URL} {file_id}.mp4"
+    sub_url = f"{BASE_URL} {file_id}.srt".replace(" ", "%20")
+
+    print(f"Processing file {file_id}/23...")
+
+    # Load subtitles for this file
+    try:
+        srt_text = open_url(sub_url).read()
+    except Exception as e:
+        print(f"  Skipping file {file_id}: {e}")
+        continue
+
+    cues = parse_srt(srt_text)
+    intervals = find_intervals(cues, QUERY)
+
+    if not intervals:
+        print(f"  No matches in file {file_id}")
+        continue
+
+    print(f"  Found {len(intervals)} clips mentioning '{QUERY}'")
+    total_clips += len(intervals)
+
+    # Open video for this file
+    cap = cv2.VideoCapture(video_url)
+
+    for idx, (a, b) in enumerate(intervals):
+        cap.set(cv2.CAP_PROP_POS_MSEC, int(a * 1000))
+
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+
+            t = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+            if t > b:
+                break
+
+            # Find active subtitle
+            active = [txt for s, e, txt in cues if s <= t <= e]
+            subtitle = " ".join(active) if active else ""
+
+            # Draw subtitle
+            if subtitle:
+                cv2.putText(frame, subtitle, (40, height - 50),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 4, cv2.LINE_AA)
+                cv2.putText(frame, subtitle, (40, height - 50),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
+
+            # Draw time overlay with file number
+            time_str = f"Apollo 11 [{file_id}] | {t:.1f}s"
+            cv2.putText(frame, time_str, (20, 30),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 3, cv2.LINE_AA)
+            cv2.putText(frame, time_str, (20, 30),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+
+            out.write(frame)
+
+    cap.release()
+
+out.release()
+print(f"Done! Found {total_clips} total clips mentioning '{QUERY}' across all files.")`
+        };
+
+        // Default code - use the hello example
+        const DEFAULT_CODE = EXAMPLES.hello;
+
+        // Global state
+        let worker = null;
+        let editor = null;
+        let currentVideoUrl = null;
+        let hlsInstance = null;
+        let workerReady = false;
+        let isRunning = false;
+        let pendingCode = null;
+        let interruptBuffer = null;
+        let canInterrupt = false;
+
+        // Try to create SharedArrayBuffer for interrupt support
+        // This requires COOP/COEP headers, so it may not be available
+        try {
+            interruptBuffer = new Uint8Array(new SharedArrayBuffer(1));
+            canInterrupt = true;
+            console.log('SharedArrayBuffer available - fast cancellation enabled');
+        } catch (e) {
+            console.log('SharedArrayBuffer not available - will use worker restart for cancellation');
+        }
+
+        // DOM elements
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const runBtn = document.getElementById('runBtn');
+        const exampleSelect = document.getElementById('exampleSelect');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const consolePanel = document.getElementById('consolePanel');
+        const videoContainer = document.getElementById('videoContainer');
+        const videoPlaceholder = document.getElementById('videoPlaceholder');
+
+        // Initialize CodeMirror
+        function initEditor() {
+            editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
+                mode: 'python',
+                theme: 'dracula',
+                lineNumbers: true,
+                indentUnit: 4,
+                tabSize: 4,
+                indentWithTabs: false,
+                lineWrapping: true,
+                extraKeys: {
+                    'Ctrl-Enter': runCode,
+                    'Cmd-Enter': runCode,
+                    'Tab': function(cm) {
+                        cm.replaceSelection('    ', 'end');
+                    }
+                }
+            });
+            editor.setValue(DEFAULT_CODE);
+        }
+
+        // Console logging
+        function log(message, type = '') {
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consolePanel.appendChild(div);
+            consolePanel.scrollTop = consolePanel.scrollHeight;
+        }
+
+        function clearConsole() {
+            consolePanel.innerHTML = '';
+        }
+
+        // Status updates
+        function setStatus(text, state = 'ready') {
+            statusText.textContent = text;
+            statusDot.className = 'status-dot';
+            if (state === 'loading') {
+                statusDot.classList.add('loading');
+            } else if (state === 'error') {
+                statusDot.classList.add('error');
+            }
+        }
+
+        // Initialize Web Worker with Pyodide
+        function initWorker() {
+            worker = new Worker('worker.js');
+
+            worker.onmessage = function(e) {
+                const { type, message, level, hlsUrl, statusUrl, output } = e.data;
+
+                switch (type) {
+                    case 'log':
+                        log(message, level);
+                        break;
+                    case 'ready':
+                        workerReady = true;
+                        isRunning = false;
+                        loadingOverlay.classList.add('hidden');
+                        updateRunButton();
+                        setStatus('Ready');
+                        // Run pending code if any, otherwise auto-run on first load
+                        if (pendingCode !== null) {
+                            const code = pendingCode;
+                            pendingCode = null;
+                            runCodeInternal(code);
+                        } else if (!autoRunEnabled) {
+                            // First load - auto-run default code
+                            runCode();
+                        }
+                        break;
+                    case 'videoReady':
+                        log(`Video stream ready: ${hlsUrl}`, 'success');
+                        showVideo(hlsUrl, statusUrl);
+                        break;
+                    case 'stdout':
+                        if (output) {
+                            output.split('\n').filter(line => line).forEach(line => {
+                                log(line);
+                            });
+                        }
+                        break;
+                    case 'done':
+                        setStatus('Done!');
+                        log('Execution completed!', 'success');
+                        isRunning = false;
+                        updateRunButton();
+                        autoRunEnabled = true; // Enable auto-run after first successful run
+                        break;
+                    case 'error':
+                        // Display multi-line errors properly
+                        const errorLines = message.split('\n').filter(line => line.trim());
+                        if (errorLines.length > 1) {
+                            log('Error:', 'error');
+                            errorLines.forEach(line => log('  ' + line, 'error'));
+                        } else {
+                            log(`Error: ${message}`, 'error');
+                        }
+                        setStatus('Error', 'error');
+                        isRunning = false;
+                        updateRunButton();
+                        autoRunEnabled = true; // Enable auto-run so user can fix and retry
+                        break;
+                    case 'cancelled':
+                        log('Execution cancelled', 'info');
+                        setStatus('Cancelled');
+                        isRunning = false;
+                        updateRunButton();
+                        // Run pending code if any
+                        if (pendingCode !== null) {
+                            const code = pendingCode;
+                            pendingCode = null;
+                            runCodeInternal(code);
+                        }
+                        break;
+                }
+            };
+
+            worker.onerror = function(e) {
+                log(`Worker error: ${e.message}`, 'error');
+                setStatus('Error', 'error');
+                loadingOverlay.innerHTML = `
+                    <div style="text-align: center; color: #ef4444;">
+                        <p style="font-size: 1.2rem; margin-bottom: 16px;">Failed to load Pyodide</p>
+                        <p style="font-size: 0.9rem; color: #94a3b8;">${e.message}</p>
+                        <p style="font-size: 0.85rem; color: #666; margin-top: 16px;">Try refreshing the page</p>
+                    </div>
+                `;
+            };
+
+            // Start initialization, passing interrupt buffer if available
+            worker.postMessage({ type: 'init', buffer: interruptBuffer });
+        }
+
+        // Run user code (handles cancellation if already running)
+        function runCode() {
+            const code = editor.getValue();
+
+            if (isRunning) {
+                if (canInterrupt && interruptBuffer) {
+                    // Fast cancellation using interrupt buffer
+                    log('Cancelling...', 'info');
+                    pendingCode = code;
+                    interruptBuffer[0] = 2; // 2 = SIGINT
+                    // The 'cancelled' handler will run the pending code
+                    return;
+                } else {
+                    // Fallback: terminate and restart worker
+                    log('Cancelling (restarting environment)...', 'info');
+                    worker.terminate();
+                    workerReady = false;
+                    isRunning = false;
+                    pendingCode = code;
+                    updateRunButton();
+
+                    // Show restarting status
+                    setStatus('Restarting...', 'loading');
+                    loadingOverlay.classList.remove('hidden');
+                    loadingOverlay.innerHTML = `
+                        <div class="spinner"></div>
+                        <div class="loading-text">Restarting Python environment...</div>
+                    `;
+
+                    // Create new worker
+                    initWorker();
+                    return;
+                }
+            }
+
+            if (!workerReady) return;
+
+            runCodeInternal(code);
+        }
+
+        // Internal function to actually run code
+        function runCodeInternal(code) {
+            clearConsole();
+            log('Running code...', 'info');
+            setStatus('Running...', 'loading');
+            isRunning = true;
+            updateRunButton();
+
+            worker.postMessage({ type: 'run', code });
+        }
+
+        // Update run button appearance based on state
+        function updateRunButton() {
+            if (isRunning) {
+                runBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M6 6h12v12H6z"/>
+                    </svg>
+                    Stop
+                `;
+                runBtn.disabled = false;
+            } else {
+                runBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                    Run
+                `;
+                runBtn.disabled = !workerReady;
+            }
+        }
+
+        // Show video player
+        function showVideo(hlsUrl, statusUrl) {
+            // Clear existing content
+            videoContainer.innerHTML = '';
+
+            // Destroy existing HLS instance
+            if (hlsInstance) {
+                hlsInstance.destroy();
+                hlsInstance = null;
+            }
+
+            // Show waiting state
+            const waitingDiv = document.createElement('div');
+            waitingDiv.className = 'video-waiting';
+            waitingDiv.innerHTML = `
+                <div class="spinner"></div>
+                <p>Rendering video...</p>
+            `;
+            videoContainer.appendChild(waitingDiv);
+
+            // Poll status until ready
+            function pollStatus() {
+                fetch(statusUrl)
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res.ready) {
+                            attachHls(hlsUrl);
+                        } else {
+                            setTimeout(pollStatus, 500);
+                        }
+                    })
+                    .catch(e => {
+                        console.error('Status poll error:', e);
+                        setTimeout(pollStatus, 1000);
+                    });
+            }
+
+            function attachHls(url) {
+                videoContainer.innerHTML = '';
+
+                const video = document.createElement('video');
+                video.controls = true;
+                video.autoplay = true;
+                video.muted = true;  // Required for autoplay in most browsers
+                video.style.maxWidth = '100%';
+                video.style.maxHeight = '100%';
+                videoContainer.appendChild(video);
+
+                if (Hls.isSupported()) {
+                    hlsInstance = new Hls();
+                    hlsInstance.loadSource(url);
+                    hlsInstance.attachMedia(video);
+                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+                        video.play().catch(e => console.log('Autoplay prevented:', e));
+                    });
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = url;
+                    video.addEventListener('loadedmetadata', () => {
+                        video.play().catch(e => console.log('Autoplay prevented:', e));
+                    });
+                } else {
+                    log('HLS playback not supported in this browser', 'error');
+                }
+            }
+
+            pollStatus();
+        }
+
+        // Debounced auto-run on code changes
+        let autoRunTimeout = null;
+        let autoRunEnabled = false; // Don't auto-run until first run completes
+        const AUTO_RUN_DELAY = 1500; // Wait 1.5s after last keystroke
+
+        function scheduleAutoRun() {
+            if (!autoRunEnabled) return;
+            if (autoRunTimeout) {
+                clearTimeout(autoRunTimeout);
+            }
+            autoRunTimeout = setTimeout(() => {
+                // Can run even if already running (will cancel previous)
+                if (workerReady || isRunning) {
+                    runCode();
+                }
+            }, AUTO_RUN_DELAY);
+        }
+
+        // Example selector - auto run after selecting
+        exampleSelect.addEventListener('change', (e) => {
+            const example = e.target.value;
+            if (example && EXAMPLES[example]) {
+                editor.setValue(EXAMPLES[example]);
+                // Clear any pending auto-run and run immediately
+                if (autoRunTimeout) {
+                    clearTimeout(autoRunTimeout);
+                }
+                // Can run even if already running (will cancel previous)
+                if (workerReady || isRunning) {
+                    runCode();
+                }
+            }
+            e.target.value = '';
+        });
+
+        // Run button
+        runBtn.addEventListener('click', runCode);
+
+        // Initialize
+        initEditor();
+
+        // Set up auto-run on editor changes after editor is initialized
+        editor.on('change', () => {
+            scheduleAutoRun();
+        });
+
+        initWorker();
+    </script>
+</body>
+</html>
