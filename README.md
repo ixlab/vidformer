@@ -86,4 +86,4 @@ Vidformer components are detailed [here](https://ixlab.github.io/vidformer/docs/
 **License:** Vidformer is open source under [Apache-2.0](./LICENSE).
 Contributions are welcome.
 
-**Acknowledgements:** Supported by the Imageomics Institute (NSF Award #2118240) and NSF Award #1910356.
+**Acknowledgements:** Supported by the Imageomics Institute (NSF Award #2118240) and NSF Award #1910356. Any opinions, findings and conclusions or recommendations expressed in the materials here are those of the author(s) and do not necessarily reflect the views of the National Science Foundation.
