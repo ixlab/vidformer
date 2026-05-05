@@ -1,0 +1,21 @@
+name: Check zenodo metadata
+
+on:
+    push:
+        paths:
+          - '.zenodo.json'
+          - '.github/workflows/validate-zenodo.yaml'
+
+jobs:
+  check-zenodo-metadata:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      - name: Check .zenodo.json file
+        run: bunx zenodraft@0.14.1 metadata validate .zenodo.json
