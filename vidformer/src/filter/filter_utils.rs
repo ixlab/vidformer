@@ -212,7 +212,7 @@ pub(crate) fn mat_to_frame_rgb24(
     unsafe {
         (*f).width = width;
         (*f).height = height;
-        (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_RGB24;
+        (*f).format = ffi::AV_PIX_FMT_RGB24;
 
         if ffi::av_frame_get_buffer(f, 0) < 0 {
             panic!("ERROR could not allocate frame data");
@@ -243,12 +243,12 @@ pub(crate) fn mat_to_frame_rgb24(
 }
 
 pub(crate) fn frame_to_mat_rgb24(img: &Frame, width: i32, height: i32) -> opencv::prelude::Mat {
-    debug_assert!(img.format == ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
+    debug_assert!(img.format == ffi::AV_PIX_FMT_RGB24);
     debug_assert_eq!(img.height, height);
     debug_assert_eq!(img.width, width);
     debug_assert_eq!(
         unsafe { (*(img.inner.inner)).format },
-        ffi::AVPixelFormat_AV_PIX_FMT_RGB24
+        ffi::AV_PIX_FMT_RGB24
     );
     debug_assert_eq!(unsafe { (*(img.inner.inner)).width }, width);
     debug_assert_eq!(unsafe { (*(img.inner.inner)).height }, height);
@@ -289,12 +289,12 @@ pub(crate) fn frame_to_mat_rgb24(img: &Frame, width: i32, height: i32) -> opencv
 }
 
 pub(crate) fn frame_to_mat_gray8(img: &Frame, width: i32, height: i32) -> opencv::prelude::Mat {
-    debug_assert!(img.format == ffi::AVPixelFormat_AV_PIX_FMT_GRAY8);
+    debug_assert!(img.format == ffi::AV_PIX_FMT_GRAY8);
     debug_assert_eq!(img.height, height);
     debug_assert_eq!(img.width, width);
     debug_assert_eq!(
         unsafe { (*(img.inner.inner)).format },
-        ffi::AVPixelFormat_AV_PIX_FMT_GRAY8
+        ffi::AV_PIX_FMT_GRAY8
     );
     debug_assert_eq!(unsafe { (*(img.inner.inner)).width }, width);
     debug_assert_eq!(unsafe { (*(img.inner.inner)).height }, height);
@@ -347,7 +347,7 @@ mod tests {
         // the layout of the data is the same
 
         let num_planes =
-            unsafe { ffi::av_pix_fmt_count_planes(ffi::AVPixelFormat_AV_PIX_FMT_RGB24) };
+            unsafe { ffi::av_pix_fmt_count_planes(ffi::AV_PIX_FMT_RGB24) };
         assert_eq!(num_planes, 1);
 
         let width = 1920;
@@ -355,7 +355,7 @@ mod tests {
         let size = (width as usize) * (height as usize) * 3;
 
         let frame_encoded_size_all_planes = unsafe {
-            ffi::av_image_get_buffer_size(ffi::AVPixelFormat_AV_PIX_FMT_RGB24, width, height, 1)
+            ffi::av_image_get_buffer_size(ffi::AV_PIX_FMT_RGB24, width, height, 1)
         };
 
         assert_eq!(size, frame_encoded_size_all_planes as usize);
@@ -372,7 +372,7 @@ mod tests {
     #[test]
     fn test_packed_layout_gray8() {
         let num_planes =
-            unsafe { ffi::av_pix_fmt_count_planes(ffi::AVPixelFormat_AV_PIX_FMT_GRAY8) };
+            unsafe { ffi::av_pix_fmt_count_planes(ffi::AV_PIX_FMT_GRAY8) };
         assert_eq!(num_planes, 1);
 
         let width = 1920;
@@ -380,7 +380,7 @@ mod tests {
         let size = (width as usize) * (height as usize);
 
         let frame_encoded_size_all_planes = unsafe {
-            ffi::av_image_get_buffer_size(ffi::AVPixelFormat_AV_PIX_FMT_GRAY8, width, height, 1)
+            ffi::av_image_get_buffer_size(ffi::AV_PIX_FMT_GRAY8, width, height, 1)
         };
 
         assert_eq!(size, frame_encoded_size_all_planes as usize);
