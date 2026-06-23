@@ -46,7 +46,7 @@ impl SourceVideoStreamMeta {
 
         let file_size = {
             let op = service.blocking_operator(io_runtime.handle())?;
-            let file_stat = op.stat(vid_path);
+            let file_stat: Result<opendal::Metadata, opendal::Error> = op.stat(vid_path);
 
             let file_stat = match file_stat {
                 Ok(stat) => stat,
