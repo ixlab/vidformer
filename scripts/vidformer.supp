@@ -1,0 +1,23 @@
+# Rustls TLS session cache - uses lazy_static/once_cell pattern
+# This is intentionally never freed as the OS cleans up on exit
+{
+   rustls-session-cache
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   ...
+   fun:*hashbrown*
+   ...
+   fun:*rustls*ClientSessionMemoryCache*
+}
+
+{
+   rustls-session-cache-2
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   ...
+   fun:*LimitedCache*
+   ...
+   fun:*ClientSessionMemoryCache*
+}
