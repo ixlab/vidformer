@@ -35,6 +35,13 @@ impl Pool {
                 "decode_pool_size must be greater than 0".to_string(),
             ));
         }
+        if dve_config.decoder_view == 0 {
+            // A zero prefetch window can never plan a generation, deadlocking
+            // the engine at startup.
+            return Err(crate::Error::ConfigError(
+                "decoder_view must be greater than 0".to_string(),
+            ));
+        }
 
         let mut out = Pool {
             done_gens_recent: BTreeSet::new(),
