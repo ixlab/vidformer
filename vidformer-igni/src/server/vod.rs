@@ -233,7 +233,7 @@ pub(crate) async fn get_embedded_player(
     let template = include_str!("embedded-player.html");
     let html = template
         .replace("{{UUID}}", &spec_id.to_string())
-        .replace("{{VOD_PREFIX}}", &vod_prefix)
+        .replace("{{VOD_PREFIX}}", vod_prefix)
         .replace("{{HLS_JS_PATH}}", &hls_js_path)
         .replace("{{MAX_WIDTH}}", &spec.width.to_string());
 

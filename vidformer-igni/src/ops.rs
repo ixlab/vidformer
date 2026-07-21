@@ -147,7 +147,7 @@ pub(crate) async fn update_users(
         assert!(!user_ids.contains(&user.id));
         user_ids.push(user.id);
         sqlx::query("INSERT INTO \"user\" (id, name, api_key, permissions) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET name = $2, api_key = $3, permissions = $4")
-            .bind(&user.id)
+            .bind(user.id)
             .bind(&user.name)
             .bind(&user.api_key)
             .bind(&user.permissions)
@@ -163,7 +163,7 @@ pub(crate) async fn update_users(
     for row in rows.drain(..) {
         if !user_ids.contains(&row.id) {
             sqlx::query("DELETE FROM \"user\" WHERE id = $1")
-                .bind(&row.id)
+                .bind(row.id)
                 .execute(&mut **transaction)
                 .await?;
         }

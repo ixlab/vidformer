@@ -128,7 +128,7 @@ impl UserPermissions {
             ("spec:max_width", 1280),
             ("spec:max_height", 720),
             ("spec:max_frames", 162000),   // 90 minutes @ 30 fps
-            ("spec:max_ttl", 1 * 60 * 60), // 1 hours
+            ("spec:max_ttl", 60 * 60), // 1 hour
         ]
         .iter()
         .map(|(key, value)| (key.to_string(), *value))

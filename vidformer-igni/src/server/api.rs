@@ -290,10 +290,7 @@ pub(crate) async fn create_source(
     let source_id = uuid::Uuid::new_v4();
 
     let io_wrapper = global.io_wrapper();
-    let io_cache = match io_wrapper {
-        Some(io_wrapper) => Some((io_wrapper, source_id.to_string())),
-        None => None,
-    };
+    let io_cache = io_wrapper.map(|io_wrapper| (io_wrapper, source_id.to_string()));
 
     let profile = crate::ops::profile_source(
         &name,
@@ -1374,21 +1371,19 @@ pub(crate) async fn get_frame(
 
             // Check all references are valid
             for (source_ref_id, pos) in &frame_ref_by_pos {
-                if source_ref_id == &source_id {
-                    if *pos >= ts.len() {
-                        transaction.commit().await?;
-                        return Ok(hyper::Response::builder()
-                            .status(hyper::StatusCode::BAD_REQUEST)
-                            .body(http_body_util::Full::new(hyper::body::Bytes::from(
-                                format!("Invalid reference to source {} at pos {}", source_id, pos),
-                            )))?);
-                    }
+                if source_ref_id == &source_id && *pos >= ts.len() {
+                    transaction.commit().await?;
+                    return Ok(hyper::Response::builder()
+                        .status(hyper::StatusCode::BAD_REQUEST)
+                        .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                            format!("Invalid reference to source {} at pos {}", source_id, pos),
+                        )))?);
                 }
             }
             for (source_ref_id, ref_ts) in &frame_ref_by_ts {
                 if source_ref_id == &source_id {
                     // Check ref_ts is in ts by binary search
-                    if !ts.binary_search(&ref_ts).is_ok() {
+                    if ts.binary_search(ref_ts).is_err() {
                         transaction.commit().await?;
                         return Ok(hyper::Response::builder()
                             .status(hyper::StatusCode::BAD_REQUEST)

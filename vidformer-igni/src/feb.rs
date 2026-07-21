@@ -835,7 +835,6 @@ mod test {
                             vidformer::sir::Expr::Data(vidformer::sir::DataExpr::Int(j as i64 + 3)),
                         )
                     })
-                    .into_iter()
                     .collect(),
             });
             frame_block.insert_frame(&frame_expr).unwrap();
