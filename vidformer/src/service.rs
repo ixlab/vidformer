@@ -61,13 +61,16 @@ impl Service {
     pub(crate) fn blocking_operator(
         &self,
         io_runtime: &tokio::runtime::Handle,
-    ) -> Result<opendal::blocking::Operator, crate::Error> {
+    ) -> Result<opendal::BlockingOperator, crate::Error> {
         let op = self.operator()?;
 
-        let _guard = io_runtime.enter();
-        let bop = opendal::blocking::Operator::new(op).map_err(|e| {
-            crate::Error::AVError(format!("failed to create blocking operator: {}", e))
-        })?;
+        let bop = if op.info().full_capability().blocking {
+            op.blocking()
+        } else {
+            let _x = io_runtime.enter();
+            op.layer(opendal::layers::BlockingLayer::create().unwrap())
+                .blocking()
+        };
 
         Ok(bop)
     }
