@@ -13,6 +13,8 @@ pub(crate) struct Pool {
     done_gens_past: usize, // If a generation is less than this it is done
     next_gen: usize,
     members: BTreeMap<IFrameRef, Arc<AVFrame>>,
+    /// Refcounted per active generation; dropped at zero, so `contains_key` means "is needed".
+    need: BTreeMap<IFrameRef, usize>,
     pub(crate) decoders: BTreeMap<String, crate::dve::DecoderState>,
     pub(crate) finished_unjoined_decoders: BTreeSet<String>,
     pub(crate) terminate_decoders: bool,
@@ -48,6 +50,7 @@ impl Pool {
             done_gens_past: 0,
             next_gen: 0,
             members: BTreeMap::new(),
+            need: BTreeMap::new(),
             decoders: BTreeMap::new(),
             finished_unjoined_decoders: BTreeSet::new(),
             terminate_decoders: false,
@@ -79,15 +82,16 @@ impl Pool {
     fn decoder_next_needed_gen(&self, decoder_id: &str) -> usize {
         let decoder = self.decoders.get(decoder_id).unwrap();
         let mut next_needed_gen = F_NOT_USED;
+        let mut probe = IFrameRef {
+            sourceref: decoder.source.clone(),
+            pts: num_rational::Rational64::new(0, 1),
+        };
         for frame in &decoder.future_frames {
-            let iframe_ref = IFrameRef {
-                sourceref: decoder.source.clone(),
-                pts: *frame,
-            };
-            if self.members.contains_key(&iframe_ref) {
+            probe.pts = *frame;
+            if self.members.contains_key(&probe) {
                 continue;
             }
-            let frame_next_needed = self.next_needed_gen(&iframe_ref);
+            let frame_next_needed = self.next_needed_gen(&probe);
             if frame_next_needed < next_needed_gen {
                 next_needed_gen = frame_next_needed;
             }
@@ -131,10 +135,14 @@ impl Pool {
         })
     }
 
+    fn is_pinned(&self, frame: &IFrameRef, incoming: Option<&BTreeSet<IFrameRef>>) -> bool {
+        self.need.contains_key(frame) || incoming.is_some_and(|s| s.contains(frame))
+    }
+
     fn eviction_set(
         &self,
         size: usize,
-        next_need_set: &BTreeSet<IFrameRef>,
+        incoming: Option<&BTreeSet<IFrameRef>>,
     ) -> BTreeSet<IFrameRef> {
         struct FrameEvictionCandidate<'b> {
             needed_gen: usize,
@@ -159,7 +167,7 @@ impl Pool {
 
         let mut heap = std::collections::BinaryHeap::new();
         for frame_ts in self.members.keys() {
-            if !next_need_set.contains(frame_ts) {
+            if !self.is_pinned(frame_ts, incoming) {
                 heap.push(FrameEvictionCandidate {
                     needed_gen: self.next_needed_gen(frame_ts),
                     frame_ts,
@@ -179,25 +187,17 @@ impl Pool {
     pub(crate) fn should_stall(&self, decoder_id: &str) -> bool {
         let decoder = self.decoders.get(decoder_id).unwrap();
 
+        let mut probe = IFrameRef {
+            sourceref: decoder.source.clone(),
+            pts: num_rational::Rational64::new(0, 1),
+        };
         for pts in &decoder.future_frames {
-            let iframe_ref = IFrameRef {
-                sourceref: decoder.source.clone(),
-                pts: *pts,
-            };
-
-            if self.members.contains_key(&iframe_ref) {
+            probe.pts = *pts;
+            if self.members.contains_key(&probe) {
                 continue;
             }
-
-            if let Some(frame_uses) = self.iframe_refs_in_out_idx.get(&iframe_ref) {
-                for gen in frame_uses {
-                    if *gen >= self.done_gens_past
-                        && *gen < self.next_gen
-                        && !self.done_gens_recent.contains(gen)
-                    {
-                        return false;
-                    }
-                }
+            if self.need.contains_key(&probe) {
+                return false;
             }
         }
 
@@ -213,12 +213,10 @@ impl Pool {
             return;
         }
 
-        let need_set: BTreeSet<IFrameRef> = self.need_set().into_iter().cloned().collect();
-
-        if need_set.contains(&frame) || self.members.len() < self.dve_config.decode_pool_size {
+        if self.need.contains_key(&frame) || self.members.len() < self.dve_config.decode_pool_size {
             // If the pool is full evict a cache frame
             if self.members.len() == self.dve_config.decode_pool_size {
-                let evict_set = self.eviction_set(1, &need_set);
+                let evict_set = self.eviction_set(1, None);
                 debug_assert_eq!(evict_set.len(), 1);
                 for frame_ts in evict_set {
                     self.members.remove(&frame_ts);
@@ -233,7 +231,7 @@ impl Pool {
                 let mut least_needed_pool_frame_next_needed = F_NOT_USED;
 
                 for pool_frame in self.members.keys() {
-                    if !need_set.contains(pool_frame) {
+                    if !self.need.contains_key(pool_frame) {
                         if least_needed_pool_frame.is_some() {
                             let pool_frame_next_needed = self.next_needed_gen(pool_frame);
                             if pool_frame_next_needed > least_needed_pool_frame_next_needed {
@@ -314,15 +312,16 @@ impl Pool {
             return false;
         }
 
-        let mut next_need_set: BTreeSet<IFrameRef> =
-            { self.need_set().iter().map(|a| (*a).clone()).collect() };
-        next_need_set.extend(
-            self.iframes_per_oframe[self.next_gen]
-                .iter()
-                .map(|a| (*a).clone()),
-        );
+        let gen = self.next_gen;
+        let incoming = &self.iframes_per_oframe[gen];
 
-        if next_need_set.len() > self.dve_config.decode_pool_size {
+        let fresh = incoming
+            .iter()
+            .filter(|f| !self.need.contains_key(*f))
+            .count();
+        let next_need_size = self.need.len() + fresh;
+
+        if next_need_size > self.dve_config.decode_pool_size {
             // not enough space in the pool even with evictions
             return false;
         }
@@ -331,20 +330,50 @@ impl Pool {
         let members_not_in_need_set = self
             .members
             .keys()
-            .filter(|k| !next_need_set.contains(*k))
+            .filter(|k| !self.is_pinned(k, Some(incoming)))
             .count();
-        let union_size = next_need_set.len() + members_not_in_need_set;
+        let union_size = next_need_size + members_not_in_need_set;
         if union_size > self.dve_config.decode_pool_size {
             let needed_evictions = union_size - self.dve_config.decode_pool_size;
-            let evict_set = self.eviction_set(needed_evictions, &next_need_set);
+            let evict_set = self.eviction_set(needed_evictions, Some(incoming));
             debug_assert!(evict_set.len() == needed_evictions);
             for frame_ts in evict_set {
-                debug_assert!(!next_need_set.contains(&frame_ts));
+                debug_assert!(!self.is_pinned(&frame_ts, Some(incoming)));
                 self.members.remove(&frame_ts);
             }
         }
+
+        for frame in &self.iframes_per_oframe[gen] {
+            match self.need.get_mut(frame) {
+                Some(count) => *count += 1,
+                None => {
+                    self.need.insert(frame.clone(), 1);
+                }
+            }
+        }
+
         self.next_gen += 1;
+        debug_assert!(self.need_is_consistent(), "need set drifted");
         true
+    }
+
+    fn need_is_consistent(&self) -> bool {
+        let mut want: BTreeMap<&IFrameRef, usize> = BTreeMap::new();
+        for gen in self.done_gens_past..self.next_gen {
+            if !self.done_gens_recent.contains(&gen) {
+                for frame in &self.iframes_per_oframe[gen] {
+                    *want.entry(frame).or_insert(0) += 1;
+                }
+            }
+        }
+        want.len() == self.need.len()
+            && want
+                .into_iter()
+                .all(|(frame, count)| self.need.get(frame) == Some(&count))
+    }
+
+    fn is_active_gen(&self, gen: usize) -> bool {
+        gen >= self.done_gens_past && gen < self.next_gen && !self.done_gens_recent.contains(&gen)
     }
 
     pub(crate) fn active_gens(&self) -> BTreeSet<usize> {
@@ -358,9 +387,8 @@ impl Pool {
     }
 
     pub(crate) fn finish_gen(&mut self, gen: usize) {
-        debug_assert!(self.active_gens().contains(&gen));
+        debug_assert!(self.is_active_gen(gen));
 
-        // update the done_gens
         self.done_gens_recent.insert(gen);
         loop {
             match self.done_gens_recent.first() {
@@ -372,12 +400,23 @@ impl Pool {
             }
         }
 
+        for frame in &self.iframes_per_oframe[gen] {
+            match self.need.get_mut(frame) {
+                Some(count) if *count > 1 => *count -= 1,
+                Some(_) => {
+                    self.need.remove(frame);
+                }
+                None => debug_assert!(false, "need refcount underflow on {frame:?}"),
+            }
+        }
+        debug_assert!(self.need_is_consistent(), "need set drifted");
+
         // plan future gens
         while self.plan_gen() {}
     }
 
     pub(crate) fn is_gen_ready(&self, gen: usize) -> bool {
-        debug_assert!(self.active_gens().contains(&gen));
+        debug_assert!(self.is_active_gen(gen));
 
         self.iframes_per_oframe[gen]
             .iter()
@@ -392,14 +431,8 @@ impl Pool {
             .collect()
     }
 
-    pub(crate) fn need_set(&self) -> BTreeSet<&IFrameRef> {
-        let mut out = BTreeSet::new();
-        for gen in self.done_gens_past..self.next_gen {
-            if !self.done_gens_recent.contains(&gen) {
-                out.extend(self.iframes_per_oframe[gen].iter());
-            }
-        }
-        out
+    pub(crate) fn need_set(&self) -> impl Iterator<Item = &IFrameRef> {
+        self.need.keys()
     }
 }
 
