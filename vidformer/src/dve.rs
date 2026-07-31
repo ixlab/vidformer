@@ -941,8 +941,12 @@ impl ExecContext {
             match self.from_filter_channel.1.try_recv() {
                 Ok(result) => {
                     debug!("Received gen {} from filter", result.gen);
-                    debug_assert!(self.filtering_gens.contains(&result.gen));
-                    self.filtering_gens.remove(&result.gen);
+                    if !self.filtering_gens.remove(&result.gen) {
+                        return Err(Error::Unknown(format!(
+                            "Filter returned generation {}, which was not in flight",
+                            result.gen
+                        )));
+                    }
 
                     let oframe = result.oframe;
                     let gen = result.gen;
@@ -1058,11 +1062,21 @@ impl ExecContext {
                         decoder_count.fetch_add(-1, Ordering::SeqCst);
                         debug!("Decoder {decoder_id} finished");
                         decoder_result
-                    })
-                    .unwrap();
+                    });
 
-                self.dec_join_handles
-                    .insert(decoder_id_join_handle_copy, dec_join_handle);
+                match dec_join_handle {
+                    Ok(dec_join_handle) => {
+                        self.dec_join_handles
+                            .insert(decoder_id_join_handle_copy, dec_join_handle);
+                    }
+                    Err(e) => {
+                        pool_ref.decoders.remove(&decoder_id_join_handle_copy);
+                        self.decoder_count.fetch_add(-1, Ordering::SeqCst);
+                        return Err(Error::Unknown(format!(
+                            "Failed to spawn decoder thread: {e}"
+                        )));
+                    }
+                }
             }
         }
 
@@ -1123,6 +1137,16 @@ pub fn run(
         // yes this is arbitrary, but bad things happen if do something like usize::MAX because we track counts with a i64 internally
         return Err(Error::ConfigError(
             "Decoders must be less than u16::MAX".to_string(),
+        ));
+    }
+    if config.decoders == 0 {
+        return Err(Error::ConfigError(
+            "decoders must be greater than 0".to_string(),
+        ));
+    }
+    if config.filterers == 0 {
+        return Err(Error::ConfigError(
+            "filterers must be greater than 0".to_string(),
         ));
     }
 
