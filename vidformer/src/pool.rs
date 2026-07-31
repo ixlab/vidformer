@@ -80,10 +80,14 @@ impl Pool {
         let decoder = self.decoders.get(decoder_id).unwrap();
         let mut next_needed_gen = F_NOT_USED;
         for frame in &decoder.future_frames {
-            let frame_next_needed = self.next_needed_gen(&IFrameRef {
+            let iframe_ref = IFrameRef {
                 sourceref: decoder.source.clone(),
                 pts: *frame,
-            });
+            };
+            if self.members.contains_key(&iframe_ref) {
+                continue;
+            }
+            let frame_next_needed = self.next_needed_gen(&iframe_ref);
             if frame_next_needed < next_needed_gen {
                 next_needed_gen = frame_next_needed;
             }
