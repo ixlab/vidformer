@@ -271,27 +271,6 @@ impl UserPermissions {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn limit_err_min(
-        &self,
-        limit: &str,
-        value: i64,
-    ) -> Option<hyper::Response<http_body_util::Full<hyper::body::Bytes>>> {
-        if let Some(limit_value) = self.limit(limit) {
-            if value < limit_value {
-                let mut res =
-                    hyper::Response::new(http_body_util::Full::new(hyper::body::Bytes::from(
-                        format!("Limit {} exceeded - {} < {}", limit, value, limit_value),
-                    )));
-                *res.status_mut() = hyper::StatusCode::FORBIDDEN;
-                Some(res)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
 
     pub fn limit_frac(&self, limit: &str) -> Option<Rational64> {
         self.limits_frac.get(limit).cloned()

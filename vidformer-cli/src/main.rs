@@ -6,30 +6,6 @@ use vidformer::{filter, run, sir, source, spec};
 
 mod bench;
 
-pub fn simple_source(
-    ident: &str,
-) -> Result<vidformer::source::SourceVideoStreamMeta, vidformer::Error> {
-    let split = ident.split(':').collect::<Vec<&str>>();
-    assert_eq!(split.len(), 3);
-    let (name, path, stream) = (split[0], split[1], split[2].parse::<usize>().unwrap());
-    let fs_service = vidformer::service::Service::default();
-    source::SourceVideoStreamMeta::profile(name, path, stream, &fs_service, None)
-}
-
-pub fn opendal_source(
-    name: &str,
-    path: &str,
-    stream: usize,
-    service: Option<&vidformer::service::Service>,
-) -> Result<vidformer::source::SourceVideoStreamMeta, vidformer::Error> {
-    if let Some(service) = service {
-        source::SourceVideoStreamMeta::profile(name, path, stream, service, None)
-    } else {
-        let fs_service = vidformer::service::Service::default();
-        source::SourceVideoStreamMeta::profile(name, path, stream, &fs_service, None)
-    }
-}
-
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
