@@ -13,6 +13,14 @@ pub mod builtin;
 pub mod cv2;
 mod filter_utils;
 
+/// All `builtin` and `cv2` filters.
+pub fn default_filters() -> BTreeMap<String, Box<dyn Filter>> {
+    let mut filters: BTreeMap<String, Box<dyn Filter>> = BTreeMap::new();
+    filters.extend(builtin::filters());
+    filters.extend(cv2::filters());
+    filters
+}
+
 /// A decoded video frame
 #[derive(Clone)]
 pub struct Frame {

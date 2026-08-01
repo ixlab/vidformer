@@ -1448,7 +1448,7 @@ pub(crate) async fn get_frame(
     let spec = std::sync::Arc::new(std::boxed::Box::new(spec) as Box<dyn vidformer::spec::Spec>);
 
     let io_wrapper = global.io_wrapper();
-    let filters = crate::server::vod::filters();
+    let filters = vidformer::filter::default_filters();
     let context = vidformer::Context::new(sources, filters, io_wrapper);
     let context: std::sync::Arc<vidformer::Context> = std::sync::Arc::new(context);
 
@@ -1711,7 +1711,7 @@ pub(crate) async fn export_spec(
 
     let io_wrapper = global.io_wrapper();
 
-    let filters = crate::server::vod::filters();
+    let filters = vidformer::filter::default_filters();
     let context = vidformer::Context::new(sources, filters, io_wrapper);
     let context = std::sync::Arc::new(context);
 

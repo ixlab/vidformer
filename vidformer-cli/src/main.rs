@@ -160,13 +160,6 @@ fn cmd_x() {
     assert!(std::path::Path::new(output_path).exists());
 }
 
-fn default_filters() -> BTreeMap<String, Box<dyn filter::Filter>> {
-    let mut filters: BTreeMap<String, Box<dyn filter::Filter>> = BTreeMap::new();
-    filters.extend(vidformer::filter::builtin::filters());
-    filters.extend(vidformer::filter::cv2::filters());
-    filters
-}
-
 fn cmd_codecs() {
     let codecs = vidformer::codecs();
 

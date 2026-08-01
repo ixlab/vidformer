@@ -45,7 +45,7 @@ impl DveBench {
             })
             .collect::<Vec<_>>();
 
-        let filters = default_filters();
+        let filters = vidformer::filter::default_filters();
         let context = vidformer::Context::new(sources, filters, None);
 
         (Arc::new(spec), Arc::new(context), Arc::new(self.config))

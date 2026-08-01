@@ -3,16 +3,8 @@ use crate::schema;
 use crate::IgniError;
 use num::Rational64;
 use num::ToPrimitive;
-use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use uuid::Uuid;
-
-pub fn filters() -> BTreeMap<String, Box<dyn vidformer::filter::Filter>> {
-    let mut filters: BTreeMap<String, Box<dyn vidformer::filter::Filter>> = BTreeMap::new();
-    filters.extend(vidformer::filter::builtin::filters());
-    filters.extend(vidformer::filter::cv2::filters());
-    filters
-}
 
 pub(crate) async fn get_playlist(
     _req: hyper::Request<impl hyper::body::Body>,
@@ -441,7 +433,7 @@ pub(crate) async fn get_segment(
 
     let io_wrapper = global.io_wrapper();
 
-    let filters = filters();
+    let filters = vidformer::filter::default_filters();
     let context = vidformer::Context::new(sources, filters, io_wrapper);
     let context = std::sync::Arc::new(context);
 
