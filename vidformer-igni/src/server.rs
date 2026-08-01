@@ -5,6 +5,32 @@ use super::ServerOpt;
 use log::*;
 use num_rational::Rational64;
 use regex::Regex;
+use std::sync::LazyLock;
+
+const UUID: &str = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
+
+macro_rules! route_re {
+    ($name:ident, $pat:expr) => {
+        static $name: LazyLock<Regex> =
+            LazyLock::new(|| Regex::new(&format!($pat, uuid = UUID)).unwrap());
+    };
+}
+
+route_re!(RE_VOD_PLAYLIST, r"^/vod/({uuid})/playlist.m3u8$");
+route_re!(RE_VOD_STREAM, r"^/vod/({uuid})/stream.m3u8$");
+route_re!(RE_VOD_STATUS, r"^/vod/({uuid})/status$");
+route_re!(RE_VOD_EMBEDDED_PLAYER, r"^/vod/({uuid})/embedded-player$");
+route_re!(RE_VOD_SEGMENT, r"^/vod/({uuid})/segment-([0-9]+).ts$");
+route_re!(RE_SOURCE_ID, r"^/v2/source/({uuid})$");
+route_re!(RE_SPEC_ID, r"^/v2/spec/({uuid})$");
+route_re!(RE_SPEC_PART, r"^/v2/spec/({uuid})/part$");
+route_re!(RE_SPEC_PART_BLOCK, r"^/v2/spec/({uuid})/part_block$");
+route_re!(RE_SPEC_EXPORT, r"^/v2/spec/({uuid})/export$");
+
+/// Extract the first capture group of an already-matched route regex.
+fn route_capture<'a>(re: &Regex, path: &'a str) -> &'a str {
+    re.captures(path).unwrap().get(1).unwrap().as_str()
+}
 
 mod api;
 mod gc;
@@ -476,52 +502,32 @@ async fn igni_http_req(
             .unwrap())
         }
         (hyper::Method::GET, _) // playlist.m3u8
-            if {
-                Regex::new(r"^/vod/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/playlist.m3u8$").unwrap().is_match(req.uri().path())
-            } =>
+            if RE_VOD_PLAYLIST.is_match(req.uri().path()) =>
         {
-            let r = Regex::new(
-                r"^/vod/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/playlist.m3u8$",
-            );
             let uri = req.uri().path().to_string();
-            let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            let spec_id = route_capture(&RE_VOD_PLAYLIST, &uri);
             vod::get_playlist(req, global, spec_id).await
         }
         (hyper::Method::GET, _) // stream.m3u8
-            if {
-                Regex::new(r"^/vod/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/stream.m3u8$").unwrap().is_match(req.uri().path())
-            } =>
+            if RE_VOD_STREAM.is_match(req.uri().path()) =>
         {
-            let r = Regex::new(
-                r"^/vod/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/stream.m3u8$",
-            );
             let uri = req.uri().path().to_string();
-            let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            let spec_id = route_capture(&RE_VOD_STREAM, &uri);
             vod::get_stream(req, global, spec_id).await
         }
         (hyper::Method::GET, _) // status
-            if {
-                Regex::new(r"^/vod/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/status$").unwrap().is_match(req.uri().path())
-            } =>
+            if RE_VOD_STATUS.is_match(req.uri().path()) =>
         {
-            let r = Regex::new(
-                r"^/vod/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/status$",
-            );
             let uri = req.uri().path().to_string();
-            let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            let spec_id = route_capture(&RE_VOD_STATUS, &uri);
             vod::get_status(req, global, spec_id).await
         }
         (hyper::Method::GET, _) // embedded-player
-            if {
-                Regex::new(r"^/vod/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/embedded-player$").unwrap().is_match(req.uri().path())
-            } =>
+            if RE_VOD_EMBEDDED_PLAYER.is_match(req.uri().path()) =>
         {
             // TODO: Should we require a config option to enable this?
-            let r = Regex::new(
-                r"^/vod/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/embedded-player$",
-            );
             let uri = req.uri().path().to_string();
-            let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            let spec_id = route_capture(&RE_VOD_EMBEDDED_PLAYER, &uri);
             vod::get_embedded_player(req, global, spec_id).await
         }
         (_, uri) if {
@@ -530,14 +536,9 @@ async fn igni_http_req(
             igni_http_req_api(req, global).await
         }
         (hyper::Method::GET, _) // segment-$n.ts
-            if {
-                Regex::new(r"^/vod/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/segment-[0-9]+.ts$").unwrap().is_match(req.uri().path())
-            } => {
-            let r = Regex::new(
-                r"^/vod/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/segment-([0-9]+).ts$",
-            ).unwrap();
+            if RE_VOD_SEGMENT.is_match(req.uri().path()) => {
             let uri = req.uri().path().to_string();
-            let matches = r.captures(&uri).unwrap();
+            let matches = RE_VOD_SEGMENT.captures(&uri).unwrap();
             let spec_id = matches.get(1).unwrap().as_str();
             let segment_number = matches.get(2).unwrap().as_str().parse().unwrap();
             vod::get_segment(req, global, spec_id, segment_number).await
@@ -617,18 +618,13 @@ async fn igni_http_req_api(
             api::list_sources(req, global, &user_auth).await
         }
         (hyper::Method::GET, _) // /v2/source/<uuid>
-            if {
-                Regex::new(r"^/v2/source/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").unwrap().is_match(req.uri().path())
-            } =>
+            if RE_SOURCE_ID.is_match(req.uri().path()) =>
         {
             if let Some(res) = user_auth.permissions.flag_err("source:get") {
                 return Ok(res);
             }
-            let r = Regex::new(
-                r"^/v2/source/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
-            );
             let uri = req.uri().path().to_string();
-            let source_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            let source_id = route_capture(&RE_SOURCE_ID, &uri);
             api::get_source(req, global, source_id, &user_auth).await
         }
         (hyper::Method::POST, "/v2/source/search") => {
@@ -645,18 +641,13 @@ async fn igni_http_req_api(
             api::create_source(req, global, &user_auth).await
         }
         (hyper::Method::DELETE, _) // /v2/source/<uuid>
-            if {
-                Regex::new(r"^/v2/source/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").unwrap().is_match(req.uri().path())
-            } =>
+            if RE_SOURCE_ID.is_match(req.uri().path()) =>
         {
             if let Some(res) = user_auth.permissions.flag_err("source:delete") {
                 return Ok(res);
             }
-            let r = Regex::new(
-                r"^/v2/source/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
-            );
             let uri = req.uri().path().to_string();
-            let source_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            let source_id = route_capture(&RE_SOURCE_ID, &uri);
             api::delete_source(req, global, source_id, &user_auth).await
         }
         (hyper::Method::GET, "/v2/spec") // /v2/spec (list)
@@ -667,33 +658,23 @@ async fn igni_http_req_api(
             api::list_specs(req, global, &user_auth).await
         }
         (hyper::Method::GET, _) // /v2/spec/<uuid>
-            if {
-                Regex::new(r"^/v2/spec/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").unwrap().is_match(req.uri().path())
-            } =>
+            if RE_SPEC_ID.is_match(req.uri().path()) =>
         {
             if let Some(res) = user_auth.permissions.flag_err("spec:get") {
                 return Ok(res);
             }
-            let r = Regex::new(
-                r"^/v2/spec/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
-            );
             let uri = req.uri().path().to_string();
-            let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            let spec_id = route_capture(&RE_SPEC_ID, &uri);
             api::get_spec(req, global, spec_id, &user_auth).await
         }
         (hyper::Method::DELETE, _) // /v2/spec/<uuid>
-            if {
-                Regex::new(r"^/v2/spec/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$").unwrap().is_match(req.uri().path())
-            } =>
+            if RE_SPEC_ID.is_match(req.uri().path()) =>
         {
             if let Some(res) = user_auth.permissions.flag_err("spec:delete") {
                 return Ok(res);
             }
-            let r = Regex::new(
-                r"^/v2/spec/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
-            );
             let uri = req.uri().path().to_string();
-            let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            let spec_id = route_capture(&RE_SPEC_ID, &uri);
             api::delete_spec(req, global, spec_id, &user_auth).await
         }
         (hyper::Method::POST, "/v2/spec") // /v2/spec
@@ -704,33 +685,23 @@ async fn igni_http_req_api(
             api::push_spec(req, global, &user_auth).await
         }
         (hyper::Method::POST, _) // /v2/spec/<uuid>/part
-            if {
-                Regex::new(r"^/v2/spec/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/part$").unwrap().is_match(req.uri().path())
-            } =>
+            if RE_SPEC_PART.is_match(req.uri().path()) =>
         {
             if let Some(res) = user_auth.permissions.flag_err("spec:push_part") {
                 return Ok(res);
             }
-            let r = Regex::new(
-                r"^/v2/spec/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/part$",
-            );
             let uri = req.uri().path().to_string();
-            let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            let spec_id = route_capture(&RE_SPEC_PART, &uri);
             api::push_part(req, global, spec_id, &user_auth).await
         }
         (hyper::Method::POST, _) // /v2/spec/<uuid>/part_block
-            if {
-                Regex::new(r"^/v2/spec/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/part_block$").unwrap().is_match(req.uri().path())
-            } =>
+            if RE_SPEC_PART_BLOCK.is_match(req.uri().path()) =>
         {
             if let Some(res) = user_auth.permissions.flag_err("spec:push_part") {
                 return Ok(res);
             }
-            let r = Regex::new(
-                r"^/v2/spec/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/part_block$",
-            );
             let uri = req.uri().path().to_string();
-            let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            let spec_id = route_capture(&RE_SPEC_PART_BLOCK, &uri);
             api::push_part_block(req, global, spec_id, &user_auth).await
         }
         (hyper::Method::POST, "/v2/frame") => {
@@ -739,10 +710,8 @@ async fn igni_http_req_api(
             }
             api::get_frame(req, global, &user_auth).await
         }
-        (hyper::Method::POST, _) // /v2/spec/<uuid>/part_block
-            if {
-                Regex::new(r"^/v2/spec/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/export$").unwrap().is_match(req.uri().path())
-            } =>
+        (hyper::Method::POST, _) // /v2/spec/<uuid>/export
+            if RE_SPEC_EXPORT.is_match(req.uri().path()) =>
         {
             if !global.config.enable_export {
                 let mut res = hyper::Response::new(http_body_util::Full::new(
@@ -754,11 +723,8 @@ async fn igni_http_req_api(
             if let Some(res) = user_auth.permissions.flag_err("spec:export") {
                 return Ok(res);
             }
-            let r = Regex::new(
-                r"^/v2/spec/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/export$",
-            );
             let uri = req.uri().path().to_string();
-            let spec_id = r.unwrap().captures(&uri).unwrap().get(1).unwrap().as_str();
+            let spec_id = route_capture(&RE_SPEC_EXPORT, &uri);
             api::export_spec(req, global, spec_id, &user_auth).await
         }
         (method, uri) => {
