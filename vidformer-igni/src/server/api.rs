@@ -436,7 +436,7 @@ pub(crate) async fn get_spec(
         "vod_segment_length": [row.vod_segment_length_num, row.vod_segment_length_denom],
         "ready_hook": row.ready_hook,
         "steer_hook": row.steer_hook,
-        "terminated": if let Some(pos_terminal) = row.pos_terminal { pos_terminal == row.pos_discontinuity - 1 } else { false },
+        "terminated": row.is_terminated(),
         "frames_applied": row.pos_discontinuity,
         "closed": row.closed,
         "vod_endpoint": format!("{}{}/", global.config.vod_prefix, source_id), // TODO: This should be configurable

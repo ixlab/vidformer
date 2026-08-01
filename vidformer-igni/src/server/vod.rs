@@ -100,11 +100,7 @@ pub(crate) async fn get_stream(
         num_rational::Ratio::new(spec.vod_segment_length_num, spec.vod_segment_length_denom);
     let frame_rate = num_rational::Ratio::new(spec.frame_rate_num, spec.frame_rate_denom);
     let n_frames: i32 = spec.pos_discontinuity;
-    let terminal = if let Some(pos_terminal) = spec.pos_terminal {
-        pos_terminal == spec.pos_discontinuity - 1
-    } else {
-        false
-    };
+    let terminal = spec.is_terminated();
 
     let segments = crate::segment::segments(n_frames, &segment_length, &frame_rate, terminal);
 
@@ -167,11 +163,7 @@ pub(crate) async fn get_status(
         num_rational::Ratio::new(spec.vod_segment_length_num, spec.vod_segment_length_denom);
     let n_frames: i32 = spec.pos_discontinuity;
     let closed = spec.closed;
-    let terminated = if let Some(pos_terminal) = spec.pos_terminal {
-        pos_terminal == spec.pos_discontinuity - 1
-    } else {
-        false
-    };
+    let terminated = spec.is_terminated();
     let ready =
         crate::segment::num_segments(n_frames, &segment_length, &frame_rate, terminated) > 0;
 
@@ -285,11 +277,7 @@ pub(crate) async fn get_segment(
     );
     let frame_rate = num_rational::Ratio::new(spec_db.frame_rate_num, spec_db.frame_rate_denom);
     let n_frames: i32 = spec_db.pos_discontinuity;
-    let terminal = if let Some(pos_terminal) = spec_db.pos_terminal {
-        pos_terminal == spec_db.pos_discontinuity - 1
-    } else {
-        false
-    };
+    let terminal = spec_db.is_terminated();
 
     let num_segments =
         crate::segment::num_segments(n_frames, &segment_length, &frame_rate, terminal);

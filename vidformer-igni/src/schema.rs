@@ -28,6 +28,13 @@ pub struct SpecRow {
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
+impl SpecRow {
+    pub fn is_terminated(&self) -> bool {
+        self.pos_terminal
+            .is_some_and(|pos_terminal| pos_terminal == self.pos_discontinuity - 1)
+    }
+}
+
 #[derive(sqlx::FromRow)]
 pub struct SourceRow {
     pub id: uuid::Uuid,
