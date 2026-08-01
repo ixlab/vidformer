@@ -679,14 +679,14 @@ pub struct Range {
 }
 
 struct EncodeBuffer {
-    members: Vec<(usize, Arc<AVFrame>)>,
+    members: std::collections::BTreeMap<usize, Arc<AVFrame>>,
     terminate_encoder: bool,
 }
 
 impl EncodeBuffer {
     fn new() -> Self {
         EncodeBuffer {
-            members: Vec::new(),
+            members: std::collections::BTreeMap::new(),
             terminate_encoder: false,
         }
     }
@@ -960,7 +960,7 @@ impl ExecContext {
 
                     {
                         let mut encode_buffer_ref = self.encode_buffer.0.lock();
-                        encode_buffer_ref.members.push((gen, oframe));
+                        encode_buffer_ref.members.insert(gen, oframe);
                         let encode_buffer_size = encode_buffer_ref.members.len();
                         self.stat
                             .max_encode_buffer_size
@@ -1288,13 +1288,8 @@ fn encoder_thread(
                 break;
             }
 
-            let target_index = encode_buffer_ref
-                .members
-                .iter()
-                .position(|(gen, _)| *gen == oframe_next);
-
-            if let Some(target_index) = target_index {
-                let (gen, frame) = encode_buffer_ref.members.remove(target_index);
+            if let Some(frame) = encode_buffer_ref.members.remove(&oframe_next) {
+                let gen = oframe_next;
 
                 let pts = match process_span.output_ts_offset {
                     Some(offset) => process_span.ts[gen] - offset,
