@@ -726,7 +726,7 @@ pub(crate) async fn push_part_block(
 
     let pos = req.pos;
     let terminal = req.terminal;
-    let mut n_frames_total = 0;
+    let mut n_frames_total: usize = 0;
     for block in &req.blocks {
         if block.frames < 1 {
             return Ok(hyper::Response::builder()
@@ -735,9 +735,18 @@ pub(crate) async fn push_part_block(
                     "Invalid number of frames",
                 )))?);
         }
-        n_frames_total += block.frames as usize;
+        n_frames_total = n_frames_total.saturating_add(block.frames as usize);
     }
-    let mut frames = Vec::with_capacity(n_frames_total);
+    let n_frames_i64 = i64::try_from(n_frames_total).unwrap_or(i64::MAX);
+    if let Some(err) = user
+        .permissions
+        .limit_err_max("spec:max_frames", n_frames_i64)
+    {
+        return Ok(err);
+    }
+    // A hard ceiling too, in case the user's permissions omit spec:max_frames.
+    const MAX_PREALLOC_FRAMES: usize = 1 << 20;
+    let mut frames = Vec::with_capacity(n_frames_total.min(MAX_PREALLOC_FRAMES));
     for block in req.blocks {
         let block_frames = match load_req_feb(block)? {
             RetOrResp::Ret(block_frames) => block_frames,
@@ -750,6 +759,20 @@ pub(crate) async fn push_part_block(
     }
 
     push_frame_req(global, user, spec_id, (pos, terminal, frames)).await
+}
+
+const MAX_DECOMPRESSED_BLOCK_BYTES: u64 = 256 * 1024 * 1024;
+
+fn read_all_capped<R: std::io::Read>(r: R, cap: u64) -> std::io::Result<Vec<u8>> {
+    let mut out = Vec::new();
+    let n = r.take(cap + 1).read_to_end(&mut out)?;
+    if n as u64 > cap {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "decompressed block exceeds size limit",
+        ));
+    }
+    Ok(out)
 }
 
 fn load_req_feb(
@@ -771,8 +794,19 @@ fn load_req_feb(
         None => body_bytes,
         Some("zstd") => {
             let reader = std::io::Cursor::new(body_bytes.as_slice());
-            let body_uncompresed = zstd::stream::decode_all(reader);
-            match body_uncompresed {
+            let decoder = match zstd::stream::read::Decoder::new(reader) {
+                Ok(decoder) => decoder,
+                Err(err) => {
+                    return Ok(RetOrResp::Resp(
+                        hyper::Response::builder()
+                            .status(hyper::StatusCode::BAD_REQUEST)
+                            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                                format!("Error decompressing block: {}", err),
+                            )))?,
+                    ));
+                }
+            };
+            match read_all_capped(decoder, MAX_DECOMPRESSED_BLOCK_BYTES) {
                 Ok(body_uncompresed) => body_uncompresed,
                 Err(err) => {
                     return Ok(RetOrResp::Resp(
@@ -787,12 +821,19 @@ fn load_req_feb(
         }
         Some("gzip") => {
             let reader = std::io::Cursor::new(body_bytes.as_slice());
-            let mut decoder = flate2::read::GzDecoder::new(reader);
-            let mut body_uncompresed = Vec::new();
-            decoder
-                .read_to_end(&mut body_uncompresed)
-                .map_err(|err| IgniError::General(format!("Error decompressing block: {}", err)))?;
-            body_uncompresed
+            let decoder = flate2::read::GzDecoder::new(reader);
+            match read_all_capped(decoder, MAX_DECOMPRESSED_BLOCK_BYTES) {
+                Ok(body_uncompresed) => body_uncompresed,
+                Err(err) => {
+                    return Ok(RetOrResp::Resp(
+                        hyper::Response::builder()
+                            .status(hyper::StatusCode::BAD_REQUEST)
+                            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                                format!("Error decompressing block: {}", err),
+                            )))?,
+                    ));
+                }
+            }
         }
         Some(_) => {
             return Ok(RetOrResp::Resp(hyper::Response::builder()
@@ -858,6 +899,15 @@ async fn push_frame_req(
 
     let pos = req.0;
     let n_frames = req.2.len();
+
+    // The later `pos + i` overflows unless `pos + n_frames` fits i32.
+    if pos < 0 || pos as i64 + n_frames as i64 > i32::MAX as i64 {
+        return Ok(hyper::Response::builder()
+            .status(hyper::StatusCode::BAD_REQUEST)
+            .body(http_body_util::Full::new(hyper::body::Bytes::from(
+                "Invalid frame position",
+            )))?);
+    }
 
     // Check if we're pushing too many frames
     if let Some(err) = user
@@ -1464,6 +1514,7 @@ pub(crate) async fn get_frame(
     };
 
     let output_path = format!("/tmp/{}.raw", Uuid::new_v4());
+    let _tmp_guard = super::TempFileGuard(output_path.clone());
 
     let dve_config = std::sync::Arc::new(dve_config);
     let output_path = std::sync::Arc::new(output_path);
@@ -1492,8 +1543,6 @@ pub(crate) async fn get_frame(
             )))
         }
     };
-
-    tokio::fs::remove_file(output_path2.as_str()).await.unwrap();
 
     match &req.compression {
         None => Ok(hyper::Response::builder()

@@ -9,6 +9,8 @@ use std::sync::LazyLock;
 
 const UUID: &str = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}";
 
+const MAX_REQUEST_BODY_BYTES: usize = 256 * 1024 * 1024;
+
 macro_rules! route_re {
     ($name:ident, $pat:expr) => {
         static $name: LazyLock<Regex> =
@@ -30,6 +32,14 @@ route_re!(RE_SPEC_EXPORT, r"^/v2/spec/({uuid})/export$");
 /// Extract the first capture group of an already-matched route regex.
 fn route_capture<'a>(re: &Regex, path: &'a str) -> &'a str {
     re.captures(path).unwrap().get(1).unwrap().as_str()
+}
+
+pub(crate) struct TempFileGuard(pub(crate) String);
+
+impl Drop for TempFileGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
 }
 
 mod api;
@@ -419,7 +429,10 @@ pub(crate) async fn cmd_server(
             if let Err(err) = http1::Builder::new()
                 .serve_connection(
                     io,
-                    hyper::service::service_fn(|req| {
+                    hyper::service::service_fn(|req: hyper::Request<hyper::body::Incoming>| {
+                        let req = req.map(|body| {
+                            http_body_util::Limited::new(body, MAX_REQUEST_BODY_BYTES)
+                        });
                         igni_http_req_error_handler(req, global.clone())
                     }),
                 )
@@ -519,7 +532,18 @@ async fn igni_http_req(
             let uri = req.uri().path().to_string();
             let matches = RE_VOD_SEGMENT.captures(&uri).unwrap();
             let spec_id = matches.get(1).unwrap().as_str();
-            let segment_number = matches.get(2).unwrap().as_str().parse().unwrap();
+            // The regex allows arbitrarily many digits; a too-large value would
+            // overflow i32 and panic on unwrap, so fail closed to 404.
+            let segment_number: i32 = match matches.get(2).unwrap().as_str().parse() {
+                Ok(n) => n,
+                Err(_) => {
+                    let mut res = hyper::Response::new(http_body_util::Full::new(
+                        hyper::body::Bytes::from("Not found"),
+                    ));
+                    *res.status_mut() = hyper::StatusCode::NOT_FOUND;
+                    return Ok(res);
+                }
+            };
             vod::get_segment(req, global, spec_id, segment_number).await
         }
         (method, uri) => {

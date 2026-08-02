@@ -299,7 +299,16 @@ pub(crate) async fn get_segment(
     .fetch_all(&mut *transaction)
     .await?;
 
-    assert!(rows.len() == segment.n_frames as usize);
+    if rows.len() != segment.n_frames as usize {
+        transaction.commit().await?;
+        return Err(IgniError::General(format!(
+            "segment {} of spec {} has {} stored frames, expected {}",
+            segment_number,
+            spec_id,
+            rows.len(),
+            segment.n_frames
+        )));
+    }
 
     // map times to rational
     let times: Vec<num_rational::Ratio<i64>> = rows
@@ -441,6 +450,7 @@ pub(crate) async fn get_segment(
     };
 
     let output_path = format!("/tmp/{}.ts", Uuid::new_v4());
+    let _tmp_guard = super::TempFileGuard(output_path.clone());
     let output_path2 = output_path.clone();
 
     // Run the spec in a blocking task
@@ -483,16 +493,8 @@ pub(crate) async fn get_segment(
         }
     };
 
-    let res = hyper::Response::builder()
+    Ok(hyper::Response::builder()
         .header("Access-Control-Allow-Origin", "*")
         .header("Content-Type", "video/MP2T")
-        .body(http_body_util::Full::new(hyper::body::Bytes::from(output)))?;
-
-    match tokio::fs::remove_file(output_path2.as_str()).await {
-        Ok(_) => Ok(res),
-        Err(err) => Err(IgniError::General(format!(
-            "Failed to remove temporary file: {}",
-            err
-        ))),
-    }
+        .body(http_body_util::Full::new(hyper::body::Bytes::from(output)))?)
 }

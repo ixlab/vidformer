@@ -314,7 +314,8 @@ async fn cmd_source_add(
     .await?;
 
     let storage_config_json_value: serde_json::Value =
-        serde_json::from_str(&add_source.storage_config).unwrap();
+        serde_json::from_str(&add_source.storage_config)
+            .map_err(|e| IgniError::General(format!("Invalid storage_config JSON: {}", e)))?;
 
     let source_id = {
         let mut transaction = pool.begin().await?;
@@ -484,6 +485,13 @@ fn parse_frac(s: &str) -> Result<(i32, i32), IgniError> {
     } else {
         return Err(IgniError::General(format!("Invalid fraction: {}", s)));
     };
+
+    if num <= 0 || denom <= 0 {
+        return Err(IgniError::General(format!(
+            "Fraction must be positive: {}",
+            s
+        )));
+    }
 
     Ok((num, denom))
 }
@@ -663,7 +671,7 @@ async fn cmd_user_edit(
         ));
     }
 
-    ops::update_users(&mut transaction, &users).await?;
+    ops::update_users(&mut transaction, &updated_users).await?;
 
     transaction.commit().await?;
 

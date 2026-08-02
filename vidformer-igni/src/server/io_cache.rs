@@ -11,19 +11,29 @@ pub struct RedisIoCache<R> {
 }
 
 impl<R: Read + Seek> RedisIoCache<R> {
-    pub fn new(inner: R, redis_url: &str, prefix: &str, chunk_size: usize) -> Self {
-        let client = redis::Client::open(redis_url).expect("Bad Redis URL");
-        let conn = client
-            .get_connection()
-            .expect("Cannot get Redis connection");
+    /// The reader comes back in the `Err` so the caller can go uncached.
+    pub fn try_new(
+        inner: R,
+        redis_url: &str,
+        prefix: &str,
+        chunk_size: usize,
+    ) -> std::result::Result<Self, (R, redis::RedisError)> {
+        let client = match redis::Client::open(redis_url) {
+            Ok(client) => client,
+            Err(err) => return Err((inner, err)),
+        };
+        let conn = match client.get_connection() {
+            Ok(conn) => conn,
+            Err(err) => return Err((inner, err)),
+        };
 
-        RedisIoCache {
+        Ok(RedisIoCache {
             inner,
             conn,
             chunk_size,
             position: 0,
             prefix: prefix.to_string(),
-        }
+        })
     }
 
     fn chunk_key(&self, chunk_index: u64) -> String {
@@ -106,6 +116,10 @@ impl<R: Read + Seek> Read for RedisIoCache<R> {
             }
         }
 
+        // A short or empty final chunk can start the read at or past EOF.
+        if offset_in_chunk >= chunk_buf.len() {
+            return Ok(0);
+        }
         let to_copy = std::cmp::min(to_read, chunk_buf.len() - offset_in_chunk);
         out_buf[..to_copy].copy_from_slice(&chunk_buf[offset_in_chunk..offset_in_chunk + to_copy]);
         self.position += to_copy as u64;
@@ -162,9 +176,12 @@ impl vidformer::io::IoWrapper for IgniIoWrapper {
         r: Box<dyn vidformer::io::ReadSeek>,
         io_namespace: &str,
     ) -> Box<dyn vidformer::io::ReadSeek> {
-        Box::new(std::io::BufReader::with_capacity(
-            256 * 1024,
-            RedisIoCache::new(r, &self.url, io_namespace, self.chunk_size),
-        ))
+        match RedisIoCache::try_new(r, &self.url, io_namespace, self.chunk_size) {
+            Ok(cache) => Box::new(std::io::BufReader::with_capacity(256 * 1024, cache)),
+            Err((r, err)) => {
+                warn!("IO cache unavailable, using uncached IO: {:?}", err);
+                r
+            }
+        }
     }
 }

@@ -144,7 +144,12 @@ pub(crate) async fn update_users(
     // Make the users table match the provided list
     let mut user_ids = Vec::new();
     for user in users {
-        assert!(!user_ids.contains(&user.id));
+        if user_ids.contains(&user.id) {
+            return Err(IgniError::General(format!(
+                "Duplicate user id in update: {}",
+                user.id
+            )));
+        }
         user_ids.push(user.id);
         sqlx::query("INSERT INTO \"user\" (id, name, api_key, permissions) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET name = $2, api_key = $3, permissions = $4")
             .bind(user.id)

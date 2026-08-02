@@ -3,6 +3,8 @@ use std::collections::BTreeMap;
 use num_rational::Rational64;
 use serde::{Deserialize, Serialize};
 
+const MAX_FEB_DEPTH: usize = 256;
+
 #[derive(Debug, PartialEq)]
 enum InlineLiteral {
     Int(i32),
@@ -259,6 +261,48 @@ enum SubExprValue {
     OutOfBand(usize),
 }
 
+const MAX_LITERAL_BYTES_PER_SLOT: usize = 4096;
+
+fn literal_size(expr: &vidformer::sir::DataExpr) -> usize {
+    match expr {
+        vidformer::sir::DataExpr::Bytes(b) => b.len(),
+        vidformer::sir::DataExpr::String(s) => s.len(),
+        _ => std::mem::size_of::<vidformer::sir::DataExpr>(),
+    }
+}
+
+/// `nodes` stops shared-reference blowups; `bytes` stops literal amplification,
+/// which is a tree and so invisible to `nodes`.
+pub(crate) struct DecodeBudget {
+    nodes: std::cell::Cell<usize>,
+    bytes: std::cell::Cell<usize>,
+}
+
+impl DecodeBudget {
+    pub(crate) fn new(exprs: usize, literals: usize) -> Self {
+        DecodeBudget {
+            nodes: std::cell::Cell::new(exprs.saturating_mul(4).saturating_add(1024)),
+            bytes: std::cell::Cell::new(
+                literals
+                    .saturating_mul(4)
+                    .saturating_add(exprs)
+                    .saturating_mul(MAX_LITERAL_BYTES_PER_SLOT)
+                    .saturating_add(1 << 20),
+            ),
+        }
+    }
+
+    fn charge_bytes(&self, n: usize) -> Result<(), String> {
+        match self.bytes.get().checked_sub(n) {
+            Some(remaining) => {
+                self.bytes.set(remaining);
+                Ok(())
+            }
+            None => Err("FrameBlock decode exceeded its output size budget".to_string()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FrameBlock {
     functions: Vec<String>,
@@ -296,16 +340,26 @@ impl FrameBlock {
         match frame_expr {
             vidformer::sir::FrameExpr::Source(source) => {
                 self.sources.push(source.video().to_string());
+                let source_idx = self.sources.len() - 1;
+                if source_idx > u16::MAX as usize {
+                    return Err("Too many sources in frame block".to_string());
+                }
+                let source_idx = source_idx as u16;
                 let source_expr = match source.index() {
-                    vidformer::sir::IndexConst::ILoc(i) => FrameExprBlock::SourceILoc {
-                        source_idx: self.sources.len() as u16 - 1,
-                        t: *i as u32,
-                    },
+                    vidformer::sir::IndexConst::ILoc(i) => {
+                        if *i > u32::MAX as usize {
+                            return Err("Source iloc index too large".to_string());
+                        }
+                        FrameExprBlock::SourceILoc {
+                            source_idx,
+                            t: *i as u32,
+                        }
+                    }
                     vidformer::sir::IndexConst::T(t) => {
                         self.source_fracs.push(*t.numer());
                         self.source_fracs.push(*t.denom());
                         FrameExprBlock::SourceFrac {
-                            source_idx: self.sources.len() as u16 - 1,
+                            source_idx,
                             source_frac_idx: self.source_fracs.len() as u32 - 2,
                         }
                     }
@@ -321,7 +375,11 @@ impl FrameBlock {
                     .unwrap_or_else(|| {
                         self.functions.push(filter.name.to_string());
                         self.functions.len() - 1
-                    }) as u16;
+                    });
+                if func_idx > u16::MAX as usize {
+                    return Err("Too many functions in frame block".to_string());
+                }
+                let func_idx = func_idx as u16;
                 if filter.args.len() > 255 {
                     return Err("Too many filter args".to_string());
                 }
@@ -538,7 +596,20 @@ impl FrameBlock {
         }
     }
 
-    fn get_expr(&self, idx: usize, member: bool) -> Result<vidformer::sir::Expr, String> {
+    fn get_expr(
+        &self,
+        idx: usize,
+        member: bool,
+        depth: usize,
+        budget: &DecodeBudget,
+    ) -> Result<vidformer::sir::Expr, String> {
+        if depth > MAX_FEB_DEPTH {
+            return Err("Frame block nesting too deep".to_string());
+        }
+        match budget.nodes.get().checked_sub(1) {
+            Some(remaining) => budget.nodes.set(remaining),
+            None => return Err("Frame block too large to decode".to_string()),
+        }
         let target_expr = self.exprs.get(idx).ok_or("Expr index out of bounds")?;
         let target_expr = FrameExprBlock::from_int(*target_expr)?;
         match target_expr {
@@ -549,26 +620,32 @@ impl FrameBlock {
                         idx, expr_idx
                     ));
                 }
-                self.get_expr(expr_idx as usize, false)
+                self.get_expr(expr_idx as usize, false, depth + 1, budget)
             }
             FrameExprBlock::Expr { .. } => Err(format!(
                 "Expr at pos {} is not a Function or List member",
                 idx
             )),
             FrameExprBlock::InlineLiteral(inline_literal) => inline_literal.get_expr(),
-            FrameExprBlock::RefLiteral(i) => Ok(vidformer::sir::Expr::Data(
-                self.literals
+            FrameExprBlock::RefLiteral(i) => {
+                let literal = self
+                    .literals
                     .get(i as usize)
-                    .ok_or("Literal index out of bounds")?
-                    .clone(),
-            )),
+                    .ok_or("Literal index out of bounds")?;
+                budget.charge_bytes(literal_size(literal))?;
+                Ok(vidformer::sir::Expr::Data(literal.clone()))
+            }
             FrameExprBlock::List { .. } if member => {
                 Err("A list can't be a direct member".to_string())
             }
             FrameExprBlock::List { len } => {
-                let mut list = Vec::with_capacity(len as usize);
+                let len = len as usize;
+                if len > self.exprs.len().saturating_sub(idx + 1) {
+                    return Err(format!("List at pos {} has out-of-bounds length", idx));
+                }
+                let mut list = Vec::with_capacity(len);
                 for i in 0..len {
-                    let expr = self.get_expr(idx + 1 + i as usize, true)?;
+                    let expr = self.get_expr(idx + 1 + i, true, depth + 1, budget)?;
                     list.push(expr);
                 }
                 Ok(vidformer::sir::Expr::Data(vidformer::sir::DataExpr::List(
@@ -578,17 +655,31 @@ impl FrameBlock {
             FrameExprBlock::KwargKey { .. } => {
                 Err(format!("Pos {} needs to be an expr, not kwarg key", idx))
             }
-            FrameExprBlock::SourceILoc { .. } | FrameExprBlock::SourceFrac { .. } => {
-                self.get_frame(idx).map(vidformer::sir::Expr::Frame)
-            }
+            FrameExprBlock::SourceILoc { .. } | FrameExprBlock::SourceFrac { .. } => self
+                .get_frame(idx, depth + 1, budget)
+                .map(vidformer::sir::Expr::Frame),
             FrameExprBlock::Func { .. } if member => {
                 Err("A function can't be a direct member".to_string())
             }
-            FrameExprBlock::Func { .. } => self.get_frame(idx).map(vidformer::sir::Expr::Frame),
+            FrameExprBlock::Func { .. } => self
+                .get_frame(idx, depth + 1, budget)
+                .map(vidformer::sir::Expr::Frame),
         }
     }
 
-    fn get_frame(&self, idx: usize) -> Result<vidformer::sir::FrameExpr, String> {
+    fn get_frame(
+        &self,
+        idx: usize,
+        depth: usize,
+        budget: &DecodeBudget,
+    ) -> Result<vidformer::sir::FrameExpr, String> {
+        if depth > MAX_FEB_DEPTH {
+            return Err("Frame block nesting too deep".to_string());
+        }
+        match budget.nodes.get().checked_sub(1) {
+            Some(remaining) => budget.nodes.set(remaining),
+            None => return Err("Frame block too large to decode".to_string()),
+        }
         let target_expr = self.exprs.get(idx).ok_or("Expr index out of bounds")?;
         let target_expr = FrameExprBlock::from_int(*target_expr)?;
         match target_expr {
@@ -658,7 +749,7 @@ impl FrameBlock {
                 let mut args = Vec::with_capacity(len_args as usize);
                 let mut kwargs = std::collections::BTreeMap::new();
                 for i in 0..len_args as usize {
-                    args.push(self.get_expr(idx + 1 + i, true)?);
+                    args.push(self.get_expr(idx + 1 + i, true, depth + 1, budget)?);
                 }
                 for i in 0..len_kwargs as usize {
                     let key = match FrameExprBlock::from_int(
@@ -678,7 +769,12 @@ impl FrameBlock {
                             ))
                         }
                     };
-                    let value = self.get_expr(idx + 1 + len_args as usize + i * 2 + 1, true)?;
+                    let value = self.get_expr(
+                        idx + 1 + len_args as usize + i * 2 + 1,
+                        true,
+                        depth + 1,
+                        budget,
+                    )?;
                     kwargs.insert(key.to_string(), value);
                 }
                 Ok(vidformer::sir::FrameExpr::Filter(
@@ -693,9 +789,10 @@ impl FrameBlock {
     }
 
     pub fn frames(&self) -> Result<Vec<vidformer::sir::FrameExpr>, String> {
+        let budget = DecodeBudget::new(self.exprs.len(), self.literals.len());
         self.frame_exprs
             .iter()
-            .map(|i| self.get_frame(*i as usize))
+            .map(|i| self.get_frame(*i as usize, 0, &budget))
             .collect()
     }
 }
@@ -720,7 +817,10 @@ pub fn decode_frame_block(bytes: &[u8]) -> Result<vidformer::sir::FrameExpr, Str
         .map_err(|err| format!("Error parsing FEB: {:?}", err))?;
     let mut frames = feb.frames()?;
     if frames.len() != 1 {
-        return Err(format!("Expected a single-frame block, got {}", frames.len()));
+        return Err(format!(
+            "Expected a single-frame block, got {}",
+            frames.len()
+        ));
     }
     Ok(frames.remove(0))
 }
@@ -728,6 +828,102 @@ pub fn decode_frame_block(bytes: &[u8]) -> Result<vidformer::sir::FrameExpr, Str
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_decode_rejects_adversarial_list_length() {
+        // Layout: [List{len}, Func{args:1}, Expr->0].
+        let fb = FrameBlock {
+            functions: vec!["f".to_string()],
+            literals: vec![],
+            sources: vec![],
+            kwarg_keys: vec![],
+            source_fracs: vec![],
+            exprs: vec![
+                0x4200_0000_0000_0000i64 | 4_000_000_000i64, // List { len: 4e9 }
+                0x4100_0000_0000_0000i64 | (1i64 << 24),     // Func { args: 1 }
+                0x4500_0000_0000_0000i64,                    // Expr { expr_idx: 0 }
+            ],
+            frame_exprs: vec![1],
+        };
+        assert!(fb.frames().is_err());
+    }
+
+    /// Layout: [List{len:n}, RefLiteral*n, Func{1 arg}, Expr->0].
+    fn literal_list_block(
+        n: usize,
+        lit: impl Fn(usize) -> usize,
+        literals: Vec<vidformer::sir::DataExpr>,
+    ) -> FrameBlock {
+        let mut exprs: Vec<i64> = vec![0x4200_0000_0000_0000i64 | n as i64];
+        exprs.extend((0..n).map(|i| 0x4000_0000_0000_0000i64 | lit(i) as i64));
+        exprs.push(0x4100_0000_0000_0000i64 | (1i64 << 24)); // Func, 1 arg
+        exprs.push(0x4500_0000_0000_0000i64); // that arg -> the list at 0
+        FrameBlock {
+            functions: vec!["f".to_string()],
+            literals,
+            sources: vec![],
+            kwarg_keys: vec![],
+            source_fracs: vec![],
+            exprs,
+            frame_exprs: vec![(n + 1) as i64],
+        }
+    }
+
+    #[test]
+    fn test_decode_rejects_literal_clone_amplification() {
+        const M: usize = 4096;
+        const L: usize = 64 * 1024;
+        // 256 MiB of output from a block holding one 64 KiB literal.
+        let fb = literal_list_block(
+            M,
+            |_| 0,
+            vec![vidformer::sir::DataExpr::Bytes(vec![0u8; L])],
+        );
+        let err = fb.frames().expect_err("amplifying block must be rejected");
+        assert!(
+            err.contains("output size budget"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_decode_accepts_many_distinct_literals() {
+        const N: usize = 512;
+        let fb = literal_list_block(
+            N,
+            |i| i,
+            (0..N)
+                .map(|i| vidformer::sir::DataExpr::Bytes(vec![0u8; 512 + i]))
+                .collect(),
+        );
+        fb.frames()
+            .expect("a block that clones each literal once must decode");
+    }
+
+    #[test]
+    fn test_decode_rejects_shared_reference_blowup() {
+        // Each function references the previous node twice: ~2^k nodes, but
+        // shallow enough to clear the depth limit.
+        let k = 20usize;
+        let mut exprs: Vec<i64> = vec![0]; // pos 0: InlineLiteral Int(0)
+        for level in 0..k {
+            let target = if level == 0 { 0 } else { 1 + 3 * (level - 1) };
+            exprs.push(0x4100_0000_0000_0000i64 | (2i64 << 24)); // Func { len_args: 2 }
+            exprs.push(0x4500_0000_0000_0000i64 | target as i64); // Expr -> target
+            exprs.push(0x4500_0000_0000_0000i64 | target as i64); // Expr -> target
+        }
+        let top = 1 + 3 * (k - 1);
+        let fb = FrameBlock {
+            functions: vec!["f".to_string()],
+            literals: vec![],
+            sources: vec![],
+            kwarg_keys: vec![],
+            source_fracs: vec![],
+            exprs,
+            frame_exprs: vec![top as i64],
+        };
+        assert!(fb.frames().is_err());
+    }
 
     fn sample_frames(n: usize) -> Vec<vidformer::sir::FrameExpr> {
         use vidformer::sir::*;
@@ -788,14 +984,21 @@ mod test {
     fn test_decode_frame_block_roundtrip_and_parallel() {
         use rayon::prelude::*;
         let frames = sample_frames(2000);
-        let encoded: Vec<Vec<u8>> = frames.iter().map(|f| encode_frame_block(f).unwrap()).collect();
+        let encoded: Vec<Vec<u8>> = frames
+            .iter()
+            .map(|f| encode_frame_block(f).unwrap())
+            .collect();
 
-        let serial: Vec<vidformer::sir::FrameExpr> =
-            encoded.iter().map(|b| decode_frame_block(b).unwrap()).collect();
+        let serial: Vec<vidformer::sir::FrameExpr> = encoded
+            .iter()
+            .map(|b| decode_frame_block(b).unwrap())
+            .collect();
         assert_eq!(serial, frames);
 
-        let parallel: Vec<vidformer::sir::FrameExpr> =
-            encoded.par_iter().map(|b| decode_frame_block(b).unwrap()).collect();
+        let parallel: Vec<vidformer::sir::FrameExpr> = encoded
+            .par_iter()
+            .map(|b| decode_frame_block(b).unwrap())
+            .collect();
         assert_eq!(serial, parallel);
     }
 
@@ -804,14 +1007,23 @@ mod test {
     fn bench_decode_frame_block() {
         use rayon::prelude::*;
         let frames = sample_frames(20000);
-        let encoded: Vec<Vec<u8>> = frames.iter().map(|f| encode_frame_block(f).unwrap()).collect();
+        let encoded: Vec<Vec<u8>> = frames
+            .iter()
+            .map(|f| encode_frame_block(f).unwrap())
+            .collect();
 
         let t0 = std::time::Instant::now();
-        let serial: Vec<_> = encoded.iter().map(|b| decode_frame_block(b).unwrap()).collect();
+        let serial: Vec<_> = encoded
+            .iter()
+            .map(|b| decode_frame_block(b).unwrap())
+            .collect();
         let serial_t = t0.elapsed().as_secs_f64();
 
         let t1 = std::time::Instant::now();
-        let parallel: Vec<_> = encoded.par_iter().map(|b| decode_frame_block(b).unwrap()).collect();
+        let parallel: Vec<_> = encoded
+            .par_iter()
+            .map(|b| decode_frame_block(b).unwrap())
+            .collect();
         let parallel_t = t1.elapsed().as_secs_f64();
 
         assert_eq!(serial, parallel);
