@@ -43,7 +43,15 @@ impl Muxer {
             (*ofmt_ctx).debug = 1;
         }
 
-        let out_stream = unsafe { ffi::avformat_new_stream(ofmt_ctx, ptr::null()) };
+        // Own the context before anything below can fail.
+        let mut muxer = Muxer {
+            ofmt_ctx,
+            out_time_base: ffi::AVRational { num: 0, den: 1 },
+            out_stream: ptr::null_mut(),
+            frames: 0,
+        };
+
+        let out_stream = unsafe { ffi::avformat_new_stream(muxer.ofmt_ctx, ptr::null()) };
         if out_stream.is_null() {
             return Err(crate::Error::AVError(
                 "Failed to allocate output stream".to_string(),
@@ -69,10 +77,10 @@ impl Muxer {
             (*out_stream).time_base = time_base;
         }
 
-        if unsafe { (*(*ofmt_ctx).oformat).flags } & ffi::AVFMT_NOFILE as i32 == 0
+        if unsafe { (*(*muxer.ofmt_ctx).oformat).flags } & ffi::AVFMT_NOFILE as i32 == 0
             && unsafe {
                 ffi::avio_open(
-                    &mut (*ofmt_ctx).pb,
+                    &mut (*muxer.ofmt_ctx).pb,
                     output_path.as_ptr(),
                     ffi::AVIO_FLAG_WRITE as i32,
                 )
@@ -85,21 +93,18 @@ impl Muxer {
 
         // show output on terminal
         unsafe {
-            ffi::av_dump_format(ofmt_ctx, 0, output_path.as_ptr(), 1);
+            ffi::av_dump_format(muxer.ofmt_ctx, 0, output_path.as_ptr(), 1);
         }
 
-        if unsafe { ffi::avformat_write_header(ofmt_ctx, ptr::null_mut()) } < 0 {
+        if unsafe { ffi::avformat_write_header(muxer.ofmt_ctx, ptr::null_mut()) } < 0 {
             return Err(crate::Error::AVError(
                 "Failed to write output container header".to_string(),
             ));
         }
 
-        Ok(Muxer {
-            ofmt_ctx,
-            out_time_base: unsafe { (*out_stream).time_base },
-            out_stream,
-            frames: 0,
-        })
+        muxer.out_time_base = unsafe { (*out_stream).time_base };
+        muxer.out_stream = out_stream;
+        Ok(muxer)
     }
 
     pub fn mux_packet(&mut self, packet: *mut ffi::AVPacket) -> Result<(), crate::Error> {
@@ -136,7 +141,7 @@ impl Muxer {
         Ok(())
     }
 
-    pub fn close(self) -> Result<(), crate::Error> {
+    pub fn close(&mut self) -> Result<(), crate::Error> {
         info!("Closing muxer");
 
         // flush
@@ -146,10 +151,31 @@ impl Muxer {
 
         unsafe {
             ffi::av_write_trailer(self.ofmt_ctx);
-            ffi::avio_close((*self.ofmt_ctx).pb);
-            ffi::avformat_free_context(self.ofmt_ctx);
         }
+        self.free();
 
         Ok(())
+    }
+
+    /// Idempotent, so [`Drop`] after an explicit close does nothing.
+    fn free(&mut self) {
+        if self.ofmt_ctx.is_null() {
+            return;
+        }
+        unsafe {
+            // Null for AVFMT_NOFILE formats, matching the open-side guard.
+            if (*(*self.ofmt_ctx).oformat).flags & ffi::AVFMT_NOFILE as i32 == 0 {
+                ffi::avio_closep(&mut (*self.ofmt_ctx).pb);
+            }
+            ffi::avformat_free_context(self.ofmt_ctx);
+        }
+        self.ofmt_ctx = ptr::null_mut();
+    }
+}
+
+impl Drop for Muxer {
+    fn drop(&mut self) {
+        // Not `close`: no trailer is owed for an unfinished container.
+        self.free();
     }
 }

@@ -37,6 +37,14 @@ impl Encoder {
             ));
         }
 
+        // Own the context before anything below can fail.
+        let mut encoder = Encoder {
+            codec_ctx,
+            packet: ptr::null_mut(),
+            time_base: *time_base,
+            flushed: false,
+        };
+
         let default_opts = &[("preset".to_string(), "ultrafast".to_string())];
 
         let opts: &[(String, String)] = match &config.encoder {
@@ -50,7 +58,7 @@ impl Encoder {
 
             let ret = unsafe {
                 ffi::av_opt_set(
-                    (*codec_ctx).priv_data,
+                    (*encoder.codec_ctx).priv_data,
                     opt_k_cstr.as_ptr(),
                     opt_v_cstr.as_ptr(),
                     0,
@@ -96,40 +104,38 @@ impl Encoder {
 
         let av_time_base = crate::util::rat_to_avrat(time_base);
         unsafe {
-            (*codec_ctx).height = config.output_height as i32;
-            (*codec_ctx).width = config.output_width as i32;
-            (*codec_ctx).time_base = av_time_base;
-            (*codec_ctx).gop_size = 10; // TODO: Don't set?
-            (*codec_ctx).pix_fmt = output_pix_fmt;
-            (*codec_ctx).flags |= ffi::AV_CODEC_FLAG_GLOBAL_HEADER as i32;
+            (*encoder.codec_ctx).height = config.output_height as i32;
+            (*encoder.codec_ctx).width = config.output_width as i32;
+            (*encoder.codec_ctx).time_base = av_time_base;
+            (*encoder.codec_ctx).gop_size = 10; // TODO: Don't set?
+            (*encoder.codec_ctx).pix_fmt = output_pix_fmt;
+            (*encoder.codec_ctx).flags |= ffi::AV_CODEC_FLAG_GLOBAL_HEADER as i32;
         }
 
-        if unsafe { ffi::avcodec_open2(codec_ctx, codec, ptr::null_mut()) } < 0 {
+        if unsafe { ffi::avcodec_open2(encoder.codec_ctx, codec, ptr::null_mut()) } < 0 {
             return Err(crate::Error::AVError("Failed to open encoder".to_string()));
         }
 
-        let packet = unsafe { ffi::av_packet_alloc() };
-        if packet.is_null() {
+        encoder.packet = unsafe { ffi::av_packet_alloc() };
+        if encoder.packet.is_null() {
             return Err(crate::Error::AVError(
                 "Failed to allocate packet".to_string(),
             ));
         }
 
-        Ok(Encoder {
-            codec_ctx,
-            packet,
-            time_base: *time_base,
-            flushed: false,
-        })
+        Ok(encoder)
     }
 
     pub(crate) fn encode(&mut self, pts: &Rational64, frame: &AVFrame) -> Result<(), crate::Error> {
-        // TODO: Do this elsewhere?
-        if unsafe { ffi::av_frame_make_writable(frame.inner) } < 0 {
+        // For a passthrough render this is the pool's own frame, which filterer
+        // threads may still be reading. The clone shares the buffer.
+        let frame = AVFrame::clone_avframe(frame.inner);
+        if frame.inner.is_null() {
             return Err(crate::Error::AVError(
-                "Failed to make frame writable".to_string(),
+                "Failed to reference frame for encoding".to_string(),
             ));
         }
+
         unsafe {
             // It's none of our business what the input frame type is
             // Also, we don't want the encoder to complain if something looks weird
@@ -179,6 +185,17 @@ impl Encoder {
         assert!(self.get_packet().is_none());
 
         info!("Closing encoder");
+        // Idempotent, so `Drop` after an explicit close does nothing.
+        unsafe {
+            ffi::av_packet_free(&mut self.packet);
+            ffi::avcodec_free_context(&mut self.codec_ctx);
+        }
+    }
+}
+
+impl Drop for Encoder {
+    fn drop(&mut self) {
+        // Not `close`: that asserts the encoder was flushed and drained.
         unsafe {
             ffi::av_packet_free(&mut self.packet);
             ffi::avcodec_free_context(&mut self.codec_ctx);

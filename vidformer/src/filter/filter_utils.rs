@@ -370,8 +370,6 @@ pub(crate) fn frame_to_mat_gray8(img: &Frame, width: i32, height: i32) -> opencv
     debug_assert_eq!(unsafe { (*(img.inner.inner)).width }, width);
     debug_assert_eq!(unsafe { (*(img.inner.inner)).height }, height);
 
-    // Read the needed fields through the pointer rather than copying the whole
-    // (large) AVFrame struct by value.
     let av = img.inner.inner;
     let linesize0 = unsafe { (*av).linesize[0] };
     let src0 = unsafe { (*av).data[0] };

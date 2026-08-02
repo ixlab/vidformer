@@ -21,12 +21,14 @@ unsafe extern "C" fn vidformer_avio_read_packet(
     let io_ctx = &mut *(opaque as *mut IoCtx);
     debug_assert_eq!(io_ctx.canary, 0xdeadbeef);
 
+    if buf_size < 0 {
+        return ffi::AVERROR_EXTERNAL;
+    }
     let buf: &mut [u8] = unsafe { slice::from_raw_parts_mut(buf, buf_size as usize) };
     let read = io_ctx.reader.read(buf);
     match read {
         Ok(read) => {
             if read == 0 {
-                debug_assert!(io_ctx.reader.stream_position().unwrap() == io_ctx.size);
                 ffi::AVERROR_EOF
             } else {
                 read as i32
@@ -50,16 +52,20 @@ unsafe extern "C" fn vidformer_avio_seek(
     let io_ctx = &mut *(opaque as *mut IoCtx);
     debug_assert_eq!(io_ctx.canary, 0xdeadbeef);
 
-    let whence = match whence as u32 {
+    // Never panic here — unwinding across the C ABI aborts the process.
+    let whence_raw = whence as u32;
+    if whence_raw & ffi::AVSEEK_SIZE != 0 {
+        // libav way of asking for the size of the file
+        return io_ctx.size as i64;
+    }
+    let whence = match whence_raw & !ffi::AVSEEK_FORCE {
         ffi::SEEK_CUR => std::io::SeekFrom::Current(offset),
         ffi::SEEK_END => std::io::SeekFrom::End(offset),
         ffi::SEEK_SET => std::io::SeekFrom::Start(offset as u64),
-        ffi::AVSEEK_SIZE => {
-            // whence == AVSEEK_SIZE is the libav way of asking for the size of the file
-            return io_ctx.size as i64;
+        _ => {
+            error!("Unsupported seek whence ({})", whence);
+            return ffi::AVERROR_EXTERNAL as i64;
         }
-        ffi::AVSEEK_FORCE => panic!("AVSEEK_FORCE is not supported"), // libav way of saying "seek even if you have to reopen the file"
-        _ => panic!("invalid seek whence ({})", whence,),
     };
 
     let seeked = io_ctx.reader.seek(whence);
@@ -96,7 +102,7 @@ impl Demuxer {
         io_runtime_handle: &tokio::runtime::Handle,
         io_cache: Option<(&dyn crate::io::IoWrapper, &str)>,
     ) -> Result<Self, crate::Error> {
-        let mut format_context = unsafe { ffi::avformat_alloc_context() };
+        let format_context = unsafe { ffi::avformat_alloc_context() };
         if format_context.is_null() {
             return Err(crate::Error::AVError(
                 "could not allocate memory for Format Context".to_string(),
@@ -166,9 +172,22 @@ impl Demuxer {
             (*format_context).pb = avio_context;
         }
 
+        // `avformat_open_input` frees the format context on failure but never
+        // touches `pb`, which libav has grown up to `probesize` while probing.
+        let mut demuxer = Demuxer {
+            format_context,
+            avio_context,
+            io_ctx,
+            time_base: Rational64::new(0, 1),
+            codec: ptr::null(),
+            codec_parameters: ptr::null(),
+            video_stream_index: None,
+            stream: ptr::null_mut(),
+        };
+
         let ret = unsafe {
             ffi::avformat_open_input(
-                &mut format_context,
+                &mut demuxer.format_context,
                 ptr::null_mut(),
                 ptr::null_mut(),
                 ptr::null_mut(),
@@ -176,7 +195,14 @@ impl Demuxer {
         };
         if ret != 0 {
             if ret == ffi::AVERROR_EXTERNAL {
-                let err = io_ctx.err.as_ref().unwrap();
+                let err = match demuxer.io_ctx.err.as_ref() {
+                    Some(err) => err,
+                    None => {
+                        return Err(crate::Error::IOError(
+                            "IO error while opening media".to_string(),
+                        ))
+                    }
+                };
                 if err.kind() == std::io::ErrorKind::NotFound {
                     return Err(crate::Error::IOError(format!(
                         "File `{}` not found",
@@ -195,7 +221,7 @@ impl Demuxer {
         }
 
         // TODO: This may decode a few frames, which could be slow. Maybe don't do that when actually running a spec?
-        if unsafe { ffi::avformat_find_stream_info(format_context, ptr::null_mut()) } < 0 {
+        if unsafe { ffi::avformat_find_stream_info(demuxer.format_context, ptr::null_mut()) } < 0 {
             return Err(crate::Error::AVError(
                 "could not get the stream info".to_string(),
             ));
@@ -205,12 +231,18 @@ impl Demuxer {
         let mut codec_parameters_ptr: *const ffi::AVCodecParameters = ptr::null_mut();
         let mut video_stream_index = None;
 
-        let streams = unsafe {
-            slice::from_raw_parts_mut(
-                (*format_context).streams,
-                (*format_context).nb_streams as usize,
-            )
-        };
+        // libav leaves `streams` null for a container with no streams at all,
+        // and `from_raw_parts_mut` requires non-null even at length 0.
+        let nb_streams = unsafe { (*demuxer.format_context).nb_streams as usize };
+        if stream_idx >= nb_streams {
+            return Err(crate::Error::AVError(format!(
+                "Stream index {} out of range (file has {} streams)",
+                stream_idx, nb_streams
+            )));
+        }
+
+        let streams =
+            unsafe { slice::from_raw_parts_mut((*demuxer.format_context).streams, nb_streams) };
 
         for (i, stream) in streams
             .iter_mut()
@@ -224,8 +256,10 @@ impl Demuxer {
 
             let local_codec_params = unsafe { stream.codecpar.as_ref() }.expect("codecpar is null");
             let local_codec =
-                unsafe { ffi::avcodec_find_decoder(local_codec_params.codec_id).as_ref() }
-                    .expect("ERROR unsupported codec!");
+                match unsafe { ffi::avcodec_find_decoder(local_codec_params.codec_id).as_ref() } {
+                    Some(codec) => codec,
+                    None => return Err(crate::Error::AVError("Unsupported codec".to_string())),
+                };
 
             if local_codec_params.codec_type == ffi::AVMediaType_AVMEDIA_TYPE_VIDEO {
                 if video_stream_index.is_none() {
@@ -249,19 +283,15 @@ impl Demuxer {
             }
         }
 
-        let time_base = crate::util::avrat_to_rat(&unsafe { (*streams[stream_idx]).time_base });
+        let time_base = crate::util::avrat_to_rat(&unsafe { (*streams[stream_idx]).time_base })?;
         debug_assert!(!time_base.is_zero());
 
-        Ok(Demuxer {
-            format_context,
-            avio_context,
-            io_ctx,
-            time_base,
-            codec: codec_ptr,
-            codec_parameters: codec_parameters_ptr,
-            video_stream_index,
-            stream: unsafe { streams[stream_idx].as_mut() }.unwrap(),
-        })
+        demuxer.time_base = time_base;
+        demuxer.codec = codec_ptr;
+        demuxer.codec_parameters = codec_parameters_ptr;
+        demuxer.video_stream_index = video_stream_index;
+        demuxer.stream = unsafe { streams[stream_idx].as_mut() }.unwrap();
+        Ok(demuxer)
     }
 
     pub fn seek(&mut self, ts: &Rational64) -> Result<(), crate::Error> {
@@ -309,20 +339,34 @@ impl Demuxer {
         }
     }
 
-    pub fn close(&self) {
+    pub fn close(&mut self) {
+        self.free_resources();
+    }
+
+    /// Idempotent, so `close()` and then `Drop` is safe.
+    fn free_resources(&mut self) {
         unsafe {
-            ffi::avformat_close_input(&mut (self.format_context as *mut _));
+            if !self.format_context.is_null() {
+                // The real field, so libav nulls it.
+                ffi::avformat_close_input(&mut self.format_context);
+            }
 
-            // Free the avio buffer. libav and us share memory control over it, so its probably not even the one we allocated.
-            // Sorry that pointer casting is so ugly, it makes sure to pass the pointer to the buffer pointer, not the buffer pointer itself.
-            // Probably a better way to do this which doesn't involve using the mut keyword six times in one expression. ¯\_(ツ)_/¯
-            ffi::av_freep(
-                &mut (*self.avio_context).buffer as *mut *mut u8 as *mut *mut std::os::raw::c_void
-                    as *mut std::os::raw::c_void,
-            );
-
-            ffi::av_free(self.avio_context as *mut std::os::raw::c_void);
+            if !self.avio_context.is_null() {
+                ffi::av_freep(
+                    &mut (*self.avio_context).buffer as *mut *mut u8
+                        as *mut *mut std::os::raw::c_void
+                        as *mut std::os::raw::c_void,
+                );
+                ffi::av_free(self.avio_context as *mut std::os::raw::c_void);
+                self.avio_context = std::ptr::null_mut();
+            }
         }
+    }
+}
+
+impl Drop for Demuxer {
+    fn drop(&mut self) {
+        self.free_resources();
     }
 }
 

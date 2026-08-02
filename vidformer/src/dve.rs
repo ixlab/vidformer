@@ -94,11 +94,6 @@ impl AVFrame {
 // SAFETY: sound only as long as an `AVFrame` is never mutated through a shared
 // reference. A filter that produces a frame must finish writing to it before it
 // is wrapped in an `Arc`; thereafter it is immutable.
-//
-// `Encoder::encode` does not hold to this today: it calls
-// `av_frame_make_writable` on the frame it is handed, which for a passthrough
-// render is the pool's own `Arc`. If the decoder still holds a reference to the
-// buffer that repoints `data`, `linesize` and `buf` under the filterer threads.
 unsafe impl Send for AVFrame {}
 unsafe impl Sync for AVFrame {}
 
@@ -1256,21 +1251,32 @@ fn encoder_thread(
     let mut encoder = av::encoder::Encoder::new(&config, &output_time_base)?;
 
     let mut encoder_codec_params = unsafe { ffi::avcodec_parameters_alloc() };
-    // copy from encoder context
-    if unsafe { ffi::avcodec_parameters_from_context(encoder_codec_params, encoder.codec_ctx) } < 0
-    {
+    if encoder_codec_params.is_null() {
         return Err(Error::AVError(
-            "Encoder failed to copy codec params to codec context".to_string(),
+            "Failed to allocate codec parameters".to_string(),
         ));
     }
 
-    let mut muxer = av::muxer::Muxer::new(
-        &output_path,
-        encoder_codec_params,
-        &output_time_base,
-        config.format.as_deref(),
-    )?;
-    let muxer_time_base = crate::util::avrat_to_rat(&muxer.out_time_base);
+    let muxer =
+        if unsafe { ffi::avcodec_parameters_from_context(encoder_codec_params, encoder.codec_ctx) }
+            < 0
+        {
+            Err(Error::AVError(
+                "Encoder failed to copy codec params to codec context".to_string(),
+            ))
+        } else {
+            av::muxer::Muxer::new(
+                &output_path,
+                encoder_codec_params,
+                &output_time_base,
+                config.format.as_deref(),
+            )
+        };
+    unsafe {
+        ffi::avcodec_parameters_free(&mut encoder_codec_params);
+    }
+    let mut muxer = muxer?;
+    let muxer_time_base = crate::util::avrat_to_rat(&muxer.out_time_base)?;
     let encoder_to_muxer_ts_multiplier: num_rational::Ratio<i64> =
         encoder.time_base / muxer_time_base;
 
@@ -1340,10 +1346,6 @@ fn encoder_thread(
 
     encoder.close();
     muxer.close()?;
-
-    unsafe {
-        ffi::avcodec_parameters_free(&mut encoder_codec_params);
-    }
 
     Ok(())
 }

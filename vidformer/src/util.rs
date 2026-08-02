@@ -3,8 +3,14 @@ use rusty_ffmpeg::ffi;
 use std::ffi::CStr;
 use std::ffi::CString;
 
-pub(crate) fn avrat_to_rat(avr: &ffi::AVRational) -> Rational64 {
-    Rational64::new(avr.num as i64, avr.den as i64)
+pub(crate) fn avrat_to_rat(avr: &ffi::AVRational) -> Result<Rational64, crate::Error> {
+    if avr.den == 0 {
+        return Err(crate::Error::AVError(format!(
+            "Invalid rational {}/{} (zero denominator)",
+            avr.num, avr.den
+        )));
+    }
+    Ok(Rational64::new(avr.num as i64, avr.den as i64))
 }
 
 pub(crate) fn rat_to_avrat(rat: &Rational64) -> ffi::AVRational {

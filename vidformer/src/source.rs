@@ -64,7 +64,12 @@ impl SourceVideoStreamMeta {
                 }
             };
 
-            assert!(file_stat.is_file());
+            if !file_stat.is_file() {
+                return Err(crate::dve::Error::IOError(format!(
+                    "`{}` is not a file",
+                    vid_path
+                )));
+            }
             file_stat.content_length()
         };
 
@@ -93,24 +98,47 @@ impl SourceVideoStreamMeta {
             )
         };
 
-        let time_base = crate::util::avrat_to_rat(unsafe { &(*demuxer.stream).time_base });
+        let time_base = crate::util::avrat_to_rat(unsafe { &(*demuxer.stream).time_base })?;
 
         let pix_fmt = unsafe { (*((*demuxer.stream).codecpar)).format };
+        let pix_fmt_name_ptr = unsafe { ffi::av_get_pix_fmt_name(pix_fmt) };
+        if pix_fmt_name_ptr.is_null() {
+            // `CStr::from_ptr(NULL)` on an unresolved pixel format is UB.
+            return Err(crate::dve::Error::AVError(
+                "Stream has an unknown pixel format".to_string(),
+            ));
+        }
         let pix_fmt_name = unsafe {
-            CStr::from_ptr(ffi::av_get_pix_fmt_name(pix_fmt))
+            CStr::from_ptr(pix_fmt_name_ptr)
                 .to_str()
                 .unwrap()
                 .to_string()
         };
 
-        let packet = unsafe { ffi::av_packet_alloc().as_mut() }
-            .expect("failed to allocated memory for AVPacket");
+        struct PacketGuard(*mut ffi::AVPacket);
+        impl Drop for PacketGuard {
+            fn drop(&mut self) {
+                unsafe { ffi::av_packet_free(&mut self.0) };
+            }
+        }
+        let packet_ptr = unsafe { ffi::av_packet_alloc() };
+        if packet_ptr.is_null() {
+            return Err(crate::dve::Error::AVError(
+                "failed to allocate memory for AVPacket".to_string(),
+            ));
+        }
+        let _packet_guard = PacketGuard(packet_ptr);
+        let packet = unsafe { &mut *packet_ptr };
 
         let mut pts_array = Vec::new();
         let mut key_array = Vec::new();
 
         while demuxer.read_packet(packet).is_some() {
-            debug_assert!(packet.flags as u32 & ffi::AV_PKT_FLAG_CORRUPT == 0);
+            // libav sets this as an ordinary signal on damaged input, not as
+            // an invariant.
+            if packet.flags as u32 & ffi::AV_PKT_FLAG_CORRUPT != 0 {
+                warn!("Corrupt packet at pts {} in {}", packet.pts, vid_path);
+            }
             trace!(
                 "AVPacket [pts {}, dts {}, duration {}, stream {}, key={}]",
                 packet.pts,
@@ -170,9 +198,6 @@ impl SourceVideoStreamMeta {
             unsafe { ffi::av_packet_unref(packet) };
         }
 
-        unsafe {
-            ffi::av_packet_free(&mut (packet as *mut _));
-        }
         demuxer.close();
 
         let pts_array = pts_array

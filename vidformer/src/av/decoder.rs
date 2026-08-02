@@ -25,8 +25,11 @@ impl Decoder {
             ));
         }
 
+        // Own the context before anything below can fail.
+        let decoder = Decoder { codec_context };
+
         let response =
-            unsafe { ffi::avcodec_parameters_to_context(codec_context, codec_parameters) };
+            unsafe { ffi::avcodec_parameters_to_context(decoder.codec_context, codec_parameters) };
 
         if response < 0 {
             return Err(crate::Error::AVError(
@@ -34,14 +37,14 @@ impl Decoder {
             ));
         }
 
-        let response = unsafe { ffi::avcodec_open2(codec_context, codec, ptr::null_mut()) };
+        let response = unsafe { ffi::avcodec_open2(decoder.codec_context, codec, ptr::null_mut()) };
         if response < 0 {
             return Err(crate::Error::AVError(
                 "Decoder failed to open codec".to_string(),
             ));
         }
 
-        Ok(Decoder { codec_context })
+        Ok(decoder)
     }
 
     pub fn send_packet(&mut self, packet: *mut ffi::AVPacket) {
@@ -75,9 +78,16 @@ impl Decoder {
         }
     }
 
-    pub fn close(&self) {
+    /// Idempotent, so [`Drop`] after an explicit close does nothing.
+    pub fn close(&mut self) {
         unsafe {
-            ffi::avcodec_free_context(&mut (self.codec_context as *mut _));
+            ffi::avcodec_free_context(&mut self.codec_context);
         }
+    }
+}
+
+impl Drop for Decoder {
+    fn drop(&mut self) {
+        self.close();
     }
 }
