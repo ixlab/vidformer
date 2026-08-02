@@ -186,19 +186,19 @@ def _play(namespace, hls_video_url, hls_js_url, method="display", status_url=Non
         raise ValueError("Invalid method")
 
 
+_float_to_be_bytes = struct.Struct(">f").pack
+
+
 def _feb_expr_coded_as_scalar(expr) -> bool:
-    if type(expr) is tuple:
-        expr = list(expr)
-    if type(expr) is FilterExpr:
+    t = type(expr)
+    if t is FilterExpr:
         return False
-    if type(expr) is list:
+    if t is list or t is tuple:
         if len(expr) > 3:
             return False
-        else:
-            return all([type(x) is int and x >= -(2**15) and x < 2**15 for x in expr])
-    else:
-        assert type(expr) in [int, float, str, bytes, SourceExpr, bool, list]
-        return True
+        # Only short all-int lists (fitting in 16 bits) are inlined as scalars.
+        return all(type(x) is int and -32768 <= x < 32768 for x in expr)
+    return True
 
 
 class _FrameExpressionBlock:
@@ -236,14 +236,17 @@ class _FrameExpressionBlock:
             return len(self._exprs) - 1
         elif type(data) is float:
             self._exprs.append(
-                0x02000000_00000000 | int.from_bytes(struct.pack("f", data)[::-1])
+                0x02000000_00000000 | int.from_bytes(_float_to_be_bytes(data), "big")
             )
+            return len(self._exprs) - 1
         elif type(data) is str:
             self._literals.append(_json_arg(data, skip_data_anot=True))
             self._exprs.append(0x40000000_00000000 | len(self._literals) - 1)
+            return len(self._exprs) - 1
         elif type(data) is bytes:
             self._literals.append(_json_arg(data, skip_data_anot=True))
             self._exprs.append(0x40000000_00000000 | len(self._literals) - 1)
+            return len(self._exprs) - 1
         elif type(data) is list:
             if len(data) == 0:
                 self._exprs.append(0x03000000_00000000)
@@ -290,6 +293,24 @@ class _FrameExpressionBlock:
                     | (data[2] & 0xFFFF)
                 )
                 return len(self._exprs) - 1
+            # A flat list of plain scalars has no sub-expressions to walk.
+            if all(type(x) is int or type(x) is float for x in data):
+                exprs = self._exprs
+                out = len(exprs)
+                exprs.append(0x42000000_00000000 | len(data))
+                for x in data:
+                    if type(x) is int:
+                        if -(2**31) <= x < 2**31:
+                            exprs.append(x & 0xFFFFFFFF)
+                        else:
+                            self._literals.append(_json_arg(x, skip_data_anot=True))
+                            exprs.append(0x40000000_00000000 | (len(self._literals) - 1))
+                    else:
+                        exprs.append(
+                            0x02000000_00000000
+                            | int.from_bytes(_float_to_be_bytes(x), "big")
+                        )
+                return out
             member_idxs = []
             for member in data:
                 if _feb_expr_coded_as_scalar(member):
