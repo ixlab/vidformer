@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use num_rational::Rational64;
 use serde::{Deserialize, Serialize};
 
-const MAX_FEB_DEPTH: usize = 256;
+const MAX_FEB_DEPTH: usize = 650;
 
 #[derive(Debug, PartialEq)]
 enum InlineLiteral {
