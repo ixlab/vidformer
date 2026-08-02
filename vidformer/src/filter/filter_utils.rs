@@ -193,6 +193,76 @@ impl FrameArg {
     }
 }
 
+/// Allocate an output RGB24 `AVFrame`, copy `img` in once, and return it with an
+/// OpenCV `Mat` viewing its buffer. The `Mat` must be dropped before the frame.
+pub(crate) fn frame_to_owned_mat_rgb24(
+    img: &Frame,
+    width: i32,
+    height: i32,
+) -> Result<(crate::dve::AVFrame, opencv::prelude::Mat), Result<Frame, crate::dve::Error>> {
+    let f = unsafe { ffi::av_frame_alloc() };
+    if f.is_null() {
+        return Err(Err(crate::dve::Error::AVError(
+            "Failed to allocate frame".into(),
+        )));
+    }
+    // Own `f` now so it is freed if the caller's drawing panics.
+    let out = crate::dve::AVFrame { inner: f };
+    unsafe {
+        (*f).width = width;
+        (*f).height = height;
+        (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_RGB24;
+        if ffi::av_frame_get_buffer(f, 0) < 0 {
+            return Err(Err(crate::dve::Error::AVError(
+                "Could not allocate frame data".into(),
+            )));
+        }
+    }
+
+    let av = img.inner.inner;
+    let src_linesize = unsafe { (*av).linesize[0] };
+    let dst_linesize = unsafe { (*f).linesize[0] };
+    if src_linesize == width * 3 && dst_linesize == width * 3 {
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                (*av).data[0],
+                (*f).data[0],
+                width as usize * height as usize * 3,
+            );
+        }
+    } else {
+        unsafe {
+            let mut src = (*av).data[0];
+            let mut dst = (*f).data[0];
+            for _ in 0..height {
+                std::ptr::copy_nonoverlapping(src, dst, width as usize * 3);
+                src = src.add(src_linesize as usize);
+                dst = dst.add(dst_linesize as usize);
+            }
+        }
+    }
+
+    let mat = match unsafe {
+        opencv::core::Mat::new_rows_cols_with_data_unsafe(
+            height,
+            width,
+            opencv::core::CV_8UC3,
+            (*f).data[0] as *mut std::ffi::c_void,
+            dst_linesize as usize,
+        )
+    } {
+        Ok(mat) => mat,
+        Err(e) => {
+            return Err(Err(crate::dve::Error::AVError(format!(
+                "Failed to wrap frame buffer: {}",
+                e
+            ))))
+        }
+    };
+
+    Ok((out, mat))
+}
+
 pub(crate) fn mat_to_frame_rgb24(
     mat: opencv::prelude::Mat,
     width: i32,
@@ -253,7 +323,9 @@ pub(crate) fn frame_to_mat_rgb24(img: &Frame, width: i32, height: i32) -> opencv
     debug_assert_eq!(unsafe { (*(img.inner.inner)).width }, width);
     debug_assert_eq!(unsafe { (*(img.inner.inner)).height }, height);
 
-    let img: ffi::AVFrame = unsafe { *img.inner.inner };
+    let av = img.inner.inner;
+    let linesize0 = unsafe { (*av).linesize[0] };
+    let src0 = unsafe { (*av).data[0] };
 
     let mut mat =
         unsafe { opencv::core::Mat::new_rows_cols(height, width, opencv::core::CV_8UC3) }.unwrap();
@@ -264,22 +336,21 @@ pub(crate) fn frame_to_mat_rgb24(img: &Frame, width: i32, height: i32) -> opencv
     debug_assert!(mat.size().unwrap().width == width);
     debug_assert!(mat.is_continuous());
 
-    if img.linesize[0] == width * 3 {
+    if linesize0 == width * 3 {
         // no padding, just copy the data
         unsafe {
-            let src = img.data[0];
             let dst = mat.data_mut();
-            std::ptr::copy_nonoverlapping(src, dst, width as usize * height as usize * 3);
+            std::ptr::copy_nonoverlapping(src0, dst, width as usize * height as usize * 3);
         }
     } else {
         // there is padding, copy line by line
-        debug_assert!(img.linesize[0] > width * 3);
+        debug_assert!(linesize0 > width * 3);
         unsafe {
-            let mut src = img.data[0];
+            let mut src = src0;
             let mut dst = mat.data_mut();
             for _ in 0..height {
                 std::ptr::copy_nonoverlapping(src, dst, width as usize * 3);
-                src = src.add(img.linesize[0] as usize);
+                src = src.add(linesize0 as usize);
                 dst = dst.add(width as usize * 3);
             }
         }
@@ -299,7 +370,11 @@ pub(crate) fn frame_to_mat_gray8(img: &Frame, width: i32, height: i32) -> opencv
     debug_assert_eq!(unsafe { (*(img.inner.inner)).width }, width);
     debug_assert_eq!(unsafe { (*(img.inner.inner)).height }, height);
 
-    let img: ffi::AVFrame = unsafe { *img.inner.inner };
+    // Read the needed fields through the pointer rather than copying the whole
+    // (large) AVFrame struct by value.
+    let av = img.inner.inner;
+    let linesize0 = unsafe { (*av).linesize[0] };
+    let src0 = unsafe { (*av).data[0] };
 
     let mut mat =
         unsafe { opencv::core::Mat::new_rows_cols(height, width, opencv::core::CV_8UC1) }.unwrap();
@@ -310,22 +385,21 @@ pub(crate) fn frame_to_mat_gray8(img: &Frame, width: i32, height: i32) -> opencv
     debug_assert!(mat.size().unwrap().width == width);
     debug_assert!(mat.is_continuous());
 
-    if img.linesize[0] == width {
+    if linesize0 == width {
         // no padding, just copy the data
         unsafe {
-            let src = img.data[0];
             let dst = mat.data_mut();
-            std::ptr::copy_nonoverlapping(src, dst, width as usize * height as usize);
+            std::ptr::copy_nonoverlapping(src0, dst, width as usize * height as usize);
         }
     } else {
         // there is padding, copy line by line
-        debug_assert!(img.linesize[0] > width);
+        debug_assert!(linesize0 > width);
         unsafe {
-            let mut src = img.data[0];
+            let mut src = src0;
             let mut dst = mat.data_mut();
             for _ in 0..height {
                 std::ptr::copy_nonoverlapping(src, dst, width as usize);
-                src = src.add(img.linesize[0] as usize);
+                src = src.add(linesize0 as usize);
                 dst = dst.add(width as usize);
             }
         }
@@ -392,5 +466,178 @@ mod tests {
 
         assert_eq!(size, mat.total() * mat.elem_size().unwrap());
         assert!(mat.is_continuous());
+    }
+}
+
+#[cfg(test)]
+mod stride_tests {
+    use super::*;
+    use opencv::prelude::MatTraitConst;
+
+    fn make_frame(width: i32, height: i32) -> (Frame, i32) {
+        make_frame_with(width, height, width, 0)
+    }
+
+    /// Allocate for `alloc_width` at `align`, then narrow to `width`.
+    fn make_frame_with(width: i32, height: i32, alloc_width: i32, align: i32) -> (Frame, i32) {
+        assert!(alloc_width >= width);
+        let f = unsafe { ffi::av_frame_alloc() };
+        assert!(!f.is_null());
+        unsafe {
+            (*f).width = alloc_width;
+            (*f).height = height;
+            (*f).format = ffi::AVPixelFormat_AV_PIX_FMT_RGB24;
+            assert!(ffi::av_frame_get_buffer(f, align) >= 0);
+            let ls = (*f).linesize[0];
+            for y in 0..height {
+                let row = (*f).data[0].add((y * ls) as usize);
+                for x in 0..width {
+                    let p = row.add((x * 3) as usize);
+                    *p = (x % 251) as u8;
+                    *p.add(1) = (y % 241) as u8;
+                    *p.add(2) = ((x + y) % 239) as u8;
+                }
+            }
+            (*f).width = width;
+            (Frame::new(crate::dve::AVFrame { inner: f }), ls)
+        }
+    }
+
+    fn pixels(f: *mut ffi::AVFrame, width: i32, height: i32) -> Vec<u8> {
+        let mut out = Vec::with_capacity((width * height * 3) as usize);
+        unsafe {
+            let ls = (*f).linesize[0];
+            for y in 0..height {
+                let row = (*f).data[0].add((y * ls) as usize);
+                out.extend_from_slice(std::slice::from_raw_parts(row, (width * 3) as usize));
+            }
+        }
+        out
+    }
+
+    fn draw(mat: &mut opencv::prelude::Mat, w: i32, h: i32) {
+        opencv::imgproc::rectangle(
+            mat,
+            opencv::core::Rect::new(3, 2, w / 2, h / 2),
+            opencv::core::Scalar::new(7.0, 200.0, 90.0, 0.0),
+            2,
+            opencv::imgproc::LINE_8,
+            0,
+        )
+        .unwrap();
+        // Deliberately off every edge. OpenCV clips to the Mat's declared size,
+        // not the frame's, so an over-long Mat writes out of bounds here.
+        opencv::imgproc::rectangle(
+            mat,
+            opencv::core::Rect::new(-5, h - 3, w + 50, 60),
+            opencv::core::Scalar::new(220.0, 10.0, 30.0, 0.0),
+            opencv::imgproc::FILLED,
+            opencv::imgproc::LINE_8,
+            0,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn in_place_matches_copy_path_with_padded_linesize() {
+        for (w, h) in [(100, 50), (101, 37), (654, 31), (1280, 8)] {
+            let (src, src_ls) = make_frame(w, h);
+            let padded = src_ls != w * 3;
+
+            let mut old_mat = frame_to_mat_rgb24(&src, w, h);
+            draw(&mut old_mat, w, h);
+            let old_f = mat_to_frame_rgb24(old_mat, w, h).ok().unwrap();
+            let old_px = pixels(old_f, w, h);
+
+            let (out, mut new_mat) = frame_to_owned_mat_rgb24(&src, w, h).ok().unwrap();
+            assert_eq!(
+                new_mat.step1(0).unwrap() * new_mat.elem_size1(),
+                unsafe { (*out.inner).linesize[0] } as usize,
+                "Mat step must be the frame's linesize"
+            );
+            // The Mat's declared size is all that keeps OpenCV in bounds.
+            assert_eq!(new_mat.rows(), h, "Mat rows must be the frame's height");
+            assert_eq!(new_mat.cols(), w, "Mat cols must be the frame's width");
+            draw(&mut new_mat, w, h);
+            drop(new_mat);
+            let new_px = pixels(out.inner, w, h);
+
+            assert_eq!(
+                old_px, new_px,
+                "{w}x{h} (linesize {src_ls}, padded={padded}): in-place output differs"
+            );
+            unsafe {
+                let mut p = old_f;
+                ffi::av_frame_free(&mut p);
+            }
+        }
+    }
+
+    /// Every case above has equal source and destination strides, so a loop
+    /// that used one for both would pass.
+    #[test]
+    fn in_place_copy_honors_unequal_strides() {
+        let (w, h) = (100, 40);
+        let (src, src_ls) = make_frame_with(w, h, w + 700, 0);
+        let (out, mat) = frame_to_owned_mat_rgb24(&src, w, h).ok().unwrap();
+        let dst_ls = unsafe { (*out.inner).linesize[0] };
+        assert!(
+            src_ls > dst_ls,
+            "source stride {src_ls} must exceed the destination's {dst_ls}"
+        );
+        assert_eq!(
+            mat.step1(0).unwrap() * mat.elem_size1(),
+            dst_ls as usize,
+            "Mat step must be the destination's linesize, not the source's"
+        );
+        assert_eq!(mat.rows(), h);
+        assert_eq!(mat.cols(), w);
+        drop(mat);
+        assert_eq!(
+            pixels(src.inner.inner, w, h),
+            pixels(out.inner, w, h),
+            "copy did not honour both strides"
+        );
+    }
+
+    /// The fast path needs both strides packed, not just the destination's.
+    #[test]
+    fn in_place_copy_handles_packed_source_into_padded_dest() {
+        let (w, h) = (100, 40);
+        let (src, src_ls) = make_frame_with(w, h, w, 1);
+        let (out, mat) = frame_to_owned_mat_rgb24(&src, w, h).ok().unwrap();
+        let dst_ls = unsafe { (*out.inner).linesize[0] };
+        assert!(
+            src_ls == w * 3 && dst_ls > w * 3,
+            "want a packed source ({src_ls}) and a padded destination ({dst_ls})"
+        );
+        drop(mat);
+        assert_eq!(
+            pixels(src.inner.inner, w, h),
+            pixels(out.inner, w, h),
+            "copy did not honour both strides"
+        );
+    }
+
+    /// The premise the tests above rest on.
+    #[test]
+    fn padded_linesize_actually_occurs() {
+        let (_f1280, ls1280) = make_frame(1280, 8);
+        assert_eq!(
+            ls1280,
+            1280 * 3,
+            "1280 wide is packed -- md5 tests miss padding"
+        );
+        let (_f100, ls100) = make_frame(100, 8);
+        assert!(
+            ls100 > 100 * 3,
+            "expected padding at width 100, got {ls100}"
+        );
+        // `test_tos_cv2_filter_chain` scales to this width for the same reason.
+        let (_f1276, ls1276) = make_frame(1276, 8);
+        assert!(
+            ls1276 > 1276 * 3,
+            "expected padding at width 1276, got {ls1276}"
+        );
     }
 }

@@ -163,8 +163,8 @@ impl UserPermissions {
         let limits_int = [
             ("spec:max_width", 1280),
             ("spec:max_height", 720),
-            ("spec:max_frames", 162000),   // 90 minutes @ 30 fps
-            ("spec:max_ttl", 60 * 60), // 1 hour
+            ("spec:max_frames", 162000), // 90 minutes @ 30 fps
+            ("spec:max_ttl", 60 * 60),   // 1 hour
         ]
         .iter()
         .map(|(key, value)| (key.to_string(), *value))
@@ -280,7 +280,6 @@ impl UserPermissions {
             None
         }
     }
-
 
     pub fn limit_frac(&self, limit: &str) -> Option<Rational64> {
         self.limits_frac.get(limit).cloned()
@@ -430,9 +429,8 @@ pub(crate) async fn cmd_server(
                 .serve_connection(
                     io,
                     hyper::service::service_fn(|req: hyper::Request<hyper::body::Incoming>| {
-                        let req = req.map(|body| {
-                            http_body_util::Limited::new(body, MAX_REQUEST_BODY_BYTES)
-                        });
+                        let req = req
+                            .map(|body| http_body_util::Limited::new(body, MAX_REQUEST_BODY_BYTES));
                         igni_http_req_error_handler(req, global.clone())
                     }),
                 )

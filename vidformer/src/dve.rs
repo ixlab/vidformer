@@ -91,6 +91,14 @@ impl AVFrame {
     }
 }
 
+// SAFETY: sound only as long as an `AVFrame` is never mutated through a shared
+// reference. A filter that produces a frame must finish writing to it before it
+// is wrapped in an `Arc`; thereafter it is immutable.
+//
+// `Encoder::encode` does not hold to this today: it calls
+// `av_frame_make_writable` on the frame it is handed, which for a passthrough
+// render is the pool's own `Arc`. If the decoder still holds a reference to the
+// buffer that repoints `data`, `linesize` and `buf` under the filterer threads.
 unsafe impl Send for AVFrame {}
 unsafe impl Sync for AVFrame {}
 

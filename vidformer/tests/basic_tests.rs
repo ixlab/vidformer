@@ -510,6 +510,179 @@ fn test_tos_transcode_1dec_1pool() {
     assert!(std::path::Path::new(output_path).exists());
 }
 
+/// The drawing filters write into a `Mat` viewing the output frame's own buffer,
+/// so a mistake is an out-of-bounds write that no assertion here can see. Only a
+/// memory checker catches it.
+#[test]
+fn test_tos_cv2_filter_chain() {
+    fn ints(v: &[i64]) -> sir::Expr {
+        sir::Expr::Data(sir::DataExpr::List(v.iter().map(|i| int!(*i)).collect()))
+    }
+    fn floats(v: &[f64]) -> sir::Expr {
+        sir::Expr::Data(sir::DataExpr::List(
+            v.iter()
+                .map(|x| sir::Expr::Data(sir::DataExpr::Float(*x)))
+                .collect(),
+        ))
+    }
+    fn cv2(name: &str, args: Vec<sir::Expr>) -> sir::FrameExpr {
+        sir::FrameExpr::Filter(sir::FilterExpr {
+            name: name.to_string(),
+            args,
+            kwargs: BTreeMap::new(),
+        })
+    }
+    fn scale(f: sir::FrameExpr, width: i64, height: i64, pix_fmt: &str) -> sir::FrameExpr {
+        let mut kwargs: BTreeMap<String, sir::Expr> = BTreeMap::new();
+        kwargs.insert("width".to_string(), int!(width));
+        kwargs.insert("height".to_string(), int!(height));
+        kwargs.insert(
+            "pix_fmt".to_string(),
+            sir::Expr::Data(sir::DataExpr::String(pix_fmt.to_string())),
+        );
+        sir::FrameExpr::Filter(sir::FilterExpr {
+            name: "Scale".to_string(),
+            args: vec![sir::Expr::Frame(f)],
+            kwargs,
+        })
+    }
+
+    struct DrawSpec {
+        num_frames: i64,
+    }
+    impl spec::Spec for DrawSpec {
+        fn timestamps(&self, _context: &dyn spec::SpecContext) -> Vec<num_rational::Rational64> {
+            (0..self.num_frames)
+                .map(|i| Rational64::new(i, 24))
+                .collect()
+        }
+
+        fn render(
+            &self,
+            _context: &dyn spec::SpecContext,
+            t: &num_rational::Rational64,
+        ) -> sir::FrameExpr {
+            let red = floats(&[0.0, 0.0, 255.0, 255.0]);
+            let green = floats(&[0.0, 255.0, 0.0, 255.0]);
+
+            let mut f = sir::FrameExpr::Source(sir::FrameSource::new(
+                "tos".to_string(),
+                sir::IndexConst::T(*t),
+            ));
+            // 1276 pads RGB24 linesize past `width * 3`; 1280 does not.
+            f = scale(f, 1276, 716, "rgb24");
+            // Some of these deliberately run off the edge of the frame.
+            f = cv2(
+                "cv2.rectangle",
+                vec![
+                    sir::Expr::Frame(f),
+                    ints(&[-20, -20]),
+                    ints(&[400, 300]),
+                    green.clone(),
+                    int!(3),
+                ],
+            );
+            f = cv2(
+                "cv2.line",
+                vec![
+                    sir::Expr::Frame(f),
+                    ints(&[0, 0]),
+                    ints(&[1400, 800]),
+                    red.clone(),
+                    int!(2),
+                ],
+            );
+            f = cv2(
+                "cv2.arrowedLine",
+                vec![
+                    sir::Expr::Frame(f),
+                    ints(&[1275, 0]),
+                    ints(&[600, 715]),
+                    green.clone(),
+                    int!(2),
+                ],
+            );
+            f = cv2(
+                "cv2.circle",
+                vec![
+                    sir::Expr::Frame(f),
+                    ints(&[1200, 676]),
+                    int!(140),
+                    red.clone(),
+                    int!(-1),
+                ],
+            );
+            f = cv2(
+                "cv2.ellipse",
+                vec![
+                    sir::Expr::Frame(f),
+                    ints(&[100, 696]),
+                    ints(&[220, 90]),
+                    sir::Expr::Data(sir::DataExpr::Float(30.0)),
+                    sir::Expr::Data(sir::DataExpr::Float(0.0)),
+                    sir::Expr::Data(sir::DataExpr::Float(360.0)),
+                    green.clone(),
+                    int!(4),
+                ],
+            );
+            f = cv2(
+                "cv2.drawMarker",
+                vec![sir::Expr::Frame(f), ints(&[5, 711]), red.clone()],
+            );
+            f = cv2(
+                "cv2.putText",
+                vec![
+                    sir::Expr::Frame(f),
+                    sir::Expr::Data(sir::DataExpr::String("vidformer".to_string())),
+                    ints(&[40, 60]),
+                    int!(0),
+                    sir::Expr::Data(sir::DataExpr::Float(2.0)),
+                    green,
+                    int!(3),
+                ],
+            );
+            scale(f, 1280, 720, "yuv420p")
+        }
+    }
+
+    let fs_service = vidformer::service::Service::default();
+    let sources = vec![source::SourceVideoStreamMeta::profile(
+        "tos",
+        "../tos_720p.mp4",
+        0,
+        &fs_service,
+        None,
+    )
+    .unwrap()];
+    let context = std::sync::Arc::new(vidformer::Context::new(
+        sources,
+        filter::default_filters(),
+        None,
+    ));
+
+    let dve_config = std::sync::Arc::new(vidformer::Config {
+        decode_pool_size: 10,
+        decoder_view: usize::MAX,
+        decoders: 2,
+        filterers: 4,
+
+        output_width: 1280,
+        output_height: 720,
+        output_pix_fmt: "yuv420p".to_string(),
+
+        encoder: None,
+        format: None,
+    });
+
+    let spec: std::sync::Arc<Box<dyn spec::Spec>> =
+        std::sync::Arc::new(Box::new(DrawSpec { num_frames: 24 }));
+    let output_path = test_output_path!(test_tos_cv2_filter_chain);
+    let stats = run(&spec, output_path, &context, &dve_config, &None).unwrap();
+
+    assert_eq!(stats.frames_written, 24);
+    assert!(std::path::Path::new(output_path).exists());
+}
+
 #[test]
 fn test_tos_io_wrapper() {
     struct MyMetricReader {

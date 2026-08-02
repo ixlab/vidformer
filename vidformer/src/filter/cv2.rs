@@ -148,7 +148,11 @@ impl filter::Filter for Rectangle {
         let (width, height) = (img.width, img.height);
         debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
 
-        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
+        let (out_frame, mut mat) = match filter_utils::frame_to_owned_mat_rgb24(&img, width, height)
+        {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
 
         let pt1 = opencv::core::Point::new(opts.pt1.0, opts.pt1.1);
         let pt2 = opencv::core::Point::new(opts.pt2.0, opts.pt2.1);
@@ -167,12 +171,9 @@ impl filter::Filter for Rectangle {
         )
         .unwrap();
 
-        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
-            Ok(value) => value,
-            Err(value) => return value,
-        };
-
-        Ok(filter::Frame::new(AVFrame { inner: f }))
+        // mat views f's buffer; drop it before handing f to Frame.
+        drop(mat);
+        Ok(filter::Frame::new(out_frame))
     }
 
     fn filter_type(
@@ -321,7 +322,11 @@ impl filter::Filter for PutText {
         let (width, height) = (img.width, img.height);
         debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
 
-        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
+        let (out_frame, mut mat) = match filter_utils::frame_to_owned_mat_rgb24(&img, width, height)
+        {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
 
         let org = opencv::core::Point::new(opts.org.0, opts.org.1);
         let color =
@@ -340,12 +345,8 @@ impl filter::Filter for PutText {
         )
         .unwrap();
 
-        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
-            Ok(value) => value,
-            Err(value) => return value,
-        };
-
-        Ok(filter::Frame::new(AVFrame { inner: f }))
+        drop(mat);
+        Ok(filter::Frame::new(out_frame))
     }
 
     fn filter_type(
@@ -483,7 +484,11 @@ impl filter::Filter for ArrowedLine {
         let (width, height) = (img.width, img.height);
         debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
 
-        let mut mat = frame_to_mat_rgb24(&img, width, height);
+        let (out_frame, mut mat) = match filter_utils::frame_to_owned_mat_rgb24(&img, width, height)
+        {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
 
         let pt1 = opencv::core::Point::new(opts.pt1.0, opts.pt1.1);
         let pt2 = opencv::core::Point::new(opts.pt2.0, opts.pt2.1);
@@ -502,12 +507,8 @@ impl filter::Filter for ArrowedLine {
         )
         .unwrap();
 
-        let f = match mat_to_frame_rgb24(mat, width, height) {
-            Ok(value) => value,
-            Err(value) => return value,
-        };
-
-        Ok(filter::Frame::new(AVFrame { inner: f }))
+        drop(mat);
+        Ok(filter::Frame::new(out_frame))
     }
 
     fn filter_type(
@@ -633,7 +634,11 @@ impl filter::Filter for Line {
         let (width, height) = (img.width, img.height);
         debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
 
-        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
+        let (out_frame, mut mat) = match filter_utils::frame_to_owned_mat_rgb24(&img, width, height)
+        {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
 
         let pt1 = opencv::core::Point::new(opts.pt1.0, opts.pt1.1);
         let pt2 = opencv::core::Point::new(opts.pt2.0, opts.pt2.1);
@@ -651,12 +656,8 @@ impl filter::Filter for Line {
         )
         .unwrap();
 
-        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
-            Ok(value) => value,
-            Err(value) => return value,
-        };
-
-        Ok(filter::Frame::new(AVFrame { inner: f }))
+        drop(mat);
+        Ok(filter::Frame::new(out_frame))
     }
 
     fn filter_type(
@@ -787,7 +788,11 @@ impl filter::Filter for Circle {
         let (width, height) = (img.width, img.height);
         debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
 
-        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
+        let (out_frame, mut mat) = match filter_utils::frame_to_owned_mat_rgb24(&img, width, height)
+        {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
 
         let center = opencv::core::Point::new(opts.center.0, opts.center.1);
         let color =
@@ -804,12 +809,8 @@ impl filter::Filter for Circle {
         )
         .unwrap();
 
-        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
-            Ok(value) => value,
-            Err(value) => return value,
-        };
-
-        Ok(filter::Frame::new(AVFrame { inner: f }))
+        drop(mat);
+        Ok(filter::Frame::new(out_frame))
     }
 
     fn filter_type(
@@ -975,7 +976,11 @@ impl Filter for Ellipse {
         let (width, height) = (img.width, img.height);
         debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
 
-        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
+        let (out_frame, mut mat) = match filter_utils::frame_to_owned_mat_rgb24(&img, width, height)
+        {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
 
         let center = opencv::core::Point::new(opts.center.0, opts.center.1);
         let axes = opencv::core::Size::new(opts.axes.0, opts.axes.1);
@@ -996,12 +1001,8 @@ impl Filter for Ellipse {
         )
         .unwrap();
 
-        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
-            Ok(value) => value,
-            Err(value) => return value,
-        };
-
-        Ok(Frame::new(AVFrame { inner: f }))
+        drop(mat);
+        Ok(Frame::new(out_frame))
     }
 
     fn filter_type(
@@ -1242,12 +1243,10 @@ impl Filter for AddWeighted {
         let src1_mat = filter_utils::frame_to_mat_rgb24(&src1, width, height);
         let src2_mat = filter_utils::frame_to_mat_rgb24(&src2, width, height);
 
-        let mut out_mat = opencv::core::Mat::new_nd_with_default(
-            &[height, width, 3],
-            opencv::core::CV_8UC3,
-            opencv::core::Scalar::all(0.0),
-        )
-        .unwrap();
+        // add_weighted writes every output pixel.
+        let mut out_mat =
+            unsafe { opencv::core::Mat::new_rows_cols(height, width, opencv::core::CV_8UC3) }
+                .unwrap();
 
         opencv::core::add_weighted(
             &src1_mat,
@@ -2144,7 +2143,11 @@ impl filter::Filter for DrawMarker {
         let (width, height) = (img.width, img.height);
         debug_assert_eq!(img.format, ffi::AVPixelFormat_AV_PIX_FMT_RGB24);
 
-        let mut mat = filter_utils::frame_to_mat_rgb24(&img, width, height);
+        let (out_frame, mut mat) = match filter_utils::frame_to_owned_mat_rgb24(&img, width, height)
+        {
+            Ok(value) => value,
+            Err(value) => return value,
+        };
         let color =
             opencv::core::Scalar::new(opts.color[0], opts.color[1], opts.color[2], opts.color[3]);
 
@@ -2159,12 +2162,8 @@ impl filter::Filter for DrawMarker {
         )
         .unwrap();
 
-        let f = match filter_utils::mat_to_frame_rgb24(mat, width, height) {
-            Ok(value) => value,
-            Err(value) => return value,
-        };
-
-        Ok(filter::Frame::new(AVFrame { inner: f }))
+        drop(mat);
+        Ok(filter::Frame::new(out_frame))
     }
 
     fn filter_type(
