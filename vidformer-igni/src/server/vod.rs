@@ -3,6 +3,7 @@ use crate::schema;
 use crate::IgniError;
 use num::Rational64;
 use num::ToPrimitive;
+use rayon::prelude::*;
 use std::collections::BTreeSet;
 use uuid::Uuid;
 
@@ -310,28 +311,18 @@ pub(crate) async fn get_segment(
 
     let mut needed_source_ids: BTreeSet<Uuid> = BTreeSet::new();
 
-    let frames = {
-        let mut out = vec![];
-        for (_, frame) in rows {
-            let frame_reader = std::io::Cursor::new(frame);
-            let frame_uncompressed = zstd::stream::decode_all(frame_reader).unwrap();
-            let feb: crate::feb::FrameBlock = serde_json::from_slice(&frame_uncompressed).unwrap();
-            let mut f_collection = feb.frames().map_err(|err| {
-                IgniError::General(format!("Error decoding frame block: {:?}", err))
-            })?;
-            assert_eq!(f_collection.len(), 1);
-            let f = f_collection.remove(0);
-            let mut referenced_source_frames: BTreeSet<&vidformer::sir::FrameSource> =
-                BTreeSet::new();
-            f.add_source_deps(&mut referenced_source_frames);
-            for src in &referenced_source_frames {
-                // needed_source_ids.insert(src.video().to_string());
-                needed_source_ids.insert(Uuid::parse_str(src.video()).unwrap());
-            }
-            out.push(f);
+    let frames: Vec<vidformer::sir::FrameExpr> = rows
+        .par_iter()
+        .map(|(_, frame)| crate::feb::decode_frame_block(frame).map_err(IgniError::General))
+        .collect::<Result<Vec<_>, IgniError>>()?;
+
+    for f in &frames {
+        let mut referenced_source_frames: BTreeSet<&vidformer::sir::FrameSource> = BTreeSet::new();
+        f.add_source_deps(&mut referenced_source_frames);
+        for src in &referenced_source_frames {
+            needed_source_ids.insert(Uuid::parse_str(src.video()).unwrap());
         }
-        out
-    };
+    }
 
     let needed_source_ids: Vec<Uuid> = needed_source_ids.into_iter().collect();
 

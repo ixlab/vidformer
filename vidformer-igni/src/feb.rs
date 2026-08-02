@@ -700,9 +700,163 @@ impl FrameBlock {
     }
 }
 
+/// Encode one frame expression to the stored zstd + JSON blob.
+pub fn encode_frame_block(frame: &vidformer::sir::FrameExpr) -> Result<Vec<u8>, String> {
+    let mut feb = FrameBlock::new();
+    feb.insert_frame(frame)
+        .map_err(|err| format!("Error inserting value to FEB: {:?}", err))?;
+    let feb_json: Vec<u8> =
+        serde_json::to_vec(&feb).map_err(|err| format!("Error serializing FEB: {:?}", err))?;
+    let feb_json_reader = std::io::BufReader::new(feb_json.as_slice());
+    zstd::stream::encode_all(feb_json_reader, 0)
+        .map_err(|err| format!("Error compressing FEB: {:?}", err))
+}
+
+/// Inverse of [`encode_frame_block`].
+pub fn decode_frame_block(bytes: &[u8]) -> Result<vidformer::sir::FrameExpr, String> {
+    let uncompressed = zstd::stream::decode_all(std::io::Cursor::new(bytes))
+        .map_err(|err| format!("Error decompressing FEB: {:?}", err))?;
+    let feb: FrameBlock = serde_json::from_slice(&uncompressed)
+        .map_err(|err| format!("Error parsing FEB: {:?}", err))?;
+    let mut frames = feb.frames()?;
+    if frames.len() != 1 {
+        return Err(format!("Expected a single-frame block, got {}", frames.len()));
+    }
+    Ok(frames.remove(0))
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+
+    fn sample_frames(n: usize) -> Vec<vidformer::sir::FrameExpr> {
+        use vidformer::sir::*;
+        (0..n)
+            .map(|i| {
+                let mut kwargs: std::collections::BTreeMap<String, Expr> =
+                    std::collections::BTreeMap::new();
+                kwargs.insert(
+                    "pt1".to_string(),
+                    Expr::Data(DataExpr::List(vec![
+                        Expr::Data(DataExpr::Int((i % 100) as i64)),
+                        Expr::Data(DataExpr::Int((i % 50) as i64)),
+                    ])),
+                );
+                kwargs.insert(
+                    "color".to_string(),
+                    Expr::Data(DataExpr::List(vec![
+                        Expr::Data(DataExpr::Float(1.0)),
+                        Expr::Data(DataExpr::Float(2.0)),
+                        Expr::Data(DataExpr::Float(3.0)),
+                        Expr::Data(DataExpr::Float(255.0)),
+                    ])),
+                );
+                kwargs.insert(
+                    "thickness".to_string(),
+                    Expr::Data(DataExpr::Int((i % 5) as i64)),
+                );
+                FrameExpr::Filter(FilterExpr {
+                    name: "cv2.rectangle".to_string(),
+                    args: vec![Expr::Frame(FrameExpr::Source(FrameSource::new(
+                        "video.mp4".to_string(),
+                        IndexConst::ILoc(i),
+                    )))],
+                    kwargs,
+                })
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_encode_frame_block_parallel_matches_serial() {
+        use rayon::prelude::*;
+        let frames = sample_frames(2000);
+
+        let serial: Vec<Vec<u8>> = frames
+            .iter()
+            .map(|f| encode_frame_block(f).unwrap())
+            .collect();
+        let parallel: Vec<Vec<u8>> = frames
+            .par_iter()
+            .map(|f| encode_frame_block(f).unwrap())
+            .collect();
+
+        assert_eq!(serial, parallel);
+    }
+
+    #[test]
+    fn test_decode_frame_block_roundtrip_and_parallel() {
+        use rayon::prelude::*;
+        let frames = sample_frames(2000);
+        let encoded: Vec<Vec<u8>> = frames.iter().map(|f| encode_frame_block(f).unwrap()).collect();
+
+        let serial: Vec<vidformer::sir::FrameExpr> =
+            encoded.iter().map(|b| decode_frame_block(b).unwrap()).collect();
+        assert_eq!(serial, frames);
+
+        let parallel: Vec<vidformer::sir::FrameExpr> =
+            encoded.par_iter().map(|b| decode_frame_block(b).unwrap()).collect();
+        assert_eq!(serial, parallel);
+    }
+
+    #[test]
+    #[ignore] // timing benchmark; run with `--ignored --nocapture`
+    fn bench_decode_frame_block() {
+        use rayon::prelude::*;
+        let frames = sample_frames(20000);
+        let encoded: Vec<Vec<u8>> = frames.iter().map(|f| encode_frame_block(f).unwrap()).collect();
+
+        let t0 = std::time::Instant::now();
+        let serial: Vec<_> = encoded.iter().map(|b| decode_frame_block(b).unwrap()).collect();
+        let serial_t = t0.elapsed().as_secs_f64();
+
+        let t1 = std::time::Instant::now();
+        let parallel: Vec<_> = encoded.par_iter().map(|b| decode_frame_block(b).unwrap()).collect();
+        let parallel_t = t1.elapsed().as_secs_f64();
+
+        assert_eq!(serial, parallel);
+        eprintln!(
+            "decode {} frames: serial {:.3}s ({:.0}/s), parallel {:.3}s ({:.0}/s), speedup {:.2}x",
+            frames.len(),
+            serial_t,
+            frames.len() as f64 / serial_t,
+            parallel_t,
+            frames.len() as f64 / parallel_t,
+            serial_t / parallel_t,
+        );
+    }
+
+    #[test]
+    #[ignore] // timing benchmark; run with `--ignored --nocapture`
+    fn bench_encode_frame_block() {
+        use rayon::prelude::*;
+        let frames = sample_frames(20000);
+
+        let t0 = std::time::Instant::now();
+        let serial: Vec<Vec<u8>> = frames
+            .iter()
+            .map(|f| encode_frame_block(f).unwrap())
+            .collect();
+        let serial_t = t0.elapsed().as_secs_f64();
+
+        let t1 = std::time::Instant::now();
+        let parallel: Vec<Vec<u8>> = frames
+            .par_iter()
+            .map(|f| encode_frame_block(f).unwrap())
+            .collect();
+        let parallel_t = t1.elapsed().as_secs_f64();
+
+        assert_eq!(serial, parallel);
+        eprintln!(
+            "encode {} frames: serial {:.3}s ({:.0}/s), parallel {:.3}s ({:.0}/s), speedup {:.2}x",
+            frames.len(),
+            serial_t,
+            frames.len() as f64 / serial_t,
+            parallel_t,
+            frames.len() as f64 / parallel_t,
+            serial_t / parallel_t,
+        );
+    }
 
     #[test]
     fn test_parse_empty_frame_block() {

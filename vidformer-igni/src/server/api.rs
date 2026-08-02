@@ -7,6 +7,7 @@ use base64::prelude::*;
 use http_body_util::BodyExt;
 use log::*;
 use num_rational::Rational64;
+use rayon::prelude::*;
 use std::io::Read;
 use std::io::Write;
 use uuid::Uuid;
@@ -868,33 +869,28 @@ async fn push_frame_req(
 
     // stage inserted rows before beginning transaction
     let insert_spec_ids = vec![spec_id; req.2.len()];
-    let mut insert_pos: Vec<i32> = Vec::with_capacity(req.2.len());
-    let mut insert_frames: Vec<Option<Vec<u8>>> = Vec::with_capacity(req.2.len());
+    let insert_pos: Vec<i32> = (0..req.2.len() as i32).map(|i| pos + i).collect();
+
+    if req.2.iter().any(|(_, frame)| frame.is_none()) {
+        if let Some(err) = user.permissions.flag_err("spec:deferred_frames") {
+            // Block deferred frames unless explicitly allowed
+            return Ok(err);
+        }
+    }
+
+    let insert_frames: Vec<Option<Vec<u8>>> = req
+        .2
+        .par_iter()
+        .map(|((_numer, _denom), frame)| match frame {
+            Some(expr) => crate::feb::encode_frame_block(expr)
+                .map(Some)
+                .map_err(IgniError::General),
+            None => Ok(None),
+        })
+        .collect::<Result<Vec<_>, IgniError>>()?;
 
     let mut referenced_source_frames: BTreeSet<&vidformer::sir::FrameSource> = BTreeSet::new();
-    for (frame_idx, ((_numer, _denom), frame)) in req.2.iter().enumerate() {
-        // TODO: Check numer and denom are correct?
-
-        insert_pos.push(pos + frame_idx as i32);
-        if let Some(expr) = frame {
-            let mut feb = crate::feb::FrameBlock::new();
-            feb.insert_frame(expr).map_err(|err| {
-                IgniError::General(format!("Error inserting value to FEB: {:?}", err))
-            })?;
-            let feb_json: Vec<u8> = serde_json::to_vec(&feb)
-                .map_err(|err| IgniError::General(format!("Error serializing FEB: {:?}", err)))?;
-            let feb_json_reader = std::io::BufReader::new(feb_json.as_slice());
-            let feb_compressed = zstd::stream::encode_all(feb_json_reader, 0)
-                .map_err(|err| IgniError::General(format!("Error compressing FEB: {:?}", err)))?;
-            insert_frames.push(Some(feb_compressed));
-        } else {
-            if let Some(err) = user.permissions.flag_err("spec:deferred_frames") {
-                // Block deferred frames unless explicitly allowed
-                return Ok(err);
-            }
-            insert_frames.push(None);
-        }
-
+    for (_, frame) in req.2.iter() {
         if let Some(frame) = frame {
             frame.add_source_deps(&mut referenced_source_frames);
         }
@@ -1593,27 +1589,18 @@ pub(crate) async fn export_spec(
 
     let mut needed_source_ids: BTreeSet<Uuid> = BTreeSet::new();
 
-    let frames = {
-        let mut out = vec![];
-        for (_, frame) in rows {
-            let frame_reader = std::io::Cursor::new(frame);
-            let frame_uncompressed = zstd::stream::decode_all(frame_reader).unwrap();
-            let feb: crate::feb::FrameBlock = serde_json::from_slice(&frame_uncompressed).unwrap();
-            let mut f_collection = feb.frames().map_err(|err| {
-                IgniError::General(format!("Error decoding frame block: {:?}", err))
-            })?;
-            assert_eq!(f_collection.len(), 1);
-            let f = f_collection.remove(0);
-            let mut referenced_source_frames: BTreeSet<&vidformer::sir::FrameSource> =
-                BTreeSet::new();
-            f.add_source_deps(&mut referenced_source_frames);
-            for src in &referenced_source_frames {
-                needed_source_ids.insert(Uuid::parse_str(src.video()).unwrap());
-            }
-            out.push(f);
+    let frames: Vec<vidformer::sir::FrameExpr> = rows
+        .par_iter()
+        .map(|(_, frame)| crate::feb::decode_frame_block(frame).map_err(IgniError::General))
+        .collect::<Result<Vec<_>, IgniError>>()?;
+
+    for f in &frames {
+        let mut referenced_source_frames: BTreeSet<&vidformer::sir::FrameSource> = BTreeSet::new();
+        f.add_source_deps(&mut referenced_source_frames);
+        for src in &referenced_source_frames {
+            needed_source_ids.insert(Uuid::parse_str(src.video()).unwrap());
         }
-        out
-    };
+    }
 
     let needed_source_ids: Vec<Uuid> = needed_source_ids.into_iter().collect();
 
