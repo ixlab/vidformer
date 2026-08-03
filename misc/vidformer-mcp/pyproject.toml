@@ -1,0 +1,14 @@
+[project]
+name = "vidformer-mcp"
+version = "0.1.0"
+description = "MCP server for video processing with cv2/OpenCV via vidformer"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+    "vidformer>=1.4.0",
+    "uvicorn",
+    "starlette",
+    "opencv-python",
+    "supervision"
+]
