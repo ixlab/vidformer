@@ -1,0 +1,14 @@
+[project]
+name = "vidformer-slack"
+version = "0.1.0"
+description = "Slack bot that generates videos from natural language using vidformer"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "slack-bolt==1.18.1",
+    "python-dotenv==1.0.1",
+    "cerebras-cloud-sdk",
+    "requests",
+    "vidformer>=1.4.0",
+    "supervision",
+]

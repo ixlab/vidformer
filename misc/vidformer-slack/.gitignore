@@ -1,0 +1,6 @@
+# Root .gitignore has *.json; this one is source, not data.
+!manifest.json
+
+.env
+.venv/
+*.egg-info/
