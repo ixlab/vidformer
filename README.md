@@ -79,6 +79,7 @@ Vidformer builds on open technologies you may already use:
 - [*./vidformer*](./vidformer/): The core rendering library (Rust)
 - [*./vidformer-py*](./vidformer-py/): The Python frontend
 - [*./vidformer-igni*](./vidformer-igni/): The vidformer server
+- [*./misc/tla*](./misc/tla/): A TLA+ model of the rendering engine
 - [*./docs*](./docs/): The [project docs](https://ixlab.github.io/vidformer/docs/)
 
 Vidformer components are detailed [here](https://ixlab.github.io/vidformer/docs/modules.html).
