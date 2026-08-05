@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "slack-bolt==1.18.1",
-    "python-dotenv==1.0.1",
+    "python-dotenv==1.2.2",
     "cerebras-cloud-sdk",
     "requests",
     "vidformer>=1.4.0",
