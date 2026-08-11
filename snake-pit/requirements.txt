@@ -1,4 +1,4 @@
 pandas
 # opencv-python 5.0.0 has a severe getTextSize perf regression
-opencv-python<5
+opencv-python<6
 supervision
