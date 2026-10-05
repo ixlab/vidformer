@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Val"],"fn":["default_filters"],"mod":["builtin","cv2"],"struct":["Frame","FrameType"],"trait":["Filter"]};
