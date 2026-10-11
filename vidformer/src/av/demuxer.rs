@@ -250,7 +250,7 @@ impl Demuxer {
             .enumerate()
         {
             if i != stream_idx {
-                stream.discard = ffi::AVDiscard_AVDISCARD_ALL;
+                stream.discard = ffi::AVDISCARD_ALL;
                 continue;
             }
 
@@ -261,7 +261,7 @@ impl Demuxer {
                     None => return Err(crate::Error::AVError("Unsupported codec".to_string())),
                 };
 
-            if local_codec_params.codec_type == ffi::AVMediaType_AVMEDIA_TYPE_VIDEO {
+            if local_codec_params.codec_type == ffi::AVMEDIA_TYPE_VIDEO {
                 if video_stream_index.is_none() {
                     video_stream_index = Some(i);
                     codec_ptr = local_codec;
@@ -270,10 +270,10 @@ impl Demuxer {
             } else {
                 // The requested stream is not a video stream
                 let codec_type = match local_codec_params.codec_type {
-                    ffi::AVMediaType_AVMEDIA_TYPE_AUDIO => "audio",
-                    ffi::AVMediaType_AVMEDIA_TYPE_SUBTITLE => "subtitle",
-                    ffi::AVMediaType_AVMEDIA_TYPE_DATA => "data",
-                    ffi::AVMediaType_AVMEDIA_TYPE_ATTACHMENT => "attachment",
+                    ffi::AVMEDIA_TYPE_AUDIO => "audio",
+                    ffi::AVMEDIA_TYPE_SUBTITLE => "subtitle",
+                    ffi::AVMEDIA_TYPE_DATA => "data",
+                    ffi::AVMEDIA_TYPE_ATTACHMENT => "attachment",
                     _ => "unknown",
                 };
                 return Err(crate::Error::AVError(format!(
