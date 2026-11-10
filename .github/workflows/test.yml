@@ -21,7 +21,7 @@ jobs:
       with:
         path: |
           ./ffmpeg
-        key: ${{ runner.os }}-ffmpeg-${{ hashFiles('**/deps_*.sh') }}
+        key: ${{ runner.os }}-${{ env.ImageOS }}-ffmpeg-${{ hashFiles('**/deps_*.sh') }}
     - name: Deps
       run: bash ./scripts/deps_ci.sh
     - name: Download Test Video
