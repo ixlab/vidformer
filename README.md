@@ -1,5 +1,7 @@
 # vidformer
 
+[![Paper](https://img.shields.io/badge/ACM_MM_%2726-10.1145%2F3767308.3836399-blue)](https://doi.org/10.1145/3767308.3836399)
+[![arXiv](https://img.shields.io/badge/arXiv-2601.17221-b31b1b.svg)](https://arxiv.org/abs/2601.17221)
 [![DOI](https://zenodo.org/badge/842723851.svg)](https://doi.org/10.5281/zenodo.19710152)
 [![Test](https://github.com/ixlab/vidformer/actions/workflows/test.yml/badge.svg)](https://github.com/ixlab/vidformer/actions/workflows/test.yml)
 [![PyPI version](https://img.shields.io/pypi/v/vidformer.svg)](https://pypi.org/project/vidformer/)
@@ -7,8 +9,8 @@
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ixlab/vidformer/blob/main/misc/Colab_Vidformer.ipynb)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/ixlab/vidformer/blob/main/LICENSE)
 
-A research project for accelerating video/data visualization.
-See the [preprint on arXiv](https://arxiv.org/abs/2601.17221) for details.
+Vidformer brings instant playback to data-edited videos, enabling rapid exploration of multimodal datasets.
+See our ACM MM '26 paper, [*Vidformer: Enabling Instant Playback for Interactive Video Exploration*](https://doi.org/10.1145/3767308.3836399), or the [preprint on arXiv](https://arxiv.org/abs/2601.17221), for details.
 
 Developed by the OSU Interactive Data Systems Lab.
 
@@ -34,15 +36,20 @@ You can find details on this in our [Getting Started Guide](https://ixlab.github
 
 ## Why vidformer
 
-Vidformer efficiently transforms videos, enabling faster annotation, editing, and processing of video data—without having to focus on performance. Just swap `import cv2` with `import vidformer.cv2 as cv2` to see video outputs instantly.
+Exploring multimodal datasets means editing videos with data: "show me every time X happens", "draw a box over each Y", "overlay Z telemetry on this video".
+Scripts are the only tool expressive enough for these tasks, but they take minutes or hours to render.
+Vidformer gives scripts the responsiveness of a video editor: just swap `import cv2` with `import vidformer.cv2 as cv2` and play the result instantly.
 
-Vidformer uses a declarative specification format to represent transformations. This enables:
+Vidformer combines three techniques:
 
-* **Transparent Optimization:** Vidformer optimizes the execution of declarative specifications just like a relational database optimizes relational queries.
+* **Declarative Lifting:** An API shim runs your existing code with symbolic frames, recording a declarative specification of each output frame instead of rendering it.
 
-* **Lazy/Deferred Rendering:** Video results can be retrieved on-demand, allowing for practically instantaneous playback of video results.
+* **Optimized Rendering:** With the full specification known in advance, the rendering engine transparently optimizes and parallelizes rendering, just like a relational database optimizes relational queries.
 
-Vidformer usually renders videos 2-3x faster than cv2, and hundreds of times faster (*practically instantly*) when serving videos on-demand.
+* **Video on Demand:** Result videos are served as a standard VOD stream, with each segment rendered just in time, so playback latency is independent of video length.
+
+Vidformer usually renders videos 2-3x faster than cv2, and starts playback in 0.25-0.5 seconds (~400x faster) when serving videos on demand.
+When operated by an LLM agent, Vidformer enables conversational video exploration: ask for a video in natural language and watch the result in seconds.
 
 Vidformer builds on open technologies you may already use:
   * **OpenCV:** A `cv2`-compatible interface ensures both you (and LLMs) can use existing knowledge and code.
@@ -63,17 +70,22 @@ Vidformer builds on open technologies you may already use:
 ## About the project
 
 **Cite:**
-```
-@misc{winecki2026_vidformer,
-      title={Vidformer: Drop-in Declarative Optimization for Rendering Video-Native Query Results},
-      author={Dominik Winecki and Arnab Nandi},
-      year={2026},
-      eprint={2601.17221},
-      archivePrefix={arXiv},
-      primaryClass={cs.DB},
-      url={https://arxiv.org/abs/2601.17221},
+```bibtex
+@inproceedings{winecki2026_vidformer,
+  title     = {Vidformer: Enabling Instant Playback for Interactive Video Exploration},
+  author    = {Winecki, Dominik and Nandi, Arnab},
+  booktitle = {Proceedings of the 34th ACM International Conference on Multimedia},
+  series    = {MM '26},
+  year      = {2026},
+  location  = {Rio de Janeiro, Brazil},
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  isbn      = {979-8-4007-2213-4},
+  doi       = {10.1145/3767308.3836399},
+  url       = {https://doi.org/10.1145/3767308.3836399},
 }
 ```
+An earlier version is available as a preprint on [arXiv](https://arxiv.org/abs/2601.17221).
 
 **File Layout**:
 - [*./vidformer*](./vidformer/): The core rendering library (Rust)

@@ -3,10 +3,10 @@
 
 <head>
   <meta charset="utf-8">
-  <meta name="keywords" content="Vidformer, video processing, video querying, declarative video editing, OpenCV, computer vision, video visualization">
-  <meta name="description" content="Vidformer: Drop-in declarative optimization for video data visualization. Get instant video playback with a one-line code change.">
+  <meta name="keywords" content="Vidformer, interactive video exploration, multimodal data, video editing, declarative video editing, video on demand, OpenCV, computer vision, ACM Multimedia">
+  <meta name="description" content="Vidformer brings instant playback to data-edited videos, enabling rapid exploration of multimodal datasets. A one-line code change gives sub-second playback, regardless of video length. ACM MM 2026.">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Vidformer: Instant Video Visualization</title>
+  <title>Vidformer: Instant Playback for Interactive Video Exploration</title>
 
   <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
 
@@ -174,7 +174,7 @@
       <div class="container is-max-desktop">
         <div class="columns is-centered">
           <div class="column has-text-centered">
-            <h1 class="title is-1 publication-title">Vidformer: Drop-in Declarative Optimization for Rendering Video-Native Query Results</h1>
+            <h1 class="title is-1 publication-title">Vidformer: Enabling Instant Playback for Interactive Video Exploration</h1>
             <div class="is-size-5 publication-authors">
               <span class="author-block">
                 <a href="https://dominik.win">Dominik Winecki</a> <a href="https://orcid.org/0009-0009-8632-3102" target="_blank"><i class="ai ai-orcid" style="color: #a6ce39;"></i></a>,</span>
@@ -182,8 +182,20 @@
                 <a href="https://arnab.org">Arnab Nandi</a> <a href="https://orcid.org/0000-0002-4138-603X" target="_blank"><i class="ai ai-orcid" style="color: #a6ce39;"></i></a></span>
             </div>
 
+            <div class="is-size-5 publication-venue">
+              ACM International Conference on Multimedia (MM '26), Rio de Janeiro, Brazil
+            </div>
+
             <div class="column has-text-centered">
               <div class="publication-links">
+                <span class="link-block">
+                  <a href="https://doi.org/10.1145/3767308.3836399" class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                      <i class="ai ai-doi"></i>
+                    </span>
+                    <span>Paper</span>
+                  </a>
+                </span>
                 <span class="link-block">
                   <a href="https://arxiv.org/abs/2601.17221" class="external-link button is-normal is-rounded is-dark">
                     <span class="icon">
@@ -212,25 +224,25 @@
   <section class="hero teaser">
     <div class="container is-max-desktop">
       <div class="hero-body has-text-centered">
-        <img src="static/images/teaser.png" alt="Vidformer architecture diagram" style="max-width: 650px; width: 100%;" />
+        <img src="static/images/teaser.png" alt="Conversational video exploration: a user asks to be shown a compilation video, an LLM queries a database and writes a video editing script, and Vidformer serves the result as a video stream rendered segment by segment" style="max-width: 650px; width: 100%;" />
       </div>
 
       <h2 class="subtitle has-text-centered">
-        <em>Vidformer</em> is a drop-in rendering accelerator for video data visualization enabling <em>instantaneous</em> video playback.
+        <em>Vidformer</em> brings <em>instant</em> playback to data-edited videos, enabling rapid exploration of multimodal datasets.
       </h2>
       <br />
       <div class="columns is-centered has-text-centered">
         <div class="column is-one-third">
-          <p class="title is-4">2-3×</p>
-          <p class="subtitle is-6">faster full rendering</p>
+          <p class="title is-4">0.25–0.5 s</p>
+          <p class="subtitle is-6">to playback, regardless of video length</p>
         </div>
         <div class="column is-one-third">
           <p class="title is-4">~400×</p>
           <p class="subtitle is-6">faster time-to-playback</p>
         </div>
         <div class="column is-one-third">
-          <p class="title is-4">&lt;1s</p>
-          <p class="subtitle is-6">to first frame, any video length</p>
+          <p class="title is-4">2–3×</p>
+          <p class="subtitle is-6">faster full rendering</p>
         </div>
       </div>
     </div>
@@ -242,11 +254,12 @@
 
       <div class="columns is-centered">
         <div class="column is-full-width">
-          <h2 class="title is-3">Accelerating Visualization Scripts</h2>
+          <h2 class="title is-3">Instant Playback for Data-Edited Videos</h2>
 
           <p>
-            Python and OpenCV are the de facto tools for video data visualization.
-            Just change <code style="background: #f5f5f5; color: #333; padding: 2px 6px; border-radius: 4px;"><span style="color: #0000ff;">import</span> cv2</code> to <code style="background: #f5f5f5; color: #333; padding: 2px 6px; border-radius: 4px;"><span style="color: #0000ff;">import</span> vidformer.cv2 <span style="color: #0000ff;">as</span> cv2</code> for practically instantaneous playback, no matter how long your video is.
+            Exploring multimodal datasets means editing videos with data: <em>"Show me every time X happens"</em>, <em>"Draw a box over each Y"</em>, <em>"Overlay Z telemetry on this video"</em>.
+            Scripts, usually Python and OpenCV, are the only tool expressive enough for these tasks, but they take minutes or hours to render.
+            Just change <code style="background: #f5f5f5; color: #333; padding: 2px 6px; border-radius: 4px;"><span style="color: #0000ff;">import</span> cv2</code> to <code style="background: #f5f5f5; color: #333; padding: 2px 6px; border-radius: 4px;"><span style="color: #0000ff;">import</span> vidformer.cv2 <span style="color: #0000ff;">as</span> cv2</code> and play the result instantly, no matter how long your video is.
           </p>
 
           <br />
@@ -338,12 +351,12 @@ print(f"Rendered {i} frames!")</textarea>
               <p>An API shim uses symbolic computation to losslessly lift imperative code into a declarative specification. The code actually runs, but with mock frames.</p>
             </div>
             <div class="column">
-              <h4 class="title is-5">2) Declarative Optimization</h4>
-              <p>A rendering engine optimizes and parallelizes rendering of the declarative specification. It can handle worst-case access patterns, not just typical ones.</p>
+              <h4 class="title is-5">2) Optimized Rendering</h4>
+              <p>The full edit specification is known in advance, so the rendering engine transparently optimizes and parallelizes rendering. It handles worst-case frame access patterns, not just typical ones, and uses GPUs when available.</p>
             </div>
             <div class="column">
-              <h4 class="title is-5">3) Video Results on Demand</h4>
-               <p>Videos are served through a VOD protocol where segments are rendered on-demand. The video stream grows as the script runs.</p>
+              <h4 class="title is-5">3) Video on Demand</h4>
+              <p>Result videos are served as a standard VOD stream, with each segment rendered just in time. Playback latency is independent of video length, and the stream grows as the script runs.</p>
             </div>
           </div>
 
@@ -357,13 +370,13 @@ print(f"Rendered {i} frames!")</textarea>
 
       <div class="columns is-centered">
         <div class="column is-full-width">
-          <h2 class="title is-3">"<em>Show me ...</em>" Conversational Video Querying</h2>
+          <h2 class="title is-3">"<em>Show me ...</em>" Conversational Video Exploration</h2>
 
           <div class="columns is-vcentered">
             <div class="column is-half">
               <p>
-                Combining LLMs with <em>Vidformer</em> enables truly interactive conversational video querying. Ask natural language questions
-                about your video data and receive newly-rendered video results in seconds.
+                When operated by an LLM agent, <em>Vidformer</em> lets users explore multimodal datasets through conversational video queries in real time.
+                Ask for what you want to see in natural language, and newly edited video results start playing in seconds.
               </p>
             </div>
             <div class="column is-half">
@@ -382,15 +395,20 @@ print(f"Rendered {i} frames!")</textarea>
   <section class="section" id="BibTeX">
     <div class="container is-max-desktop content">
       <h2 class="title">BibTeX</h2>
-      <pre><code>@misc{winecki2026_vidformer,
-      title={Vidformer: Drop-in Declarative Optimization for Rendering Video-Native Query Results}, 
-      author={Dominik Winecki and Arnab Nandi},
-      year={2026},
-      eprint={2601.17221},
-      archivePrefix={arXiv},
-      primaryClass={cs.DB},
-      url={https://arxiv.org/abs/2601.17221}, 
+      <pre><code>@inproceedings{winecki2026_vidformer,
+  title     = {Vidformer: Enabling Instant Playback for Interactive Video Exploration},
+  author    = {Winecki, Dominik and Nandi, Arnab},
+  booktitle = {Proceedings of the 34th ACM International Conference on Multimedia},
+  series    = {MM '26},
+  year      = {2026},
+  location  = {Rio de Janeiro, Brazil},
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  isbn      = {979-8-4007-2213-4},
+  doi       = {10.1145/3767308.3836399},
+  url       = {https://doi.org/10.1145/3767308.3836399},
 }</code></pre>
+      <p>An earlier version of this paper is available as a preprint on <a href="https://arxiv.org/abs/2601.17221">arXiv</a>.</p>
     </div>
   </section>
 
